@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 
+FROM r-base:4.4.2
 
 # Environment
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
@@ -18,7 +18,7 @@ RUN groupadd -g ${GROUP_ID} ${GROUP} && \
     useradd -m -u ${USER_ID} -g ${GROUP_ID} ${USER}
 
 # Set user as owner of necessary directories
-RUN mkdir -p /home/${USER}/reference /home/${USER}/data && \
+RUN mkdir -p /home/${USER}/reference_genome /home/${USER}/data && \
     chown -R ${USER}:${GROUP} /home/${USER}
 RUN echo "alias ll='ls -la -G'" >> /home/${USER}/.profile
 
