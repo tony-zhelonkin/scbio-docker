@@ -1,0 +1,205 @@
+#########################################
+### DOCKER SINGLE-CELL IMAGE PLATFORM ###
+#########################################
+# Step 1 - Import base image
+#############################
+FROM ubuntu:22.04 
+# Label
+LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
+
+####################################################
+### Step 2: Set arguments and environment variables
+####################################################
+# Tools definition
+ARG DEBIAN_FRONTEND=noninteractive
+# Python environment
+ARG VENV_NAME=python3.10
+# R version
+ARG R_VERSION_MAJOR=4
+ARG R_VERSION_MINOR=4
+ARG R_VERSION_PATCH=2
+ARG CRAN_MIRROR=https://cran.rstudio.com/
+ARG QUARTO_VER="1.6.39"
+# GitHub API key
+ARG GITHUB_PAT
+ENV GITHUB_PAT=$GITHUB_PAT
+# User definition 
+ARG USER_ID=1001
+ARG GROUP_ID=1001
+ARG USER=mogilenko_lab
+ARG GROUP=mogilenko_lab
+
+# Define environment variables
+ENV VENV_NAME=$VENV_NAME
+ENV R_VERSION_MAJOR=$R_VERSION_MAJOR
+ENV R_VERSION_MINOR=$R_VERSION_MINOR
+ENV R_VERSION_PATCH=$R_VERSION_PATCH
+ENV QUARTO_VER=$QUARTO_VER
+ENV CONFIGURE_OPTIONS="--with-cairo --with-jpeglib --enable-R-shlib --with-blas --with-lapack"
+ENV TZ=CT
+ENV CRAN_MIRROR=$CRAN_MIRROR
+
+# Timezone definition
+ENV TZ=America/Chicago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+############################
+### Step 3: User definition
+############################
+
+# Create group and user matching host's UID/GID
+RUN groupadd -g ${GROUP_ID} ${GROUP} && \
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} ${USER}
+
+# Set user as owner of necessary directories
+RUN mkdir -p /home/${USER}/reference_genome /home/${USER}/data && \
+    chown -R ${USER}:${GROUP} /home/${USER}
+RUN echo "alias ll='ls -la -G'" >> /home/${USER}/.profile
+
+# Previous user handling 
+#RUN groupadd -g 2000 training && useradd -m -u 2000 -g 2000 training
+#RUN echo 'training:training' | chpasswd
+#RUN mkdir /home/training/reference
+#RUN mkdir /home/training/data
+#RUN chsh -s /bin/bash training
+#RUN echo "alias ll='ls -la -G'" >> /home/training/.profile
+
+###############################
+### Step 4: System dependencies
+###############################
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials and compilers
+    build-essential \
+    g++ \
+    gfortran \
+    make \
+    cmake \
+    automake \
+    \
+    # Python ecosystem
+    python3.10 \
+    python3.10-dev \
+    python3.10-venv \
+    python3-pip \
+    python3-wheel \
+    python3-setuptools \
+    python3-launchpadlib \
+    \
+    # # R and dependencies (will install via wget link)
+    # r-base \
+    # r-base-core \
+    # r-base-dev \
+    # r-recommended \
+    # \
+    # Development libraries
+    libboost-all-dev \
+    libreadline-dev \
+    readline-common \
+    libcairo2-dev \
+    libcurl4-openssl-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libgit2-dev \
+    libglpk-dev \
+    libgsl-dev \
+    libharfbuzz-dev \
+    libhdf5-dev \
+    libjpeg-dev \
+    liblapack-dev \
+    liblzma-dev \
+    libmagick++-dev \
+    libncurses-dev \
+    libomp-dev \
+    libopenblas-dev \
+    libpcre2-dev \
+    libpng-dev \
+    libssl-dev \
+    libxml2-dev \
+    libxt-dev \
+    libzmq3-dev \
+    libudunits2-dev \
+    libgdal-dev \
+    zlib1g-dev \
+    libghc-zlib-dev \
+    libbz2-dev \
+    libzstd-dev \
+    \
+    # System utilities
+    apt-utils \
+    ca-certificates \
+    curl \
+    file \
+    less \
+    bison \
+    git \
+    zip \
+    gzip \
+    gnupg \
+    locales \
+    openssh-server \
+    openssl \
+    binutils \
+    parallel \
+    screen \
+    shellinabox \
+    software-properties-common \
+    sudo \
+    supervisor \
+    tmux \
+    tzdata \
+    unzip \
+    vim \
+    wget \
+    ftp \
+    xvfb \
+    \
+    # TeX support
+    texinfo \
+    texlive \
+    texlive-fonts-extra \
+    \
+    # Java
+    openjdk-17-jre-headless \
+    && locale-gen en_US.UTF-8 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+###########################
+### Step 5: R installation
+###########################
+RUN wget https://cran.rstudio.com/src/base/R-${R_VERSION_MAJOR}/R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}.tar.gz && \
+    tar zxvf R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}.tar.gz && \
+    rm R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}.tar.gz
+
+WORKDIR /R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}
+
+RUN ./configure ${CONFIGURE_OPTIONS} && \
+    make && \
+    make install
+
+RUN locale-gen en_US.UTF-8
+
+WORKDIR /root
+
+RUN mkdir settings
+
+COPY .devcontainer/install_R_packages.R .devcontainer/install_quarto.sh .devcontainer/requirements.txt ./settings/
+RUN Rscript ./settings/install_R_packages.R
+# COPY packages.json install_packages.R requirements.txt install_quarto.sh ./settings/
+# RUN Rscript ./settings/install_packages.R
+
+# Installing Quarto
+RUN bash ./settings/install_quarto.sh $QUARTO_VER
+COPY .devcontainer/.Rprofile /root/
+
+#########################
+### Step 6: Pip installs
+#########################
+# Set up virtual environment 
+RUN python3 -m venv /opt/$VENV_NAME  \
+    && export PATH=/opt/$VENV_NAME/bin:$PATH \
+    && echo "source /opt/$VENV_NAME/bin/activate" >> ~/.bashrc
+# Install requirements
+RUN pip3 install -r ./settings/requirements.txt
