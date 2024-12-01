@@ -1,17 +1,51 @@
-FROM r-base:4.4.2
-
-# Environment
+#########################################
+### DOCKER SINGLE-CELL IMAGE PLATFORM ###
+#########################################
+# Step 1 - Import base image
+#############################
+FROM ubuntu:22.04 
+# Label
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-ENV TZ=America/Chicago
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-ARG DEBIAN_FRONTEND=noninteractive
 
+####################################################
+### Step 2: Set arguments and environment variables
+####################################################
+# Tools definition
+ARG DEBIAN_FRONTEND=noninteractive
+# Python environment
+ARG VENV_NAME=python3.10
+# R version
+ARG R_VERSION_MAJOR=4
+ARG R_VERSION_MINOR=2
+ARG R_VERSION_PATCH=2
+ARG CRAN_MIRROR=https://cran.rstudio.com/
+ARG QUARTO_VER="1.6.39"
+# GitHub API key
+ARG GITHUB_PAT
+ENV GITHUB_PAT=$GITHUB_PAT
 # User definition 
-# Add build arguments for UID/GID
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 ARG USER=mogilenko_lab
 ARG GROUP=mogilenko_lab
+
+# Define environment variables
+ENV VENV_NAME=$VENV_NAME
+ENV R_VERSION_MAJOR=$R_VERSION_MAJOR
+ENV R_VERSION_MINOR=$R_VERSION_MINOR
+ENV R_VERSION_PATCH=$R_VERSION_PATCH
+ENV QUARTO_VER=$QUARTO_VER
+ENV CONFIGURE_OPTIONS="--with-cairo --with-jpeglib --enable-R-shlib --with-blas --with-lapack"
+ENV TZ=CT
+ENV CRAN_MIRROR=$CRAN_MIRROR
+
+# Timezone definition
+ENV TZ=America/Chicago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+############################
+### Step 3: User definition
+############################
 
 # Create group and user matching host's UID/GID
 RUN groupadd -g ${GROUP_ID} ${GROUP} && \
@@ -30,29 +64,154 @@ RUN echo "alias ll='ls -la -G'" >> /home/${USER}/.profile
 #RUN chsh -s /bin/bash training
 #RUN echo "alias ll='ls -la -G'" >> /home/training/.profile
 
-#########
-### Aptitude packages (updated openJDK from 8 to 17)
-#########
-RUN apt update && apt install -y --fix-missing \
-    wget libghc-zlib-dev libfreetype6-dev libpng-dev libxft-dev \
-    libncurses-dev git unzip ftp libzmq3-dev libboost-all-dev \
-    vim nano \
-    python3-dev python3-pip ftp \
-    apache2 openssl libcurl4-openssl-dev curl \
-    supervisor openssh-server libbz2-dev \
-    liblzma-dev automake parallel cmake \ 
-    openjdk-17-jre-headless shellinabox
-    #usermod -G training,www-data training
-# After creating the build directory
+###############################
+### Step 4: System dependencies
+###############################
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials and compilers
+    build-essential \
+    g++ \
+    gfortran \
+    make \
+    cmake \
+    automake \
+    \
+    # Python ecosystem
+    python3.10 \
+    python3.10-dev \
+    python3.10-venv \
+    python3-pip \
+    python3-wheel \
+    python3-setuptools \
+    python3-launchpadlib \
+    \
+    # # R and dependencies (will install via wget link)
+    # r-base \
+    # r-base-core \
+    # r-base-dev \
+    # r-recommended \
+    # \
+    # Development libraries
+    libboost-all-dev \
+    libcairo2-dev \
+    libcurl4-openssl-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
+    libgit2-dev \
+    libglpk-dev \
+    libgsl-dev \
+    libharfbuzz-dev \
+    libhdf5-dev \
+    libjpeg-dev \
+    liblapack-dev \
+    liblzma-dev \
+    libmagick++-dev \
+    libncurses-dev \
+    libomp-dev \
+    libopenblas-dev \
+    libpcre2-dev \
+    libpng-dev \
+    libssl-dev \
+    libxml2-dev \
+    libxt-dev \
+    libzmq3-dev \
+    libudunits2-dev \
+    libgdal-dev \
+    zlib1g-dev \
+    libghc-zlib-dev \
+    libbz2-dev \
+    libzstd-dev \
+    \
+    # System utilities
+    apt-utils \
+    ca-certificates \
+    curl \
+    git \
+    gnupg \
+    locales \
+    openssh-server \
+    openssl \
+    parallel \
+    screen \
+    shellinabox \
+    software-properties-common \
+    sudo \
+    supervisor \
+    tmux \
+    tzdata \
+    unzip \
+    vim \
+    wget \
+    ftp \
+    xvfb \
+    \
+    # TeX support
+    texinfo \
+    texlive \
+    texlive-fonts-extra \
+    \
+    # Java
+    openjdk-17-jre-headless \
+    && locale-gen en_US.UTF-8 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+###########################
+### Step 5: R installation
+###########################
+RUN wget https://cran.rstudio.com/src/base/R-${R_VERSION_MAJOR}/R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}.tar.gz && \
+    tar zxvf R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}.tar.gz && \
+    rm R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}.tar.gz
+
+WORKDIR /R-${R_VERSION_MAJOR}.${R_VERSION_MINOR}.${R_VERSION_PATCH}
+
+RUN ./configure ${CONFIGURE_OPTIONS} && \
+    make && \
+    make install
+
+RUN locale-gen en_US.UTF-8
+
+WORKDIR /root
+
+RUN mkdir settings
+
+COPY install_R_packages.R install_quarto.sh ./settings/
+RUN Rscript ./settings/install_packages.R
+# COPY packages.json install_packages.R requirements.txt install_quarto.sh ./settings/
+# RUN Rscript ./settings/install_packages.R
+
+# Installing Quarto
+RUN bash ./settings/install_quarto.sh $QUARTO_VER
+COPY .Rprofile /root/
+
+#########################
+### Step 6: Pip installs
+#########################
+# Set up virtual environment 
+RUN python3 -m venv /opt/$VENV_NAME  \
+    && export PATH=/opt/$VENV_NAME/bin:$PATH \
+    && echo "source /opt/$VENV_NAME/bin/activate" >> ~/.bashrc
+# Install requirements
+RUN pip3 install -r ./settings/requirements.txt
+
+
+RUN pip3 install numpy htseq PySam matplotlib scipy anndata loompy SWIG Cython==0.29.32 MACS3 RSeQC multiqc==1.25.2 cutadapt
+WORKDIR /build
+
+#################################
+### Step 7: Bioinformatics tools
+#################################
+# Creating the build directory
 RUN mkdir build && \
     chown -R ${USER}:${GROUP} /build && \
     chmod 755 /build
 WORKDIR /build
 
-
-#########
+####################################
 ### HTSlib tools: Samtools, Bcftools
-#########
+####################################
 RUN wget https://github.com/samtools/samtools/releases/download/1.21/samtools-1.21.tar.bz2 \
     https://github.com/samtools/bcftools/releases/download/1.21/bcftools-1.21.tar.bz2 \
     https://github.com/samtools/htslib/releases/download/1.21/htslib-1.21.tar.bz2 && \
@@ -70,28 +229,27 @@ WORKDIR /build/samtools-1.21
 RUN make -j 4 && make install
 WORKDIR /build
 
-#########
+###########################
 ### STAR (2.7.11b update)
-#########
-#RUN wget https://github.com/alexdobin/STAR/archive/refs/tags/2.7.9a.tar.gz && \
+###########################
 RUN wget https://github.com/alexdobin/STAR/archive/refs/tags/2.7.11b.tar.gz && \
     tar -xf 2.7.11b.tar.gz
 WORKDIR /build/STAR-2.7.11b/bin/Linux_x86_64_static
 RUN cp STAR* /usr/local/bin
 WORKDIR /build
 
-#########
+############
 ### kallisto
-#########
+############
 RUN wget https://github.com/pachterlab/kallisto/releases/download/v0.51.1/kallisto_linux-v0.51.1.tar.gz && \
     tar -xf kallisto_linux-v0.51.1.tar.gz
 WORKDIR /build/kallisto
 RUN cp kallisto /usr/local/bin
 WORKDIR /build
 
-#########
+##########
 ### Salmon
-#########
+##########
 WORKDIR /build
 RUN wget https://github.com/COMBINE-lab/salmon/releases/download/v1.10.0/salmon-1.10.0_linux_x86_64.tar.gz && \
     tar -xf salmon-1.10.0_linux_x86_64.tar.gz
@@ -111,16 +269,16 @@ RUN cp bin/salmon /usr/local/bin && \
 #    make -j 4 && make install
 WORKDIR /build
 
-#########
-### BEDtools (updated version)
-#########
+#############
+### BEDtools
+#############
 RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.31.1/bedtools-2.31.1.tar.gz && \
     tar -xf bedtools-2.31.1.tar.gz && cd bedtools2 && \
     make -j 4 && make install
 
-#########
-### Java tools: Trimmomatic, FastQC (check, update versions)
-#########
+####################################
+### Java tools: Trimmomatic, FastQC 
+####################################
 RUN wget https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.12.1.zip && \
     unzip fastqc_v0.12.1.zip && \
     chmod +x FastQC/fastqc && \
@@ -132,9 +290,9 @@ RUN wget https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.12.
     echo '#!/bin/bash\njava -jar /usr/share/Trimmomatic-0.39/trimmomatic-0.39.jar $@' > /usr/bin/trimmomatic && \
     chmod +x /usr/bin/trimmomatic
 
-#########
+##########
 ### Picard
-########
+##########
 # Clone the Picard repository
 RUN git clone https://github.com/broadinstitute/picard.git
 # Set the working directory to the cloned Picard directory
@@ -148,24 +306,18 @@ RUN cp -r picard /usr/share/ && \
 # Return to the previous working directory
 WORKDIR /build
 
-#########
-### Pip installs: HTSeq, PySam, MACS2, RSeQC, MultiQC, cutadapt
-#########
-RUN pip3 install numpy htseq PySam matplotlib scipy anndata loompy SWIG Cython==0.29.32 MACS3 RSeQC multiqc==1.25.2 cutadapt
-WORKDIR /build
-
-#########
+###############
 ### Trim Galore
-#########
+###############
 RUN curl -fsSL https://github.com/FelixKrueger/TrimGalore/archive/0.6.10.tar.gz -o trim_galore.tar.gz && \
     tar xvzf trim_galore.tar.gz
 WORKDIR /build/TrimGalore-0.6.10
 RUN cp trim_galore /usr/local/bin
 WORKDIR /build
 
-########
+##########
 ### quant3p
-########
+##########
 WORKDIR /build
 RUN wget https://github.com/ctlab/quant3p/archive/refs/heads/master.zip && \ 
     unzip master.zip && \
@@ -175,9 +327,9 @@ WORKDIR /build/quant3p
 RUN python setup.py install
 WORKDIR /build
 
-########
+################
 ### featureCounts
-#######
+###############
 WORKDIR /build
 RUN wget https://github.com/ShiLab-Bioinformatics/subread/releases/download/2.0.2/subread-2.0.2-Linux-x86_64.tar.gz && \
     tar -xvf subread-2.0.2-Linux-x86_64.tar.gz
@@ -254,11 +406,11 @@ RUN mkdir /data && \
 #########
 ### R installs
 #########
-#ENV R_LIBS="/home/training/.r-library"
-#ADD scripts/R_installs.R /build/R_installs.R
-#ADD .Renviron /home/training/.Renviron
-#RUN mkdir /home/training/.r-library && \
-#    chown -R training:training /home/training/.Renviron && \
+ENV R_LIBS="/home/${USER}/.r-library"
+ADD scripts/build/R_libraries.R /build/R_libraries.R
+ADD .Renviron /home/${USER}/.Renviron
+RUN mkdir /home/${USER}/.r-library && \
+    chown -R ${USER}:${GROUP} /home/${USER}/.Renviron && \
 #    chown -R training:training /home/training/.r-library && \
 #    chmod 755 /home/training/.r-library && \
 #    sudo -u training Rscript /build/R_installs.R
@@ -279,5 +431,6 @@ USER ${USER}
 RUN mkdir -p /home/${USER}/analysis \
     /home/${USER}/data \
     /home/${USER}/scripts
+WORKDIR /home/${USER}
 #RUN rm *tar* && \
 #    rm *zip
