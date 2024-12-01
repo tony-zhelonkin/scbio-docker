@@ -197,6 +197,11 @@ RUN python3 -m venv /opt/$VENV_NAME  \
 RUN pip3 install -r ./settings/requirements.txt
 
 
+#########################
+### Step 7: Further development plans
+#########################
+# Install bioinformatics tools, requiring build compilation from source
+
 RUN pip3 install numpy htseq PySam matplotlib scipy anndata loompy SWIG Cython==0.29.32 MACS3 RSeQC multiqc==1.25.2 cutadapt
 WORKDIR /build
 
