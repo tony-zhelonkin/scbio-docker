@@ -40,8 +40,13 @@ message(sprintf("Using Bioconductor version: %s", BiocManager::version()))
 # Base CRAN packages
 message("Installing CRAN packages...")
 cran_packages <- c(
-  "tidyverse",
-  "ggpubr",
+  "future",
+  "future.apply",
+  "textshaping",
+  "pandoc",
+  "lattice",
+  "ragg",
+  "NMF",
   "harmony",
   "kableExtra",
   "plotly",
@@ -50,9 +55,10 @@ cran_packages <- c(
   "pheatmap",
   "devtools",
   "RColorBrewer",
-  "ggpubr",
   "caTools",
   "parallel",
+  "RSpectra",
+  "irlba",
   "DescTools",
   "lme4",
   "reshape2",
@@ -69,6 +75,8 @@ cran_packages <- c(
   "networkD3",
   "r2d3",
   "Matrix",
+  "tidyverse",
+  "ggpubr",
   "Cairo",
   "imager",
   "lightgbm",
@@ -87,6 +95,11 @@ cran_packages <- c(
 # Install CRAN packages
 safe_install(cran_packages, install.packages, repos = "https://cloud.r-project.org/")
 
+
+# Install source
+install.packages('https://cran.r-project.org/src/contrib/Archive/locfit/locfit_1.5-9.4.tar.gz', repos=NULL, type='source')
+
+
 # Bioconductor packages
 message("Installing Bioconductor packages...")
 bioc_packages <- c(
@@ -97,6 +110,7 @@ bioc_packages <- c(
   "preprocessCore",
   "GenomicRanges",
   "GenomeInfoDb",
+  "DESeq2",
   "Rsamtools",
   "S4Vectors",
   "IRanges",
@@ -196,7 +210,9 @@ github_packages <- c(
   "aertslab/cisTopic",
   "immunogenomics/SCENT",
   "mojaveazure/loomR@develop",
+  "jokergoo/circlize",
   "pcahan1/singleCellNet",
+  "jinworks/CellChat",
   "carmonalab/SignatuR"
 )
 
