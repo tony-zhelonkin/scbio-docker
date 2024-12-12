@@ -81,6 +81,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Development libraries
     pkg-config \
     libboost-all-dev \
+    libblosc-dev \
+    liblzo2-dev \
+    libhdf5-serial-dev \
     libreadline-dev \
     readline-common \
     libcairo2-dev \
@@ -102,7 +105,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpcre2-dev \
     libjpeg-dev \
     libpng-dev \
-    libtiff5-dev
+    libtiff5-dev \
     libssl-dev \
     libxml2-dev \
     libxt-dev \
@@ -184,8 +187,13 @@ COPY .devcontainer/.Rprofile /root/
 RUN python3 -m venv /opt/$VENV_NAME  \
     && export PATH=/opt/$VENV_NAME/bin:$PATH \
     && echo "source /opt/$VENV_NAME/bin/activate" >> ~/.bashrc
+# Install dependencies first
+RUN pip3 install setuptools wheel 
+RUN pip3 install numpy scipy pandas
+RUN pip3 install anndata==0.10.9
 # Install requirements
-RUN pip3 install -r ./settings/requirements.txt
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
+    pip3 install -r ./settings/requirements.txt
 
 
 #################################
