@@ -79,6 +79,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-launchpadlib \
     \
     # Development libraries
+    perl \
     pkg-config \
     libboost-all-dev \
     libblosc-dev \
@@ -109,6 +110,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libxml2-dev \
     libxt-dev \
+    libtbb-dev \
     libzmq3-dev \
     libudunits2-dev \
     libgdal-dev \
@@ -122,6 +124,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     file \
+    pandoc \
     less \
     bison \
     git \
@@ -152,6 +155,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-fonts-extra \
     \
     # Java
+    default-jdk \
+    maven \
     openjdk-17-jre-headless \
     && locale-gen en_US.UTF-8 \
     && apt-get clean \
@@ -191,6 +196,7 @@ RUN python3 -m venv /opt/$VENV_NAME  \
 RUN pip3 install setuptools wheel 
 RUN pip3 install numpy scipy pandas
 RUN pip3 install anndata==0.10.9
+RUN pip3 install "python-igraph==0.10.4"
 # Install requirements
 RUN python3 -m pip install --upgrade pip setuptools wheel && \
     pip3 install -r ./settings/requirements.txt
@@ -200,7 +206,7 @@ RUN python3 -m pip install --upgrade pip setuptools wheel && \
 ### Step 7: Bioinformatics tools
 #################################
 # Creating the build directory
-RUN mkdir build && \
+RUN mkdir -p /build && \
     chown -R ${USER}:${GROUP} /build && \
     chmod 755 /build
 WORKDIR /build
@@ -213,11 +219,22 @@ RUN wget https://github.com/BenLangmead/bowtie2/archive/refs/tags/v2.5.4.tar.gz 
     tar -xf v2.5.4.tar.gz
 
 WORKDIR /build/bowtie2-2.5.4
-RUN make libsais USE_SAIS_OPENMP=1 && \
-    make bowtie2-build-s USE_SAIS_OPENMP=1 && \
-    make -j 4 && \
+RUN cmake . -D USE_SRA=1 -D USE_SAIS=1 && \
+    cmake --build . && \
     cp bowtie2* /usr/local/bin/ && \
     cp scripts/* /usr/local/bin/
+
+############
+### Chromap
+############
+WORKDIR /build
+RUN wget https://github.com/haowenz/chromap/archive/refs/tags/v0.2.7.tar.gz && \
+    tar -xf chromap-0.2.7.tar.gz
+
+WORKDIR /build/chromap-0.2.7
+RUN make && \
+    cp chromap /usr/local/bin/
+
 
 ####################################
 ### HTSlib tools: Samtools, Bcftools

@@ -49,8 +49,6 @@ episcanpy==0.4.0
 deeptools
 
 # Network Analysis
-python-igraph==0.11.8
-igraph
 python-louvain==0.16
 networkx==3.4.2
 leidenalg==0.10.1
