@@ -64,6 +64,7 @@ cran_packages <- c(
   "lme4",
   "reshape2",
   "ggridges",
+  "mbkmeans",
   "mice",
   "broom.mixed",
   "remotes",
@@ -95,7 +96,6 @@ cran_packages <- c(
 
 # Install CRAN packages
 safe_install(cran_packages, install.packages, repos = "https://cloud.r-project.org/")
-
 
 # Install source
 install.packages('https://cran.r-project.org/src/contrib/Archive/locfit/locfit_1.5-9.4.tar.gz', repos=NULL, type='source')
@@ -134,6 +134,7 @@ bioc_packages <- c(
   "SummarizedExperiment",
   "batchelor",
   "HDF5Array",
+  "scDblFinder",
   "terra",
   "Gviz",
   "rtracklayer",
@@ -196,9 +197,11 @@ message("Installing GitHub packages...")
 github_packages <- c(
   "renozao/xbioc",
   "satijalab/seurat-data",
+  "mojaveazure/seurat-disk",
   "satijalab/azimuth",
   "satijalab/seurat-wrappers",
-  "GreenleafLab/ArchR",
+  "settylab/convert2anndata",
+  "GreenleafLab/ArchR@v1.0.3", # latest ArchR version
   "powellgenomicslab/DropletQC",
   "chris-mcginnis-ucsf/DoubletFinder",
   "cole-trapnell-lab/monocle3",
