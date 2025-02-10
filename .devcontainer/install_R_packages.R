@@ -47,6 +47,8 @@ cran_packages <- c(
   "lattice",
   "ragg",
   "NMF",
+  "IRkernel",
+  "Rfast",
   "harmony",
   "kableExtra",
   "plotly",
@@ -107,6 +109,7 @@ bioc_packages <- c(
   # Core Bioconductor packages
   "scran",
   "txdbmaker",
+  "dittoSeq",
   "impute",
   "SingleR",
   "celldex",
@@ -162,6 +165,7 @@ bioc_packages <- c(
   "org.Mm.eg.db",
   "DropletUtils",
   "JASPAR2022",
+  "JASPAR2024",
   "TFBSTools",
   "motifmatchr",
   "scTensor",
@@ -219,7 +223,11 @@ github_packages <- c(
   "jokergoo/circlize",
   "pcahan1/singleCellNet",
   "jinworks/CellChat",
-  "carmonalab/SignatuR"
+  "carmonalab/SignatuR",
+  "Zhen-Miao/PICsnATAC",
+  "Zhen-Miao/PACS",
+  "quadbio/Pando",
+  "buenrostrolab/FigR"
 )
 
 # Install GitHub packages with special handling for certain packages
