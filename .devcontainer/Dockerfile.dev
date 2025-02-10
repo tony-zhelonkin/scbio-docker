@@ -211,29 +211,38 @@ RUN mkdir -p /build && \
     chmod 755 /build
 WORKDIR /build
 
-#################################
-### Bowtie2 (with OpenMP support)
-#################################
+###############
+### Bowtie2 ### 
+###############
 WORKDIR /build
 RUN wget https://github.com/BenLangmead/bowtie2/archive/refs/tags/v2.5.4.tar.gz && \
     tar -xf v2.5.4.tar.gz
-
 WORKDIR /build/bowtie2-2.5.4
-RUN cmake . -D USE_SRA=1 -D USE_SAIS=1 && \
-    cmake --build . && \
-    cp bowtie2* /usr/local/bin/ && \
-    cp scripts/* /usr/local/bin/
+RUN make && \
+    cp bowtie2 /usr/local/bin/
+WORKDIR /build
+
+##############
+### scIBD ### 
+##############
+RUN git clone https://github.com/Ying-Lab/scIBD
+WORKDIR /build/scIBD
+RUN pip install -r requirements.txt && \
+    python3 setup.py install
+WORKDIR /build
+
 
 ############
 ### Chromap
 ############
 WORKDIR /build
 RUN wget https://github.com/haowenz/chromap/archive/refs/tags/v0.2.7.tar.gz && \
-    tar -xf chromap-0.2.7.tar.gz
+    tar -xf v0.2.7.tar.gz
 
 WORKDIR /build/chromap-0.2.7
 RUN make && \
     cp chromap /usr/local/bin/
+WORKDIR /build
 
 
 ####################################
