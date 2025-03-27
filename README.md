@@ -1,7 +1,3 @@
-Below is an expanded **README.md** that includes your new details, credits, and typical workflow instructions. Adjust or refine any parts to align with your exact usage and preferences.
-
----
-
 # Single-Cell Docker Dev Environment
 
 ![Docker Image Version](https://img.shields.io/badge/Docker-v0.2-blue?style=flat-square)
