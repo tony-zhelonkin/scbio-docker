@@ -373,7 +373,7 @@ Please open an issue for any bugs, installation problems, or improvement ideas.
 
 ## License
 
-This project is distributed under the [MIT License](./LICENSE). Feel free to use, modify, and distribute it as permitted.
+This project is distributed under the [MIT License](https://github.com/tony-zhelonkin/scbio-docker/blob/main/LICENCE.md). Feel free to use, modify, and distribute it as permitted.
 
 ---
 
