@@ -40,7 +40,6 @@ scrublet==0.2.3
 harmony-pytorch
 scib==1.1.5
 scirpy==0.19.0
-squidpy==1.6.2
 muon==0.1.7
 
 # Epigenomics 
