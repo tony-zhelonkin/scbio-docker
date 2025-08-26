@@ -224,15 +224,26 @@ RUN bash /opt/settings/install_quarto.sh $QUARTO_VER
 # Install renv and then either:
 #  - restore from lockfile if present, OR
 #  - run your installer and snapshot to create /opt/settings/renv.lock
-RUN R -q -e 'install.packages("renv", repos="https://cloud.r-project.org")' && \
-    R -q -e 'if (file.exists("/opt/settings/renv.lock")) { \
-               renv::init(bare = TRUE); \
-               renv::restore(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
-             } else { \
-               source("/opt/settings/install_R_packages.R"); \
-               renv::init(bare = TRUE); \
-               renv::snapshot(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
-             }'
+# RUN R -q -e 'install.packages("renv", repos="https://cloud.r-project.org")' && \
+#     R -q -e 'if (file.exists("/opt/settings/renv.lock")) { \
+#                renv::init(bare = TRUE); \
+#                renv::restore(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+#              } else { \
+#                source("/opt/settings/install_R_packages.R"); \
+#                renv::init(bare = TRUE); \
+#                renv::snapshot(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+#              }'
+# was: R -q -e 'install.packages("renv", ...)'
+# and:  R -q -e 'if (file.exists("/opt/settings/renv.lock")) { ... }'
+RUN R -q --vanilla -e 'install.packages("renv", repos="https://cloud.r-project.org")' && \
+    R -q --vanilla -e 'if (file.exists("/opt/settings/renv.lock")) { \
+                         renv::init(bare = TRUE); \
+                         renv::restore(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+                       } else { \
+                         source("/opt/settings/install_R_packages.R"); \
+                         renv::init(bare = TRUE); \
+                         renv::snapshot(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+                       }'
 
 # Human-readable manifest of installed packages (helps auditing outside renv)
 RUN R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","LibPath")]); \
