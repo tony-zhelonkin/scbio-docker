@@ -2,9 +2,9 @@
 radian==0.6.13
 
 # Core Scientific Computing
-#numpy (pre-install for better dependency handling)
-#scipy
-#pandas
+numpy==1.26.4
+scipy==1.11.4
+pandas==2.2.3
 numba
 statsmodels
 umap-learn
@@ -31,6 +31,7 @@ plotly
 bokeh
 
 # Single-Cell Analysis
+anndata==0.10.9
 scanpy==1.10.4
 scvi-tools==1.2.0
 cellrank==2.0.6
@@ -49,6 +50,7 @@ deeptools
 
 # Network Analysis
 python-louvain==0.16
+python-igraph==0.10.4
 networkx==3.4.2
 leidenalg==0.10.1
 pyscenic==0.12.1

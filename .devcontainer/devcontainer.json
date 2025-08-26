@@ -1,5 +1,5 @@
 {
-    "name": "R Dev Environment",
+    "name": "Single-Cell Dev",
     "build": {
         "dockerfile": "Dockerfile.dev",
         "context": ".",
@@ -17,10 +17,6 @@
             "*.Rmd": "rmd"
         }
     },
-    "runArgs": [
-        "--env-file",
-        ".devcontainer/devcontainer.env"
-    ]
     "customizations": {
         "vscode": {
             "extensions": [
@@ -41,5 +37,5 @@
             ]
         }
     },
-    "postCreateCommand": "radian"
+    "postStartCommand": "echo 'usepy base (default) or usepy squid to switch envs' && python -V && R --version | head -n 1"
 }

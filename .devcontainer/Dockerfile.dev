@@ -10,51 +10,72 @@ LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
 ####################################################
 ### Step 2: Set arguments and environment variables
 ####################################################
-# Tools definition
+
+# Set noninteractive mode
 ARG DEBIAN_FRONTEND=noninteractive
+
+# Timezone definition
+ENV TZ=America/Chicago LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
+    apt-get update && apt-get install -y --no-install-recommends locales && \
+    locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8
+
+# Tools definition
 # Python environment
 ARG VENV_NAME=python3.10
-# R version
+# Define environment variables
+ENV VENV_NAME=$VENV_NAME
+# Keep all Python environment definitions inside the image
+COPY .environments /opt/environments
+
+
+# R version pinned by default
 ARG R_VERSION_MAJOR=4
 ARG R_VERSION_MINOR=4
 ARG R_VERSION_PATCH=2
 ARG CRAN_MIRROR=https://cran.rstudio.com/
 ARG QUARTO_VER="1.6.39"
-# GitHub API key
-ARG GITHUB_PAT
-ENV GITHUB_PAT=$GITHUB_PAT
-# User definition 
-ARG USER_ID=1001
-ARG GROUP_ID=1001
-ARG USER=mogilenko_lab
-ARG GROUP=mogilenko_lab
 
-# Define environment variables
-ENV VENV_NAME=$VENV_NAME
+# Define R environment variables
 ENV R_VERSION_MAJOR=$R_VERSION_MAJOR
 ENV R_VERSION_MINOR=$R_VERSION_MINOR
 ENV R_VERSION_PATCH=$R_VERSION_PATCH
 ENV QUARTO_VER=$QUARTO_VER
 ENV CONFIGURE_OPTIONS="--with-cairo --with-jpeglib --enable-R-shlib --with-blas --with-lapack"
-ENV TZ=CT
 ENV CRAN_MIRROR=$CRAN_MIRROR
 
-# Timezone definition
-ENV TZ=America/Chicago
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# GitHub API key
+ARG GITHUB_PAT
+ENV GITHUB_PAT=$GITHUB_PAT
+
 
 ############################
 ### Step 3: User definition
 ############################
+# Pass host identity at build if you like:
+#   --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
+#   --build-arg USER=$USER --build-arg GROUP=$(id -gn)
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USER=devuser
+ARG GROUP=devgroup
 
-# Create group and user matching host's UID/GID
-RUN groupadd -g ${GROUP_ID} ${GROUP} && \
-    useradd -m -u ${USER_ID} -g ${GROUP_ID} ${USER}
-
-# Set user as owner of necessary directories
-RUN mkdir -p /home/${USER}/reference_genome /home/${USER}/data && \
-    chown -R ${USER}:${GROUP} /home/${USER}
-RUN echo "alias ll='ls -la -G'" >> /home/${USER}/.profile
+# Create group/user if not present. If GID/UID exist, reuse names.
+RUN set -eux; \
+    if ! getent group "${GROUP_ID}" >/dev/null; then \
+        groupadd -g "${GROUP_ID}" "${GROUP}"; \
+    else \
+        GROUP="$(getent group ${GROUP_ID} | cut -d: -f1)"; \
+    fi; \
+    if ! id -u "${USER_ID}" >/dev/null 2>&1; then \
+        useradd -m -s /bin/bash -u "${USER_ID}" -g "${GROUP_ID}" "${USER}"; \
+    else \
+        USER="$(getent passwd ${USER_ID} | cut -d: -f1)"; \
+    fi; \
+    mkdir -p /home/${USER}/reference_genome /home/${USER}/data; \
+    chown -R ${USER}:${GROUP} /home/${USER}; \
+    echo "alias ll='ls -la --color=auto'" >> /home/${USER}/.bashrc; \
+    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-${USER} && chmod 440 /etc/sudoers.d/90-${USER}
 
 ###############################
 ### Step 4: System dependencies
@@ -80,6 +101,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     \
     # Development libraries
     perl \
+    autoconf \
+    libtool \
     pkg-config \
     libboost-all-dev \
     libblosc-dev \
@@ -177,29 +200,79 @@ RUN ./configure ${CONFIGURE_OPTIONS} && \
 
 RUN locale-gen en_US.UTF-8
 WORKDIR /root
-RUN mkdir settings
-COPY .devcontainer/install_R_packages.R .devcontainer/install_quarto.sh .devcontainer/requirements.txt ./settings/
-RUN Rscript ./settings/install_R_packages.R
-
-# Installing Quarto
-RUN bash ./settings/install_quarto.sh $QUARTO_VER
+# Put settings & scripts somewhere stable
+RUN mkdir -p /opt/settings
+COPY .devcontainer/install_R_packages.R /opt/settings/install_R_packages.R
+COPY .devcontainer/install_quarto.sh /opt/settings/install_quarto.sh
 COPY .devcontainer/.Rprofile /root/
+
+# If you have a lock pre-committed, copy it here; if not, this line is harmless.
+# (You can add /opt/settings/renv.lock later and the restore step below will use it.)
+# COPY renv.lock /opt/settings/renv.lock
+
+# Install Quarto
+RUN bash /opt/settings/install_quarto.sh $QUARTO_VER
+
+# Install renv and then either:
+#  - restore from lockfile if present, OR
+#  - run your installer and snapshot to create /opt/settings/renv.lock
+RUN R -q -e 'install.packages("renv", repos="https://cloud.r-project.org")' && \
+    R -q -e 'if (file.exists("/opt/settings/renv.lock")) { \
+               renv::init(bare = TRUE); \
+               renv::restore(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+             } else { \
+               source("/opt/settings/install_R_packages.R"); \
+               renv::init(bare = TRUE); \
+               renv::snapshot(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+             }'
+
+# Human-readable manifest of installed packages (helps auditing outside renv)
+RUN R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","LibPath")]); \
+             write.csv(pk, "/opt/settings/R-packages-manifest.csv", row.names = FALSE)'
 
 #########################
 ### Step 6: Pip installs
 #########################
-# Set up virtual environment 
-RUN python3 -m venv /opt/$VENV_NAME  \
-    && export PATH=/opt/$VENV_NAME/bin:$PATH \
-    && echo "source /opt/$VENV_NAME/bin/activate" >> ~/.bashrc
-# Install dependencies first
-RUN pip3 install setuptools wheel 
-RUN pip3 install numpy scipy pandas
-RUN pip3 install anndata==0.10.9
-RUN pip3 install "python-igraph==0.10.4"
-# Install requirements
-RUN python3 -m pip install --upgrade pip setuptools wheel && \
-    pip3 install -r ./settings/requirements.txt
+#########################
+### Step 6: Python envs
+#########################
+# Python is already installed via apt (3.10) above.
+ENV PIP_NO_CACHE_DIR=1 \
+    VIRTUALENV_WRAPPER=/opt/venvs
+
+# Create both venvs
+RUN python3 -m venv /opt/venvs/base && \
+    python3 -m venv /opt/venvs/squid
+
+# Upgrade pip & install requirements into each
+RUN /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
+    /opt/venvs/base/bin/python -m pip install -r /opt/environments/base_requirements.txt
+
+RUN /opt/venvs/squid/bin/python -m pip install --upgrade pip setuptools wheel && \
+    /opt/venvs/squid/bin/python -m pip install -r /opt/environments/squid_requirements.txt
+
+# Default to the "base" venv on PATH; easy to switch later
+ENV PATH="/opt/venvs/base/bin:${PATH}"
+
+# Small helper wrappers to switch envs quickly in interactive shells
+RUN printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'source /opt/venvs/base/bin/activate && exec "$@"' \
+  > /usr/local/bin/py-base && chmod +x /usr/local/bin/py-base && \
+  printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'source /opt/venvs/squid/bin/activate && exec "$@"' \
+  > /usr/local/bin/py-squid && chmod +x /usr/local/bin/py-squid && \
+  printf '%s\n' \
+  '# usage: usepy base|squid' \
+  'usepy(){ case "$1" in base) . /opt/venvs/base/bin/activate ;; squid) . /opt/venvs/squid/bin/activate ;; *) echo "usepy base|squid"; return 1;; esac; }' \
+  >> /etc/bash.bashrc
+
+#   RUN pip3 install setuptools wheel 
+#   RUN pip3 install numpy scipy pandas
+#   RUN pip3 install anndata==0.10.9
+#   RUN pip3 install "python-igraph==0.10.4"
+
 
 
 #################################
@@ -231,6 +304,30 @@ RUN pip install -r requirements.txt && \
     python3 setup.py install
 WORKDIR /build
 
+
+###########################################
+### fqtools (pinned; header-compat w/ 1.21)
+###########################################
+WORKDIR /build
+RUN set -eux; \
+    git clone --depth 1 https://github.com/alastair-droop/fqtools && \
+    cd fqtools && \
+    # vendor HTSlib 1.21 headers
+    git clone --branch 1.21 --depth 1 \
+      --recurse-submodules --shallow-submodules \
+      https://github.com/samtools/htslib && \
+    # fix outdated includes
+    sed -i 's|<sam.h>|"htslib/sam.h"|' src/fqheader.h && \
+    sed -i 's|<bam.h>|"htslib/bam.h"|' src/fqheader.h && \
+    # build vendored htslib (for headers)
+    cd htslib && autoreconf -fi && ./configure && make -j"$(nproc)" && \
+    cd .. && make CFLAGS="-O2 -g -fcommon" -j"$(nproc)" && \
+    install -m 755 bin/fqtools /usr/local/bin/fqtools && \
+    cd / && rm -rf /build/*
+
+# Optionally drop build-time autotools if you won’t compile other C projects later:
+# RUN apt-get purge -y --auto-remove automake autoconf libtool pkg-config && \
+#     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ############
 ### Chromap
