@@ -1,6 +1,6 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.2-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.3-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code’s **Remote - Containers** extension, enabling seamless local or remote development against powerful server resources.
@@ -12,18 +12,19 @@ A Docker-based development environment for bioinformatics, particularly single-c
 ## Table of Contents
 1. [Overview](#overview)
 2. [Features](#features)
-3. [Repository Structure](#repository-structure)
-4. [Getting Started](#getting-started)
+3. [Usage Guide](#usage-guide)
+4. [Repository Structure](#repository-structure)
+5. [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
     - [Build the Image](#build-the-image)
     - [Run the Container](#run-the-container)
     - [Using with VS Code Remote Containers](#using-with-vs-code-remote-containers)
-5. [Typical Workflow for New Projects](#typical-workflow-for-new-projects)
-6. [Included Tools & Packages](#included-tools--packages)
-7. [Troubleshooting](#troubleshooting)
-8. [Contributing](#contributing)
-9. [License](#license)
-10. [Acknowledgments](#acknowledgments)
+6. [Typical Workflow for New Projects](#typical-workflow-for-new-projects)
+7. [Included Tools & Packages](#included-tools--packages)
+8. [Troubleshooting](#troubleshooting)
+9. [Contributing](#contributing)
+10. [License](#license)
+11. [Acknowledgments](#acknowledgments)
 
 ---
 
@@ -50,19 +51,106 @@ The Docker setup is integrated with **VS Code Remote Containers** to streamline 
 
 ---
 
+## Usage Guide
+
+### Building the image (with renv snapshot)
+
+From the repository root:
+
+```bash
+# First build: installs R packages and snapshots with renv
+docker build . \
+  -f .devcontainer/Dockerfile.dev \
+  --build-arg GITHUB_PAT=$GITHUB_PAT \
+  --build-arg USER_ID=$(id -u) \
+  --build-arg GROUP_ID=$(id -g) \
+  --build-arg USER=$USER \
+  --build-arg GROUP=$(id -gn) \
+  -t scdock-r-dev:v0.3
+```
+
+- GITHUB_PAT is optional but recommended to avoid GitHub API rate limits during R package installs.
+- USER_ID/GROUP_ID/USER/GROUP align the container user with your host user for mounted volume permissions.
+
+### R package pinning with renv
+
+- Purpose: renv captures exact R/CRAN/Bioconductor/GitHub package versions for deterministic rebuilds.
+- First build (no lock present):
+  - `install_R_packages.R` installs packages (CRAN snapshot + Bioc 3.20).
+  - renv snapshots to `/opt/settings/renv.lock`.
+  - A human-readable CSV is written to `/opt/settings/R-packages-manifest.csv`.
+- After the first successful build, extract and commit the lock and manifest:
+
+```bash
+CID=$(docker create scdock-r-dev:v0.3)
+docker cp $CID:/opt/settings/renv.lock ./renv.lock
+docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
+docker rm $CID
+
+git add renv.lock R-packages-manifest.csv
+git commit -m "Pin R via renv; add manifest"
+```
+
+- Deterministic builds thereafter: uncomment the lock copy in `.devcontainer/Dockerfile.dev`:
+
+```Dockerfile
+# COPY renv.lock /opt/settings/renv.lock
+```
+
+Rebuild and the image will restore via `renv::restore()` from the committed lockfile.
+
+Tip: You can set a CRAN snapshot date with `RSPM_SNAPSHOT` (see `install_R_packages.R`) to reproduce historical CRAN states.
+
+### Python environments (base vs squid)
+
+Two venvs are preinstalled and fully resolved during the image build:
+- `/opt/venvs/base` from `/opt/environments/base_requirements.txt`
+- `/opt/venvs/squid` from `/opt/environments/squid_requirements.txt`
+
+Default PATH uses the base venv. Switch interactively inside the container:
+
+```bash
+usepy squid      # switch shell to squid env
+usepy base       # switch back to base env
+```
+
+One-off commands under a specific env:
+
+```bash
+py-squid python -V
+py-base python -V
+```
+
+Verify which env is active:
+
+```bash
+which python && python -V && pip list | head
+```
+
+### Version pinning strategy
+
+- R: renv.lock (commit it; enable restore via `COPY renv.lock /opt/settings/renv.lock`).
+- Python: `.environments/*.txt` (pin versions there and commit).
+- CLI tools: pinned by explicit versions/tags in `.devcontainer/Dockerfile.dev`.
+- Image: tag builds explicitly (e.g., `-t scdock-r-dev:v0.3`).
+
+---
+
 ## Repository Structure
 
 ```bash
 .
 ├── .devcontainer
 │   ├── devcontainer.back.json        # Backup devcontainer config (to be deleted in the next update)
-│   ├── devcontainer.json             # VS Code Remote Containers template configuration
-│   ├── Dockerfile                    # Backup base Dockerfile (to be deleted in the next update)
-│   ├── Dockerfile.dev               # Latest successfully built Dockerfile
-│   ├── install_quarto.sh            # script installing Quarto
-│   ├── install_R_packages.R          # script installing R packages (CRAN/Bioc/GitHub)
-│   ├── requirements.txt             # Python packages to install
+│   ├── devcontainer.json             # VS Code Remote Containers configuration (builds image)
+│   ├── Dockerfile                    # Backup/older Dockerfile (reference only)
+│   ├── Dockerfile.dev                # Primary Dockerfile (builds R, Python envs, tools)
+│   ├── install_quarto.sh             # Quarto installer
+│   ├── install_R_packages.R          # R packages (CRAN/Bioc/GitHub); used with renv
 │   └── .Rprofile                     # R profile tweaks/aliases
+├── .environments
+│   ├── base_requirements.txt         # Base Python environment
+│   └── squid_requirements.txt        # Alternative Python environment (squid)
 ├── .git                              # Git versioning directory
 ├── .gitignore
 ├── README.md                         # This README
@@ -70,9 +158,9 @@ The Docker setup is integrated with **VS Code Remote Containers** to streamline 
     └── settings.json                 # Example VS Code settings (R, radian, etc.)
 ```
 
-- **`.devcontainer/Dockerfile.dev`** is the primary Dockerfile used to build the environment with R and Python tools.
-- **`.devcontainer/install_R_packages.R`** outlines and installs a comprehensive set of R/Bioconductor packages.
-- **`.devcontainer/requirements.txt`** details Python packages installed via `pip`.
+- **`.devcontainer/Dockerfile.dev`** is the primary Dockerfile for building R, Python envs, and CLI tools.
+- **`.devcontainer/install_R_packages.R`** installs R/Bioconductor/GitHub packages; paired with `renv` for pinning.
+- **`.environments/*.txt`** are the two Python requirement sets installed into separate venvs inside the image.
 
 ---
 
