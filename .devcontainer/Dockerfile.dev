@@ -60,22 +60,30 @@ ARG GROUP_ID=1000
 ARG USER=devuser
 ARG GROUP=devgroup
 
-# Create group/user if not present. If GID/UID exist, reuse names.
+# Create group/user matching host's UID/GID (robust to spaces in GROUP)
 RUN set -eux; \
-    if ! getent group "${GROUP_ID}" >/dev/null; then \
-        groupadd -g "${GROUP_ID}" "${GROUP}"; \
+    SAN_GROUP="$(printf '%s' "${GROUP}" | tr '[:space:]' '_')"; \
+    if getent group "${GROUP_ID}" >/dev/null; then \
+        GROUP_NAME="$(getent group "${GROUP_ID}" | cut -d: -f1)"; \
     else \
-        GROUP="$(getent group ${GROUP_ID} | cut -d: -f1)"; \
+        # If creation with provided name fails (e.g., illegal chars), fall back to grp_<gid>
+        groupadd -g "${GROUP_ID}" "${SAN_GROUP}" || groupadd -g "${GROUP_ID}" "grp_${GROUP_ID}"; \
+        GROUP_NAME="$(getent group "${GROUP_ID}" | cut -d: -f1)"; \
     fi; \
-    if ! id -u "${USER_ID}" >/dev/null 2>&1; then \
+    if id -u "${USER_ID}" >/dev/null 2>&1; then \
+        USER_NAME="$(getent passwd "${USER_ID}" | cut -d: -f1)"; \
+    else \
         useradd -m -s /bin/bash -u "${USER_ID}" -g "${GROUP_ID}" "${USER}"; \
-    else \
-        USER="$(getent passwd ${USER_ID} | cut -d: -f1)"; \
+        USER_NAME="${USER}"; \
     fi; \
-    mkdir -p /home/${USER}/reference_genome /home/${USER}/data; \
-    chown -R ${USER}:${GROUP} /home/${USER}; \
-    echo "alias ll='ls -la --color=auto'" >> /home/${USER}/.bashrc; \
-    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/90-${USER} && chmod 440 /etc/sudoers.d/90-${USER}
+    mkdir -p /home/${USER_NAME}/reference_genome /home/${USER_NAME}/data; \
+    # Use numeric IDs here to avoid name parsing issues
+    chown -R ${USER_ID}:${GROUP_ID} /home/${USER_NAME}; \
+    echo "alias ll='ls -la --color=auto'" >> /home/${USER_NAME}/.bashrc; \
+    # ensure sudoers.d exists, then add NOPASSWD rule for this user
+    mkdir -p /etc/sudoers.d; \
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${USER_NAME}; \
+    chmod 440 /etc/sudoers.d/90-${USER_NAME}
 
 ###############################
 ### Step 4: System dependencies
@@ -280,7 +288,7 @@ RUN printf '%s\n' \
 #################################
 # Creating the build directory
 RUN mkdir -p /build && \
-    chown -R ${USER}:${GROUP} /build && \
+    chown -R ${USER_ID}:${GROUP_ID} /build && \
     chmod 755 /build
 WORKDIR /build
 
