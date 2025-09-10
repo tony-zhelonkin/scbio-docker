@@ -73,9 +73,9 @@ bioc_packages <- c(
   "BSgenome.Mmusculus.UCSC.mm10","BSgenome.Mmusculus.UCSC.mm39",
   "clusterExperiment","msigdb","EnsDb.Hsapiens.v75","EnsDb.Hsapiens.v79","EnsDb.Hsapiens.v86",
   "EnsDb.Mmusculus.v75","EnsDb.Mmusculus.v79","org.Hs.eg.db","org.Mm.eg.db",
-  "DropletUtils","JASPAR2022","JASPAR2024","TFBSTools","motifmatchr","scTensor",
+  "DropletUtils",
+  "JASPAR2022","JASPAR2024","TFBSTools","motifmatchr","scTensor",
   "SingleCellSignalR","slingshot","sctransform","splatter","sva",
-  # ---- your requested Bioc additions ----
   "UCell","mixOmics","MOFA2","lemur","SingleCellMultiModal"
 )
 safe_install(bioc_packages, BiocManager::install, ask = FALSE, update = FALSE)
@@ -87,14 +87,35 @@ safe_install(seurat_packages, install.packages)
 
 # ---- GitHub extras ----
 github_packages <- c(
-  "renozao/xbioc","satijalab/seurat-data","mojaveazure/seurat-disk","satijalab/azimuth",
-  "satijalab/seurat-wrappers","settylab/convert2anndata","GreenleafLab/ArchR@v1.0.3",
-  "powellgenomicslab/DropletQC","chris-mcginnis-ucsf/DoubletFinder","cole-trapnell-lab/monocle3",
-  "meichendong/SCDC","GreenleafLab/chromVARmotifs","cole-trapnell-lab/cicero-release",
-  "aertslab/RcisTarget","aertslab/AUCell","SydneyBioX/scClustBench","SydneyBioX/scDC",
-  "aertslab/cisTopic","immunogenomics/SCENT","jokergoo/circlize","pcahan1/singleCellNet",
-  "jinworks/CellChat","carmonalab/SignatuR","Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
-  "quadbio/Pando","buenrostrolab/FigR"
+  "renozao/xbioc",
+
+  # Seurat ecosystem
+  "satijalab/seurat-data", "satijalab/azimuth", "satijalab/azimuth",
+  "mojaveazure/seurat-disk",
+
+  # ArchR ecosystem
+  "GreenleafLab/ArchR@v1.0.3","GreenleafLab/chromVARmotifs",
+  # Epigenomics tools
+
+  # QC tools
+  "powellgenomicslab/DropletQC",
+  "chris-mcginnis-ucsf/DoubletFinder",
+
+  "settylab/convert2anndata",
+  "cole-trapnell-lab/monocle3",
+  "meichendong/SCDC",
+  "cole-trapnell-lab/cicero-release",
+  "aertslab/RcisTarget","aertslab/AUCell","aertslab/cisTopic",
+  "SydneyBioX/scClustBench","SydneyBioX/scDC",
+  "immunogenomics/SCENT",
+  "jokergoo/circlize",
+  "pcahan1/singleCellNet",
+  "jinworks/CellChat",
+  "carmonalab/SignatuR",
+  "Zhen-Miao/PICsnATAC",
+  "Zhen-Miao/PACS",
+  "quadbio/Pando",
+  "buenrostrolab/FigR"
 )
 
 for (pkg in github_packages) {
@@ -122,18 +143,52 @@ log_dir <- "/opt/settings"
 if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE)
 write.csv(ip, file.path(log_dir, "installed_R_packages.csv"), row.names = FALSE)
 
-# Log GitHub remotes (commit SHAs if available)
+# ---- Log GitHub remotes (commit SHAs if available) ----
+# Some packages have no Remote* fields; never error on that.
+log_dir <- "/opt/settings"
+if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE)
+
+ip <- as.data.frame(installed.packages()[, c("Package","Version","Built")],
+                    stringsAsFactors = FALSE)
+write.csv(ip, file.path(log_dir, "installed_R_packages.csv"), row.names = FALSE)
+
+fields <- c("RemoteType","RemoteRepo","RemoteUsername","RemoteRef","RemoteSha")
+
 get_remote <- function(p) {
   d <- tryCatch(utils::packageDescription(p), error = function(e) NULL)
   if (is.null(d)) return(NULL)
-  fields <- c("RemoteType","RemoteRepo","RemoteUsername","RemoteRef","RemoteSha")
-  vals <- unlist(d[fields])
-  data.frame(Package = p, t(vals), stringsAsFactors = FALSE)
-}
-gh_list <- lapply(ip$Package, get_remote)
-gh_df <- do.call(rbind, gh_list)
-if (!is.null(gh_df)) {
-  write.csv(gh_df, file.path(log_dir, "installed_R_github_remotes.csv"), row.names = FALSE)
+  # always produce all columns; fill with NA when missing
+  vals <- vapply(fields,
+                 function(f) {
+                   x <- d[[f]]
+                   if (is.null(x)) NA_character_ else as.character(x)
+                 },
+                 FUN.VALUE = character(1),
+                 USE.NAMES = TRUE)
+  # one-row data.frame, ordered columns
+  out <- as.data.frame(as.list(vals), stringsAsFactors = FALSE, check.names = FALSE)
+  out$Package <- p
+  out[c("Package", fields)]
 }
 
-message("R package installation completed.")
+gh_list <- lapply(ip$Package, get_remote)
+gh_list <- Filter(Negate(is.null), gh_list)
+
+# Write an empty CSV with headers if nothing has Remote* metadata
+gh_df <- if (length(gh_list)) {
+  do.call(rbind, gh_list)
+} else {
+  data.frame(Package = character(),
+             RemoteType = character(),
+             RemoteRepo = character(),
+             RemoteUsername = character(),
+             RemoteRef = character(),
+             RemoteSha = character(),
+             check.names = FALSE)
+}
+
+# Never let logging break the build
+try(write.csv(gh_df, file.path(log_dir, "installed_R_github_remotes.csv"), row.names = FALSE),
+    silent = TRUE)
+
+message("R package installation completed and logs written.")
