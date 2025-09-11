@@ -1,0 +1,25 @@
+# ArchR variant built FROM the base image
+ARG BASE_IMAGE=scdock-r-dev:v0.4.0
+FROM ${BASE_IMAGE}
+
+ARG USER=devuser
+ENV ARCHR_LIB=/home/${USER}/R/archr-lib
+
+# Create dedicated ArchR library path and install ArchR + extras there (official recommendation)
+RUN R -q --vanilla -e 'dir.create(Sys.getenv("ARCHR_LIB"), recursive=TRUE, showWarnings=FALSE); .libPaths(c(Sys.getenv("ARCHR_LIB"), .libPaths())); if (!requireNamespace("devtools", quietly=TRUE)) install.packages("devtools", repos="https://cloud.r-project.org"); if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager", repos="https://cloud.r-project.org"); BiocManager::install(version = "3.20", ask = FALSE); devtools::install_github("GreenleafLab/ArchR", ref = "master", repos = BiocManager::repositories()); devtools::install_github("GreenleafLab/chromVARmotifs", ref = "master", repos = BiocManager::repositories()); library(ArchR); try(ArchR::installExtraPackages(), silent = TRUE)'
+
+# Ensure macs2 is available (compat with MACS3 if present)
+RUN set -eux; \
+  if command -v macs2 >/dev/null 2>&1; then \
+    echo "macs2 present"; \
+  elif command -v macs3 >/dev/null 2>&1; then \
+    ln -sf "$(command -v macs3)" /usr/local/bin/macs2; \
+  else \
+    echo "Warning: neither macs2 nor macs3 found on PATH"; \
+  fi
+
+# Convenience wrappers
+RUN printf '%s\n' '#!/usr/bin/env bash' 'unset USE_ARCHR' 'exec /opt/venvs/base/bin/radian "$@"' > /usr/local/bin/r-base && chmod +x /usr/local/bin/r-base && \
+    printf '%s\n' '#!/usr/bin/env bash' 'export USE_ARCHR=1' 'exec /opt/venvs/base/bin/radian "$@"' > /usr/local/bin/r-archr && chmod +x /usr/local/bin/r-archr
+
+

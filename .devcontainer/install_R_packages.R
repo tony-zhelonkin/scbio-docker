@@ -46,7 +46,7 @@ cran_packages <- c(
   "mbkmeans","mice","broom.mixed","remotes","Rcpp","RcppEigen","languageserver","hdf5r",
   "httpgd","ggrastr","networkD3","r2d3","Matrix","tidyverse","ggpubr","Cairo","imager",
   "lightgbm","rliger","splines","sleepwalk","singleCellHaystack","ClusterR","DDRTree",
-  "densityClust","stringi","WGCNA",
+  "densityClust","stringi","WGCNA","msigdbr",
   # ---- your requested additions ----
   "RcppML","GeneNMF","aricode","cluster","FNN"
 )
@@ -85,7 +85,7 @@ setRepositories(ind = 1:3, addURLs = c("https://satijalab.r-universe.dev", "http
 seurat_packages <- c("Seurat","BPCells","presto","glmGamPoi","Signac")
 safe_install(seurat_packages, install.packages)
 
-# ---- GitHub extras ----
+# ---- GitHub extras (non-ArchR) ----
 github_packages <- c(
   "renozao/xbioc",
 
@@ -93,9 +93,7 @@ github_packages <- c(
   "satijalab/seurat-data", "satijalab/azimuth", "satijalab/azimuth",
   "mojaveazure/seurat-disk",
 
-  # ArchR ecosystem
-  "GreenleafLab/ArchR@v1.0.3","GreenleafLab/chromVARmotifs",
-  # Epigenomics tools
+  # Epigenomics tools (ArchR is installed in ArchR image variant)
 
   # QC tools
   "powellgenomicslab/DropletQC",
@@ -132,10 +130,7 @@ for (pkg in github_packages) {
   }, silent = TRUE)
 }
 
-# ---- Optional ArchR extras ----
-if (requireNamespace("ArchR", quietly = TRUE)) {
-  try(ArchR::installExtraPackages(), silent = TRUE)
-}
+# ArchR extras are handled in the ArchR image variant
 
 # Log all installed packages (exact versions)
 ip <- as.data.frame(installed.packages()[, c("Package","Version","Built")], stringsAsFactors = FALSE)

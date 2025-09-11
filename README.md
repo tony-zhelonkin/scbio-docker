@@ -101,6 +101,16 @@ Rebuild and the image will restore via `renv::restore()` from the committed lock
 
 Tip: You can set a CRAN snapshot date with `RSPM_SNAPSHOT` (see `install_R_packages.R`) to reproduce historical CRAN states.
 
+#### Handling GitHub PAT (optional)
+- Export for the build session to avoid rate limits during GitHub installs:
+```bash
+export GITHUB_PAT=ghp_your_token_here
+```
+- Unset after builds if desired:
+```bash
+unset GITHUB_PAT
+```
+
 ### Python environments (base vs squid)
 
 Two venvs are preinstalled and fully resolved during the image build:
@@ -141,21 +151,18 @@ which python && python -V && pip list | head
 ```bash
 .
 ├── .devcontainer
-│   ├── devcontainer.back.json        # Backup devcontainer config (to be deleted in the next update)
-│   ├── devcontainer.json             # VS Code Remote Containers configuration (builds image)
-│   ├── Dockerfile                    # Backup/older Dockerfile (reference only)
+│   ├── devcontainer.json             # VS Code Remote Containers configuration (docker-compose)
+│   ├── docker-compose.yml            # Two services: base and archr
 │   ├── Dockerfile                    # Primary Dockerfile (builds R, Python envs, tools)
+│   ├── Dockerfile.archr              # ArchR variant (FROM base image)
 │   ├── install_quarto.sh             # Quarto installer
 │   ├── install_R_packages.R          # R packages (CRAN/Bioc/GitHub); used with renv
-│   └── .Rprofile                     # R profile tweaks/aliases
+│   └── .Rprofile                     # R profile (VS Code/httpgd; CRAN mirror; ArchR toggle)
 ├── .environments
 │   ├── base_requirements.txt         # Base Python environment
 │   └── squid_requirements.txt        # Alternative Python environment (squid)
-├── .git                              # Git versioning directory
-├── .gitignore
 ├── README.md                         # This README
-└── .vscode
-    └── settings.json                 # Example VS Code settings (R, radian, etc.)
+└── LICENCE.md
 ```
 
 - **`.devcontainer/Dockerfile`** is the primary Dockerfile for building R, Python envs, and CLI tools.
@@ -190,6 +197,20 @@ docker build . \
 - **`GITHUB_PAT`** (optional) is used to authenticate GitHub requests during R package installation (especially if you hit rate limits).
 - Adjust **R_VERSION_*** build arguments as needed to override the default R version. But beware the build was only tested by myself for the R 4.4.2, and some of the R libraries depend on R version no older than 4.3-4.4
 
+### Build the ArchR variant image
+
+```bash
+docker build /data1/users/antonz/pipeline/scbio-docker \
+  -f /data1/users/antonz/pipeline/scbio-docker/.devcontainer/Dockerfile.archr \
+  --build-arg BASE_IMAGE=scdock-r-dev:v0.4.0 \
+  -t scdock-r-archr:v0.4.0
+```
+
+Sanity check:
+
+```bash
+docker run --rm scdock-r-archr:v0.4.0 bash -lc 'whoami && R -q -e "packageVersion(\"ArchR\")"'
+```
 
 ## Typical Workflow for New Projects
 
@@ -205,48 +226,40 @@ After you’ve successfully built and tested your Docker image (e.g., `scdock-r-
    mkdir .devcontainer .vscode
    ```
 
-3. **Add a `devcontainer.json`** to `.devcontainer`. Below is a sample template that references the `scdock-r-dev:v0.4.0` image and mounts data directories read-only:
-   ```jsonc
-   // .devcontainer/devcontainer.json
-   {
-       "name": "Yasmine-RetroT",
-       "image": "scdock-r-dev:v0.4.0", 
-       "remoteUser": "devuser",
-       "containerUser": "devuser",
-       "runArgs": [
-           "--memory=58g",
-           "--cpus=9"
-       ],
-       "customizations": {
-           "vscode": {
-               "extensions": [
-                   // R Extensions
-                   "reditorsupport.r",
-                   //"rdebugger.r-debugger", // if nedeed
-                   
-                   // Documentation Extensions
-                   "purocean.drawio-preview",
-                   "yzhang.markdown-all-in-one",
-                   //"redhat.vscode-yaml", // if needed
-                   // //"quarto.quarto", // if needed
-                   
-                   // Docker Supporting Extensions
-                   "ms-azuretools.vscode-docker",
-                   "ms-vscode-remote.remote-containers",
-                   
-                   // Python Extensions
-                   "ms-python.python",
-                   //"ms-toolsai.jupyter" // Disabled if it causes lag
-               ]
-           }
-       },
-       "mounts": [
-           "source=/path/to/data/reads, target=/workspaces/project/0_Data/data, type=bind, readonly",
-           "source=/path/to/ref_genome/, target=/workspaces/project/0_Data/ref_genome,type=bind,readonly",
-       ],
-       "postStartCommand": "echo 'Hello World!' "
-   }
-   ```
+3. Use docker-compose with two services (base and archr). Use the same mounts on both services.
+
+```yaml
+# .devcontainer/docker-compose.yml
+version: "3.8"
+services:
+  base:
+    image: scdock-r-dev:v0.4.0
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    working_dir: /workspaces/project
+    volumes:
+      - ${WORKSPACE_FOLDER}:/workspaces/project
+      - /path/to/data:/workspaces/project/00_Data:ro
+  archr:
+    image: scdock-r-archr:v0.4.0
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    working_dir: /workspaces/project
+    volumes:
+      - ${WORKSPACE_FOLDER}:/workspaces/project
+      - /path/to/data:/workspaces/project/00_Data:ro
+```
+
+```jsonc
+// .devcontainer/devcontainer.json
+{
+  "name": "project",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "base",
+  "workspaceFolder": "/workspaces/project",
+  "customizations": { "vscode": { "extensions": [
+    "reditorsupport.r", "ms-vscode-remote.remote-containers", "ms-python.python"
+  ]}}
+}
+```
 
 4. **Add a `settings.json`** to `.vscode` to configure R settings, radian, etc.:
    ```jsonc
@@ -266,15 +279,104 @@ After you’ve successfully built and tested your Docker image (e.g., `scdock-r-
      ```
      >Dev Containers: Build & Attach
      ```
-   - Select the **Dev Container** you just defined.
+   - Select the **Dev Container** you just defined (service `base`).
+   - To switch to ArchR: change `service` to `archr` and Reopen in Container.
+   - Or run both services, then use “Dev Containers: Attach to Running Container” to attach a second VS Code window to `archr`.
 
-6. **Long-running tasks**: For tasks that must continue even if you disconnect (like heavy alignment or processing), you can use `tmux` inside the container:
+7. **Long-running tasks**: For tasks that must continue even if you disconnect (like heavy alignment or processing), you can use `tmux` inside the container:
    ```bash
    tmux new -s your_session_name
    # run your alignment/analysis steps
    # detach with Ctrl+B, then D
    ```
    This ensures your process remains running if your SSH or VS Code session is interrupted.
+
+---
+
+## Operating the images and containers
+
+### Manual runs (without VS Code)
+
+Base image:
+
+```bash
+docker run --rm -it \
+  -u $(id -u):$(id -g) \
+  -v /path/to/project:/workspaces/project \
+  -v /path/to/data:/workspaces/project/00_Data:ro \
+  --memory=450g --cpus=50 \
+  scdock-r-dev:v0.4.0 bash
+```
+
+ArchR image:
+
+```bash
+docker run --rm -it \
+  -u $(id -u):$(id -g) \
+  -v /path/to/project:/workspaces/project \
+  -v /path/to/data:/workspaces/project/00_Data:ro \
+  --memory=450g --cpus=50 \
+  scdock-r-archr:v0.4.0 bash
+```
+
+Inside the container:
+
+```bash
+# regular R (radian)
+r-base    # wrapper to start radian without ArchR toggle
+
+# ArchR session (uses separate ArchR library path)
+r-archr   # wrapper sets USE_ARCHR=1 then starts radian
+```
+
+If wrappers are not in PATH, toggle manually:
+
+```bash
+USE_ARCHR=1 radian
+```
+
+### Compose runs (without VS Code)
+
+From your project directory containing `.devcontainer/docker-compose.yml`:
+
+```bash
+export LOCAL_UID=$(id -u); export LOCAL_GID=$(id -g); export WORKSPACE_FOLDER=$PWD
+docker compose -f .devcontainer/docker-compose.yml up -d base
+# or
+docker compose -f .devcontainer/docker-compose.yml up -d archr
+```
+
+Enter a shell:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml exec base bash
+docker compose -f .devcontainer/docker-compose.yml exec archr bash
+```
+
+Stop:
+
+```bash
+docker compose -f .devcontainer/docker-compose.yml down
+```
+
+### Nextflow/nf-core style runtime
+
+```groovy
+profiles {
+  docker {
+    docker.enabled = true
+    docker.runOptions   = "-u ${System.env.NXF_UID ?: '1000'}:${System.env.NXF_GID ?: '1000'} -v /data2/nxf_tmp:/tmp"
+    docker.fixOwnership = true
+  }
+}
+```
+
+### Tips
+- VS Code: exclude heavy I/O paths in `.vscode/settings.json` to speed up indexing.
+- Reproducibility: commit `renv.lock` and enable the `COPY renv.lock` line in the Dockerfile.
+- MACS: MACS3 comes from Python; the ArchR image symlinks `macs2` if only `macs3` exists.
+- Cairo: R Cairo package optional; ArchR works without it (plots vectorized).
+- GSL: libgsl is installed in the base image.
 
 ---
 
@@ -326,7 +428,6 @@ See the [Dockerfile](./.devcontainer/Dockerfile) and [install_R_packages.R](./.d
 
 * R packages to be added 
 ```
-install.packages("msigdbr")
 install.packages('msigdbdf', repos = 'https://igordot.r-universe.dev')
 ```
 

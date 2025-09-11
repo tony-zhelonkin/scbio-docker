@@ -1,17 +1,8 @@
 {
     "name": "Single-Cell Dev",
-    "build": {
-        "dockerfile": "Dockerfile",
-        "context": ".",
-        "args": {
-            "VENV_NAME": "python3.10",
-            "R_VERSION_MAJOR": "4",
-            "R_VERSION_MINOR": "4",
-            "R_VERSION_PATCH": "2",
-            "CRAN_MIRROR": "https://cran.rstudio.com/",
-            "QUARTO_VER": "1.6.39"
-        }
-    },
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "base",
+    "workspaceFolder": "/workspaces/project",
     "settings": {
         "files.associations": {
             "*.Rmd": "rmd"
