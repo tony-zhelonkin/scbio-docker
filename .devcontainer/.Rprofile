@@ -1,10 +1,11 @@
 Sys.setenv(TERM_PROGRAM = "vscode")
-source(file.path(
-  Sys.getenv(
-    if (.Platform$OS.type == "windows") "USERPROFILE" else "HOME"
-  ),
-  ".vscode-R", "init.R"
-))
+if (interactive()) {
+  init <- file.path(
+    Sys.getenv(if (.Platform$OS.type == "windows") "USERPROFILE" else "HOME"),
+    ".vscode-R", "init.R"
+  )
+  if (file.exists(init)) try(source(init), silent = TRUE)
+}
 
 # Source: https://github.com/REditorSupport/vscode-R/wiki/Plot-viewer#svg-in-httpgd-webpage
 if (interactive() && Sys.getenv("TERM_PROGRAM") == "vscode") {
@@ -17,5 +18,6 @@ if (interactive() && Sys.getenv("TERM_PROGRAM") == "vscode") {
   }
 }
 
-# Set CRAN Mirror
-options(repos = Sys.getenv("CRAN_MIRROR"))
+# Set CRAN mirror with fallback
+local_mirror <- Sys.getenv("CRAN_MIRROR", unset = "https://cloud.r-project.org")
+options(repos = c(CRAN = local_mirror))
