@@ -1,6 +1,6 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.3-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.4.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code’s **Remote - Containers** extension, enabling seamless local or remote development against powerful server resources.
@@ -34,7 +34,7 @@ This repository contains Dockerfiles and configuration files for creating a **ve
 
 - **R** (v4.4.2) and comprehensive single-cell and genomic libraries (Seurat, ArchR, Bioconductor ecosystem, etc.).
 - **Python** (v3.10) with scientific libraries (NumPy, SciPy, Pandas, scVI, Scanpy, etc.).
-- Command-line tools (e.g., **bowtie2**, **chromap**, **samtools**, **bcftools**, **STAR**, **kallisto**, **salmon**, **bedtools**, **FastQC**, **Trimmomatic**, **Picard**, **Trim Galore**, **featureCounts**, **BWA**, and many more).
+- Command-line tools focused on epigenomics-friendly workflows: **samtools**, **bcftools**, **bedtools**, and selected extras (e.g., **scIBD** for scATAC doublet detection). Bulk aligners and pre-processing tools (STAR, BWA, Salmon, kallisto, Picard, FastQC/Trimmomatic, Trim Galore, featureCounts, etc.) are intentionally excluded to keep the image slim. Use pipeline-specific containers if you need them.
 
 The Docker setup is integrated with **VS Code Remote Containers** to streamline development on remote compute nodes—ideal for large-scale single-cell data processing.
 
@@ -44,9 +44,9 @@ The Docker setup is integrated with **VS Code Remote Containers** to streamline 
 
 - **R** with a rich set of CRAN and Bioconductor packages for single-cell and bulk RNA-seq analysis.
 - **Python** environment (virtualenv) preloaded with popular data science packages, single-cell toolkits, and epigenomics libraries.
-- **CLI Tools** for alignment, quality control, and post-processing (STAR, bowtie2, bcftools, samtools, salmon, etc.).
+- **CLI Tools** focused on downstream and epigenomics analysis (samtools, bcftools, bedtools) plus **scIBD**. Heavy aligners and trimming/QC tools are excluded to reduce image size.
 - **Quarto** for R Markdown, Jupyter, and scientific documentation workflows.
-- **Automated Build** process (via Dockerfile.dev) including compilation of R, specialized R packages, and Python requirements.
+- **Automated Build** process (via .devcontainer/Dockerfile) including compilation of R, specialized R packages, and Python requirements.
 - **VS Code** integration with recommended extensions for R, Python, Docker, Markdown, and more.
 
 ---
@@ -55,18 +55,18 @@ The Docker setup is integrated with **VS Code Remote Containers** to streamline 
 
 ### Building the image (with renv snapshot)
 
-From the repository root:
+From the repository root (non-root runtime, nf-core style UID/GID passthrough baked in):
 
 ```bash
 # First build: installs R packages and snapshots with renv
 docker build . \
-  -f .devcontainer/Dockerfile.dev \
+  -f .devcontainer/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg USER=$USER \
   --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.3
+  -t scdock-r-dev:v0.4.0
 ```
 
 - GITHUB_PAT is optional but recommended to avoid GitHub API rate limits during R package installs.
@@ -82,7 +82,7 @@ docker build . \
 - After the first successful build, extract and commit the lock and manifest:
 
 ```bash
-CID=$(docker create scdock-r-dev:v0.3)
+CID=$(docker create scdock-r-dev:v0.4.0)
 docker cp $CID:/opt/settings/renv.lock ./renv.lock
 docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
 docker rm $CID
@@ -91,7 +91,7 @@ git add renv.lock R-packages-manifest.csv
 git commit -m "Pin R via renv; add manifest"
 ```
 
-- Deterministic builds thereafter: uncomment the lock copy in `.devcontainer/Dockerfile.dev`:
+- Deterministic builds thereafter: uncomment the lock copy in `.devcontainer/Dockerfile`:
 
 ```Dockerfile
 # COPY renv.lock /opt/settings/renv.lock
@@ -131,7 +131,7 @@ which python && python -V && pip list | head
 
 - R: renv.lock (commit it; enable restore via `COPY renv.lock /opt/settings/renv.lock`).
 - Python: `.environments/*.txt` (pin versions there and commit).
-- CLI tools: pinned by explicit versions/tags in `.devcontainer/Dockerfile.dev`.
+- CLI tools: pinned by explicit versions/tags in `.devcontainer/Dockerfile`.
 - Image: tag builds explicitly (e.g., `-t scdock-r-dev:v0.3`).
 
 ---
@@ -144,7 +144,7 @@ which python && python -V && pip list | head
 │   ├── devcontainer.back.json        # Backup devcontainer config (to be deleted in the next update)
 │   ├── devcontainer.json             # VS Code Remote Containers configuration (builds image)
 │   ├── Dockerfile                    # Backup/older Dockerfile (reference only)
-│   ├── Dockerfile.dev                # Primary Dockerfile (builds R, Python envs, tools)
+│   ├── Dockerfile                    # Primary Dockerfile (builds R, Python envs, tools)
 │   ├── install_quarto.sh             # Quarto installer
 │   ├── install_R_packages.R          # R packages (CRAN/Bioc/GitHub); used with renv
 │   └── .Rprofile                     # R profile tweaks/aliases
@@ -158,7 +158,7 @@ which python && python -V && pip list | head
     └── settings.json                 # Example VS Code settings (R, radian, etc.)
 ```
 
-- **`.devcontainer/Dockerfile.dev`** is the primary Dockerfile for building R, Python envs, and CLI tools.
+- **`.devcontainer/Dockerfile`** is the primary Dockerfile for building R, Python envs, and CLI tools.
 - **`.devcontainer/install_R_packages.R`** installs R/Bioconductor/GitHub packages; paired with `renv` for pinning.
 - **`.environments/*.txt`** are the two Python requirement sets installed into separate venvs inside the image.
 
@@ -179,7 +179,7 @@ From the root of this repository, run:
 
 ```bash
 docker build . \
-    -f ./.devcontainer/Dockerfile.dev \
+    -f ./.devcontainer/Dockerfile \
     --build-arg GITHUB_PAT=<your_github_pat> \
     --build-arg R_VERSION_MAJOR=4 \
     --build-arg R_VERSION_MINOR=4 \
@@ -205,12 +205,14 @@ After you’ve successfully built and tested your Docker image (e.g., `scdock-r-
    mkdir .devcontainer .vscode
    ```
 
-3. **Add a `devcontainer.json`** to `.devcontainer`. Below is a sample template that references the `scdock-r-dev:v0.2` image and mounts data directories read-only:
+3. **Add a `devcontainer.json`** to `.devcontainer`. Below is a sample template that references the `scdock-r-dev:v0.4.0` image and mounts data directories read-only:
    ```jsonc
    // .devcontainer/devcontainer.json
    {
        "name": "Yasmine-RetroT",
-       "image": "scdock-r-dev:v0.2", 
+       "image": "scdock-r-dev:v0.4.0", 
+       "remoteUser": "devuser",
+       "containerUser": "devuser",
        "runArgs": [
            "--memory=58g",
            "--cpus=9"
@@ -252,7 +254,7 @@ After you’ve successfully built and tested your Docker image (e.g., `scdock-r-
    {
        "r.alwaysUseActiveTerminal": true,
        "r.bracketedPaste": true,
-       "r.rterm.linux": "/usr/local/bin/radian",
+       "r.rterm.linux": "/opt/venvs/base/bin/radian",
        "r.sessionWatcher": true,
        "r.plot.useHttpgd": true,
        "r.lsp.diagnostics": false
@@ -290,11 +292,11 @@ After you’ve successfully built and tested your Docker image (e.g., `scdock-r-
 
 3. **System Tools** 
    - Compiler toolchain, Java, TeX packages, etc. (for building R from source and generating PDFs).
-   - Common NGS tools: **bowtie2**, **STAR**, **samtools**, **bcftools**, **salmon**, **bedtools**, **bwa**, **FastQC**, **Trimmomatic**, **Picard**, **featureCounts**, **Trim Galore**, etc.
+   - Epigenomics-oriented CLI: **samtools**, **bcftools**, **bedtools**, and **scIBD**; heavy aligners and trimming/QC tools are intentionally excluded for a slim image.
 
 4. **Quarto** for rendering R Markdown, Jupyter Notebooks, and other scientific documents.
 
-See the [Dockerfile.dev](./.devcontainer/Dockerfile.dev) and [install_R_packages.R](./.devcontainer/install_R_packages.R) for full details on what gets installed.
+See the [Dockerfile](./.devcontainer/Dockerfile) and [install_R_packages.R](./.devcontainer/install_R_packages.R) for full details on what gets installed.
 
 ---
 
@@ -310,7 +312,7 @@ See the [Dockerfile.dev](./.devcontainer/Dockerfile.dev) and [install_R_packages
    If you see error messages about rate limits or missing Git credentials, try setting a GitHub PAT:  
    ```bash
    docker build . \
-       -f ./.devcontainer/Dockerfile.dev \
+       -f ./.devcontainer/Dockerfile \
        --build-arg GITHUB_PAT=<your_github_pat> \
        -t scdock-r-dev:latest
    ```
