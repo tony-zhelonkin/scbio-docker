@@ -36,7 +36,6 @@ scanpy==1.10.4
 scvi-tools==1.2.0
 cellrank==2.0.6
 scvelo==0.3.2
-snapatac2==2.7.1
 scrublet==0.2.3
 harmony-pytorch
 scib==1.1.5

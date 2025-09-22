@@ -1,0 +1,5 @@
+# ATAC-specific environment (kept separate to avoid pandas pin conflicts)
+snapatac2==2.7.1
+kaleido
+multiprocess
+pyarrow

@@ -46,7 +46,7 @@ cran_packages <- c(
   "mbkmeans","mice","broom.mixed","remotes","Rcpp","RcppEigen","languageserver","hdf5r",
   "httpgd","ggrastr","networkD3","r2d3","Matrix","tidyverse","ggpubr","Cairo","imager",
   "lightgbm","rliger","splines","sleepwalk","singleCellHaystack","ClusterR","DDRTree",
-  "densityClust","stringi","WGCNA","msigdbr",
+  "densityClust","stringi","WGCNA","msigdbr","RhpcBLASctl","parallelly",
   # ---- your requested additions ----
   "RcppML","GeneNMF","aricode","cluster","FNN"
 )
@@ -64,7 +64,7 @@ try(install.packages('https://cran.r-project.org/src/contrib/Archive/locfit/locf
 bioc_packages <- c(
   "scran","txdbmaker","dittoSeq","impute","SingleR","celldex","preprocessCore",
   "GenomicRanges","GenomeInfoDb","DESeq2","Rsamtools","S4Vectors","IRanges",
-  "BiocParallel","DelayedArray","biovizBase","SoupX","scater","scDblFinder","scry",
+  "BiocParallel","DelayedArray","biovizBase","SoupX","scater","scDblFinder","scry","muscat",
   "zellkonverter","SingleCellExperiment","ComplexHeatmap","tidySingleCellExperiment",
   "BiocGenerics","DelayedMatrixStats","limma","SummarizedExperiment","batchelor",
   "HDF5Array","terra","Gviz","rtracklayer","chromVAR","scmap","DOSE","pathview",
@@ -81,7 +81,9 @@ bioc_packages <- c(
 safe_install(bioc_packages, BiocManager::install, ask = FALSE, update = FALSE)
 
 # ---- Seurat ecosystem ----
-setRepositories(ind = 1:3, addURLs = c("https://satijalab.r-universe.dev", "https://bnprks.r-universe.dev/"))
+# Ensure repositories are named; renv requires names on repos entries
+setRepositories(ind = 1:3, addURLs = c(satijalab = "https://satijalab.r-universe.dev",
+                                       bnprks    = "https://bnprks.r-universe.dev/"))
 seurat_packages <- c("Seurat","BPCells","presto","glmGamPoi","Signac")
 safe_install(seurat_packages, install.packages)
 
