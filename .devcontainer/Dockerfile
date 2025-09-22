@@ -229,6 +229,9 @@ RUN set -eux; \
 # Install Quarto
 RUN bash /opt/settings/install_quarto.sh $QUARTO_VER
 
+# Ensure renv project is initialized outside of any home dir
+WORKDIR /opt/settings
+
 # Install renv and then either:
 #  - restore from lockfile if present, OR
 #  - run your installer and snapshot to create /opt/settings/renv.lock
@@ -244,13 +247,13 @@ RUN bash /opt/settings/install_quarto.sh $QUARTO_VER
 # was: R -q -e 'install.packages("renv", ...)'
 # and:  R -q -e 'if (file.exists("/opt/settings/renv.lock")) { ... }'
 RUN R -q --vanilla -e 'install.packages("renv", repos="https://cloud.r-project.org")' && \
-    R -q --vanilla -e 'if (file.exists("/opt/settings/renv.lock")) { \
-                         renv::init(bare = TRUE); \
-                         renv::restore(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+    R -q --vanilla -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); if (file.exists("/opt/settings/renv.lock")) { \
+                         renv::init(project = "/opt/settings", bare = TRUE); \
+                         renv::restore(project = "/opt/settings", lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
                        } else { \
                          source("/opt/settings/install_R_packages.R"); \
-                         renv::init(bare = TRUE); \
-                         renv::snapshot(lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
+                         renv::init(project = "/opt/settings", bare = TRUE); \
+                         renv::snapshot(project = "/opt/settings", lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
                        }'
 
 # Human-readable manifest of installed packages (helps auditing outside renv)
@@ -267,9 +270,10 @@ RUN R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","L
 ENV PIP_NO_CACHE_DIR=1 \
     VIRTUALENV_WRAPPER=/opt/venvs
 
-# Create both venvs
+# Create venvs
 RUN python3 -m venv /opt/venvs/base && \
-    python3 -m venv /opt/venvs/squid
+    python3 -m venv /opt/venvs/squid && \
+    python3 -m venv /opt/venvs/atac
 
 # Upgrade pip & install requirements into each
 RUN /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
@@ -277,6 +281,10 @@ RUN /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && 
 
 RUN /opt/venvs/squid/bin/python -m pip install --upgrade pip setuptools wheel && \
     /opt/venvs/squid/bin/python -m pip install -r /opt/environments/squid_requirements.txt
+
+# ATAC env (snapatac2 and friends isolated)
+RUN /opt/venvs/atac/bin/python -m pip install --upgrade pip setuptools wheel && \
+    /opt/venvs/atac/bin/python -m pip install -r /opt/environments/atac_requirements.txt
 
 # Default to the "base" venv on PATH; easy to switch later
 ENV PATH="/opt/venvs/base/bin:${PATH}"
@@ -291,8 +299,12 @@ RUN printf '%s\n' \
   'source /opt/venvs/squid/bin/activate && exec "$@"' \
   > /usr/local/bin/py-squid && chmod +x /usr/local/bin/py-squid && \
   printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'source /opt/venvs/atac/bin/activate && exec "$@"' \
+  > /usr/local/bin/py-atac && chmod +x /usr/local/bin/py-atac && \
+  printf '%s\n' \
   '# usage: usepy base|squid' \
-  'usepy(){ case "$1" in base) . /opt/venvs/base/bin/activate ;; squid) . /opt/venvs/squid/bin/activate ;; *) echo "usepy base|squid"; return 1;; esac; }' \
+  'usepy(){ case "$1" in base) . /opt/venvs/base/bin/activate ;; squid) . /opt/venvs/squid/bin/activate ;; atac) . /opt/venvs/atac/bin/activate ;; *) echo "usepy base|squid|atac"; return 1;; esac; }' \
   >> /etc/bash.bashrc
 
 #   RUN pip3 install setuptools wheel 
