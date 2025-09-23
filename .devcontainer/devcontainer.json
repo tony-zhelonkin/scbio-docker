@@ -28,5 +28,5 @@
             ]
         }
     },
-    "postStartCommand": "echo 'usepy base (default) or usepy squid to switch envs' && python -V && R --version | head -n 1"
+    "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh'"
 }

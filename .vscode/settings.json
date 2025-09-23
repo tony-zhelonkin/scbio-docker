@@ -1,7 +1,16 @@
 {
-    "r.alwaysUseActiveTerminal": true,
-    "r.bracketedPaste": true,
-    "r.sessionWatcher": true,
-    "r.plot.useHttpgd": true,
-    "r.lsp.diagnostics": false
+  "python.defaultInterpreterPath": "/opt/venvs/base/bin/python",
+  "python.terminal.launchArgs": [],
+  "python.REPL.enableREPLSmartSend": true,
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.runInDedicatedTerminal": true,
+  "python.terminal.executeInFileDir": true,
+  "terminal.integrated.bracketedPasteMode": true,
+
+  "r.alwaysUseActiveTerminal": true,
+  "r.bracketedPaste": true,
+  "r.rterm.linux": "/usr/local/bin/radian",
+  "r.sessionWatcher": true,
+  "r.plot.useHttpgd": true,
+  "r.lsp.diagnostics": false
 }
