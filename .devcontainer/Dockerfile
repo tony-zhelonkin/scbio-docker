@@ -206,6 +206,10 @@ RUN ./configure ${CONFIGURE_OPTIONS} && \
     make && \
     make install
 
+## Ensure a site-wide CRAN mirror for non-interactive installs
+RUN mkdir -p /etc/R && \
+    bash -lc "printf '%s\n' 'options(repos=c(CRAN="https://cloud.r-project.org"))' > /etc/R/Rprofile.site"
+
 RUN locale-gen en_US.UTF-8
 WORKDIR /root
 # Put settings & scripts somewhere stable

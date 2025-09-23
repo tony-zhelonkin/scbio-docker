@@ -157,6 +157,7 @@ which python && python -V && pip list | head
 │   ├── docker-compose.yml            # Two services: base and archr
 │   ├── Dockerfile                    # Primary Dockerfile (builds R, Python envs, tools)
 │   ├── Dockerfile.archr              # ArchR variant (FROM base image)
+│   ├── install_R_archr.R             # Dedicated ArchR installer (isolated lib)
 │   ├── install_quarto.sh             # Quarto installer
 │   ├── install_R_packages.R          # R packages (CRAN/Bioc/GitHub); used with renv
 │   └── .Rprofile                     # R profile (VS Code/httpgd; CRAN mirror; ArchR toggle)
@@ -329,6 +330,12 @@ r-base    # wrapper to start radian without ArchR toggle
 
 # ArchR session (uses separate ArchR library path)
 r-archr   # wrapper sets USE_ARCHR=1 then starts radian
+
+# Manual toggle (if wrappers unavailable)
+export USE_ARCHR=1
+radian
+
+Note: ArchR and its extras are installed into a separate R library path (ARCHR_LIB, default ~/R/archr-lib). With USE_ARCHR=1, this path is prepended to .libPaths(), so ArchR’s versions take precedence without altering the base R library.
 ```
 
 If wrappers are not in PATH, toggle manually:
@@ -379,6 +386,15 @@ profiles {
 - MACS: MACS3 comes from Python; the ArchR image symlinks `macs2` if only `macs3` exists.
 - Cairo: R Cairo package optional; ArchR works without it (plots vectorized).
 - GSL: libgsl is installed in the base image.
+
+### Engineering notes (Dev Container robustness)
+- `.Rprofile` is safe and interactive-only; it checks for `~/.vscode-R/init.R` and enables httpgd only inside VS Code. This prevents crashes during non-interactive installs.
+- A site-wide CRAN mirror is set at `/etc/R/Rprofile.site`, so scripted installs never see `@CRAN@`.
+- When invoking R in automated steps, the build uses `R --vanilla` and explicit repos to avoid reading user/site profiles unexpectedly.
+- For any postCreate scripts you add later, prefer:
+  ```bash
+  R_PROFILE_USER=/dev/null R_ENVIRON_USER=/dev/null Rscript --vanilla your_script.R
+  ```
 
 ---
 

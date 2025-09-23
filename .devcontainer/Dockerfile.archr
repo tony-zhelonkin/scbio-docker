@@ -5,8 +5,9 @@ FROM ${BASE_IMAGE}
 ARG USER=devuser
 ENV ARCHR_LIB=/home/${USER}/R/archr-lib
 
-# Create dedicated ArchR library path and install ArchR + extras there (official recommendation)
-RUN R -q --vanilla -e 'dir.create(Sys.getenv("ARCHR_LIB"), recursive=TRUE, showWarnings=FALSE); .libPaths(c(Sys.getenv("ARCHR_LIB"), .libPaths())); if (!requireNamespace("devtools", quietly=TRUE)) install.packages("devtools", repos="https://cloud.r-project.org"); if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager", repos="https://cloud.r-project.org"); BiocManager::install(version = "3.20", ask = FALSE); devtools::install_github("GreenleafLab/ArchR", ref = "master", repos = BiocManager::repositories()); devtools::install_github("GreenleafLab/chromVARmotifs", ref = "master", repos = BiocManager::repositories()); library(ArchR); try(ArchR::installExtraPackages(), silent = TRUE)'
+# Install ArchR via a dedicated script for readability/maintainability
+COPY .devcontainer/install_R_archr.R /opt/settings/install_R_archr.R
+RUN R -q --vanilla -f /opt/settings/install_R_archr.R
 
 # Ensure macs2 is available (compat with MACS3 if present)
 RUN set -eux; \
