@@ -115,7 +115,10 @@ github_packages <- c(
   "Zhen-Miao/PICsnATAC",
   "Zhen-Miao/PACS",
   "quadbio/Pando",
-  "buenrostrolab/FigR"
+  "buenrostrolab/FigR",
+  # Integration/IO helpers
+  "pmbio/MuDataSeurat",
+  "cellgeni/sceasy"
 )
 
 for (pkg in github_packages) {

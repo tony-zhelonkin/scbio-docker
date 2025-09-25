@@ -142,6 +142,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     libxt-dev \
     libtbb-dev \
+    libtbb12 \
     libzmq3-dev \
     libudunits2-dev \
     libgdal-dev \
@@ -277,7 +278,8 @@ ENV PIP_NO_CACHE_DIR=1 \
 # Create venvs
 RUN python3 -m venv /opt/venvs/base && \
     python3 -m venv /opt/venvs/squid && \
-    python3 -m venv /opt/venvs/atac
+    python3 -m venv /opt/venvs/atac && \
+    python3 -m venv /opt/venvs/comms
 
 # Upgrade pip & install requirements into each
 RUN /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
@@ -289,6 +291,10 @@ RUN /opt/venvs/squid/bin/python -m pip install --upgrade pip setuptools wheel &&
 # ATAC env (snapatac2 and friends isolated)
 RUN /opt/venvs/atac/bin/python -m pip install --upgrade pip setuptools wheel && \
     /opt/venvs/atac/bin/python -m pip install -r /opt/environments/atac_requirements.txt
+
+# COMMS env (communication inference, GRN, LR tools)
+RUN /opt/venvs/comms/bin/python -m pip install --upgrade pip setuptools wheel && \
+    /opt/venvs/comms/bin/python -m pip install -r /opt/environments/comms_requirements.txt
 
 # Default to the "base" venv on PATH; easy to switch later
 ENV PATH="/opt/venvs/base/bin:${PATH}"
@@ -307,8 +313,12 @@ RUN printf '%s\n' \
   'source /opt/venvs/atac/bin/activate && exec "$@"' \
   > /usr/local/bin/py-atac && chmod +x /usr/local/bin/py-atac && \
   printf '%s\n' \
-  '# usage: usepy base|squid' \
-  'usepy(){ case "$1" in base) . /opt/venvs/base/bin/activate ;; squid) . /opt/venvs/squid/bin/activate ;; atac) . /opt/venvs/atac/bin/activate ;; *) echo "usepy base|squid|atac"; return 1;; esac; }' \
+  '#!/usr/bin/env bash' \
+  'source /opt/venvs/comms/bin/activate && exec "$@"' \
+  > /usr/local/bin/py-comms && chmod +x /usr/local/bin/py-comms && \
+  printf '%s\n' \
+  '# usage: usepy base|squid|atac|comms' \
+  'usepy(){ case "$1" in base) . /opt/venvs/base/bin/activate ;; squid) . /opt/venvs/squid/bin/activate ;; atac) . /opt/venvs/atac/bin/activate ;; comms) . /opt/venvs/comms/bin/activate ;; *) echo "usepy base|squid|atac|comms"; return 1;; esac; }' \
   >> /etc/bash.bashrc
 
 #   RUN pip3 install setuptools wheel 

@@ -122,6 +122,7 @@ Default PATH uses the base venv. Switch interactively inside the container:
 ```bash
 usepy squid      # switch shell to squid env
 usepy atac       # switch shell to ATAC env (snapatac2)
+usepy comms      # switch shell to COMMS env (LR/GRN)
 usepy base       # switch back to base env
 ```
 
@@ -130,6 +131,7 @@ One-off commands under a specific env:
 ```bash
 py-squid python -V
 py-atac python -V
+py-comms python -V
 py-base python -V
 ```
 
