@@ -21,9 +21,6 @@ Cython==0.29.32
 pybedtools==0.10.0
 pyBigWig==0.3.23
 
-# Feature counters
-TEtranscripts==2.2.3
-
 # Visualization Libraries
 matplotlib
 seaborn
@@ -45,9 +42,13 @@ muon==0.1.7
 # Trajectory & additional tools
 monod
 
+# DA/composition and factorization extras
+sccoda
+cnmf
+
 # Epigenomics 
 MACS3==3.0.2
-episcanpy==0.4.0
+
 deeptools
 
 # Network Analysis
@@ -71,5 +72,3 @@ anndata2ri==1.3.2
 # Differential expression / activity inference (Python)
 decoupler
 pydeseq2
-
-# (moved to squid venv)

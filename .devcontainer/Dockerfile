@@ -44,9 +44,8 @@ ENV QUARTO_VER=$QUARTO_VER
 ENV CONFIGURE_OPTIONS="--with-cairo --with-jpeglib --enable-R-shlib --with-blas --with-lapack"
 ENV CRAN_MIRROR=$CRAN_MIRROR
 
-# GitHub API key
+# GitHub token (build arg only; not persisted in final image)
 ARG GITHUB_PAT
-ENV GITHUB_PAT=$GITHUB_PAT
 
 
 ############################
@@ -180,6 +179,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ftp \
     xvfb \
+    tree \
     \
     # TeX support
     texinfo \
@@ -216,6 +216,8 @@ WORKDIR /root
 # Put settings & scripts somewhere stable
 RUN mkdir -p /opt/settings
 COPY .devcontainer/install_R_packages.R /opt/settings/install_R_packages.R
+COPY .devcontainer/install_renv_project.R /opt/settings/install_renv_project.R
+COPY .devcontainer/install_httpgd.R /opt/settings/install_httpgd.R
 COPY .devcontainer/install_quarto.sh /opt/settings/install_quarto.sh
 COPY .devcontainer/.Rprofile /root/
 RUN mkdir -p /root/.vscode-R && echo '# VS Code R init (placeholder)' > /root/.vscode-R/init.R
@@ -251,19 +253,14 @@ WORKDIR /opt/settings
 #              }'
 # was: R -q -e 'install.packages("renv", ...)'
 # and:  R -q -e 'if (file.exists("/opt/settings/renv.lock")) { ... }'
-RUN R -q --vanilla -e 'install.packages("renv", repos="https://cloud.r-project.org")' && \
-    R -q --vanilla -e 'options(repos = c(CRAN = "https://cloud.r-project.org")); if (file.exists("/opt/settings/renv.lock")) { \
-                         renv::init(project = "/opt/settings", bare = TRUE); \
-                         renv::restore(project = "/opt/settings", lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
-                       } else { \
-                         source("/opt/settings/install_R_packages.R"); \
-                         renv::init(project = "/opt/settings", bare = TRUE); \
-                         renv::snapshot(project = "/opt/settings", lockfile = "/opt/settings/renv.lock", prompt = FALSE); \
-                       }'
+RUN GITHUB_PAT="${GITHUB_PAT}" R -q --vanilla -f /opt/settings/install_renv_project.R
 
-# Human-readable manifest of installed packages (helps auditing outside renv)
+# Manifest of installed packages
 RUN R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","LibPath")]); \
              write.csv(pk, "/opt/settings/R-packages-manifest.csv", row.names = FALSE)'
+
+# Ensure httpgd is installed (CRAN first, GitHub fallback), without persisting tokens
+RUN R -q --vanilla -f /opt/settings/install_httpgd.R || true
 
 #########################
 ### Step 6: Pip installs
@@ -320,6 +317,18 @@ RUN printf '%s\n' \
   '# usage: usepy base|squid|atac|comms' \
   'usepy(){ case "$1" in base) . /opt/venvs/base/bin/activate ;; squid) . /opt/venvs/squid/bin/activate ;; atac) . /opt/venvs/atac/bin/activate ;; comms) . /opt/venvs/comms/bin/activate ;; *) echo "usepy base|squid|atac|comms"; return 1;; esac; }' \
   >> /etc/bash.bashrc
+
+# Convenience wrappers for R sessions (base vs ArchR library path)
+RUN printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'unset USE_ARCHR' \
+  'exec /opt/venvs/base/bin/radian "$@"' \
+  > /usr/local/bin/r-base && chmod +x /usr/local/bin/r-base && \
+  printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'export USE_ARCHR=1' \
+  'exec /opt/venvs/base/bin/radian "$@"' \
+  > /usr/local/bin/r-archr && chmod +x /usr/local/bin/r-archr
 
 #   RUN pip3 install setuptools wheel 
 #   RUN pip3 install numpy scipy pandas

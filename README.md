@@ -160,6 +160,8 @@ which python && python -V && pip list | head
 │   ├── Dockerfile                    # Primary Dockerfile (builds R, Python envs, tools)
 │   ├── Dockerfile.archr              # ArchR variant (FROM base image)
 │   ├── install_R_archr.R             # Dedicated ArchR installer (isolated lib)
+│   ├── install_renv_project.R        # Clean renv init/restore runner
+│   ├── install_httpgd.R              # httpgd install (CRAN-first, GitHub-fallback)
 │   ├── install_quarto.sh             # Quarto installer
 │   ├── install_R_packages.R          # R packages (CRAN/Bioc/GitHub); used with renv
 │   └── .Rprofile                     # R profile (VS Code/httpgd; CRAN mirror; ArchR toggle)
@@ -173,6 +175,73 @@ which python && python -V && pip list | head
 - **`.devcontainer/Dockerfile`** is the primary Dockerfile for building R, Python envs, and CLI tools.
 - **`.devcontainer/install_R_packages.R`** installs R/Bioconductor/GitHub packages; paired with `renv` for pinning.
 - **`.environments/*.txt`** are the two Python requirement sets installed into separate venvs inside the image.
+
+---
+
+## Architecture: Compose vs Dev Containers and the Image Stack
+
+This repo supports two ways to run your development environment:
+
+- Dev Containers with a single image (simple): `devcontainer.json` uses an `image:` directly.
+- Dev Containers with Docker Compose (multi-service): `devcontainer.json` references `docker-compose.yml` and selects a `service:`.
+
+Role of `.devcontainer/docker-compose.yml`:
+- Defines two services that both mount the same workspace and run as your UID/GID:
+  - `dev-core`: uses image `scdock-r-dev` (R+Python baseline)
+  - `dev-archr`: uses image `scdock-r-archr` (adds ArchR in isolated R library)
+- Bring up either or both containers, attach VS Code to one, and keep mounts/permissions consistent.
+
+How this aligns with a single-image `devcontainer.json`:
+- Instead of specifying `"image": "scdock-r-dev:…"`, you set:
+  - `"dockerComposeFile": ".devcontainer/docker-compose.yml"`
+  - `"service": "dev-archr"` (recommended default) or `"dev-core"`
+- VS Code then starts the chosen service container with the same mounts. Switch by changing `service` or attach to the running container.
+
+Image lineage (Docker layering; not an image-inside-image):
+
+```text
+ubuntu:22.04
+  └─ scdock-r-dev:v0.4.1 (.devcontainer/Dockerfile)
+       • System deps, R 4.4.2 built from source
+       • R packages via install_R_packages.R, pinned with renv by install_renv_project.R
+       • Python venvs: /opt/venvs/{base,squid,atac,comms} from .environments/*.txt
+       • CLI tools (samtools/bcftools/bedtools), Quarto
+       • Wrappers: usepy, py-*, r-base, r-archr
+       • httpgd installed via install_httpgd.R (CRAN-first, GitHub-fallback)
+
+  └─ scdock-r-archr:v0.4.1 (.devcontainer/Dockerfile.archr; FROM scdock-r-dev:v0.4.1)
+       • install_R_archr.R installs ArchR into ARCHR_LIB (separate R lib path)
+       • Ensures macs2 compatibility (symlink if only macs3 exists)
+       • Uses same r-base/r-archr wrappers (r-archr sets USE_ARCHR=1)
+```
+
+Runtime hooks and interop:
+- `.Rprofile` (interactive-only): enables httpgd in VS Code; prepends `ARCHR_LIB` to `.libPaths()` when `USE_ARCHR=1`.
+- `poststart_sanity.sh`: OK/NOT OK for Python, R, httpgd, Scanpy, default venv.
+- Radian wrappers: `r-base` (base libs) and `r-archr` (sets `USE_ARCHR=1`).
+
+Compose + Dev Containers flow (when using compose):
+
+```text
+Host VS Code
+  └─ devcontainer.json
+       └─ dockerComposeFile -> .devcontainer/docker-compose.yml
+            ├─ service: dev-core  -> container from scdock-r-dev:v0.4.1
+            └─ service: dev-archr -> container from scdock-r-archr:v0.4.1
+
+Inside scdock-r-dev:
+  - install_renv_project.R  (renv init/restore or snapshot)
+  - install_httpgd.R        (httpgd install with fallback)
+  - install_R_packages.R    (package set used by renv on first build)
+  - Python venv setup       (base/squid/atac/comms)
+  - poststart_sanity.sh     (run at container start)
+```
+
+When to prefer compose:
+- You want both `base` and `archr` containers available with identical mounts/UIDs.
+- You want to switch VS Code between them by toggling `service` or attaching to a running container.
+
+If you prefer the simpler flow, keep using a single-image `devcontainer.json`. Compose is optional but convenient for multi-variant setups.
 
 ---
 
@@ -258,7 +327,7 @@ services:
 {
   "name": "project",
   "dockerComposeFile": "docker-compose.yml",
-  "service": "base",
+  "service": "dev-archr",
   "workspaceFolder": "/workspaces/project",
   "customizations": { "vscode": { "extensions": [
     "reditorsupport.r", "ms-vscode-remote.remote-containers", "ms-python.python"
@@ -564,8 +633,73 @@ rpy2==3.5.17
 anndata2ri==1.3.2
 ```
 
+---
 
+## Working with shared code inside the container
 
+For shared code I used to mount its external Git repo inside the container, and tracked changes of shared code separately. This works, but there are more maintainable options. Below are three patterns, from most recommended to situational.
+
+### 1) Git submodule (recommended)
+Keep shared code as a submodule within your project tree. Benefits: pins an exact commit per project, single Git workflow from VS Code, no separate mounts.
+
+Add the submodule:
+```bash
+cd /scratch/current/antonz/projects/13036-DM_DMlab_summer_2025
+git submodule add git@github.com:tony-zhelonkin/R_GSEA_visualisations.git 01_Scripts/shared
+```
+
+Daily usage:
+```bash
+# Parent repo (your analysis project)
+git status
+# If the submodule commit changed, parent sees it as modified
+
+# Work inside the submodule itself
+cd 01_Scripts/shared
+git checkout main
+git pull                 # or edit, commit, push here
+# After changes:
+cd ../..
+git add 01_Scripts/shared
+git commit -m "Update shared scripts to latest"
+git push
+```
+
+Cloning a project with submodules:
+```bash
+git clone --recurse-submodules <your-project-repo>
+# or
+git clone <your-project-repo>
+cd <repo>
+git submodule init && git submodule update
+```
+
+VS Code devcontainer: nothing special required; the submodule lives inside the workspace and is tracked by the parent repo. Use it like any folder in `01_Scripts/shared`.
+
+### 2) R package for shared code
+If the shared code becomes stable and broadly reused, convert it to an R package for cleaner dependency management and versioning.
+
+Install in the container:
+```r
+if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
+devtools::install_github("tony-zhelonkin/R_GSEA_visualisations")
+```
+Pros: semantic versioning, DESCRIPTION-based deps, easy to pin via renv. Cons: more overhead to structure as a package.
+
+### 3) External mount (works, but less ideal)
+Mount an external shared repo into your container, and manage its Git lifecycle in another terminal outside the container.
+
+Example devcontainer.json optional mount:
+```jsonc
+"mounts": [
+  "source=/data1/users/antonz/pipeline/R_GSEA_visualisations,\
+   target=/workspaces/project/01_Scripts/shared,\
+   type=bind"
+]
+```
+Caveats: two Git flows; easier to drift. Prefer submodules or packages when possible.
+
+Recommendation: in general, submodules are fine; migrate to an R package if/when the shared code matures.
 
 ---
 
@@ -593,3 +727,196 @@ This project is distributed under the [MIT License](https://github.com/tony-zhel
 - **Maintainer**: [Anton Zhelonkin](mailto:anton.bioinf.md@gmail.com)
 - **Huge thanks** to [Rami Krispin’s vscode-r repo](https://github.com/RamiKrispin/vscode-r) for serving as a fantastic inspiration.
 - Thanks to all authors of open-source bioinformatics tools included here.
+
+---
+
+## Beginner-friendly vignette: My standard project layout and workflows
+
+### Typical analysis repository layout
+
+```text
+├── .devcontainer/devcontainer.json     # Container setup
+├── .vscode/                            # VS Code settings
+├── 00_Data/                            # Raw data and reference files
+├── 01_Scripts/                         # Analysis scripts and custom functions
+│   ├── module/                         # External git submodules for shared code
+│   ├── Py_scripts/                     # Custom project-specific Python scripts
+│   └── R_scripts/                      # Custom project-specific R scripts
+├── 02_Analysis/                        # Main analysis pipeline
+├── 03_Results/                         # Output files and results
+│   ├── 01_Preprocessing/               # Data preprocessing results
+│   └── 02_Analysis/                    # Analysis results and plots
+└── README.md                           # Project-level README
+```
+
+### Dev Container workflows
+
+You can run your environment either as a single-image devcontainer (simple) or via Docker Compose (two services: base and archr). Both approaches bind your project into the container and let you use VS Code Remote - Containers.
+
+#### A) Single-image devcontainer.json (simple)
+
+Example:
+```jsonc
+{
+  "name": "your-project",
+  "image": "scdock-r-dev:v0.4.1",
+  "workspaceMount": "source=/abs/path/to/your/project,target=/workspaces/project,type=bind",
+  "workspaceFolder": "/workspaces/project",
+  "runArgs": ["--memory=128g","--cpus=60"],
+  "customizations": {
+    "vscode": { "extensions": [
+      "rdebugger.r-debugger","reditorsupport.r","quarto.quarto",
+      "ms-azuretools.vscode-docker","ms-vscode-remote.remote-containers",
+      "ms-python.python"
+    ]}
+  },
+  "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh'"
+}
+```
+- VS Code: Dev Containers: Reopen in Container
+- R: `r-base` for radian (base lib), `r-archr` for ArchR toggle
+- Python venv switching: `usepy base|squid|atac|comms`
+
+#### B) Compose-based devcontainer.json (multi-variant)
+
+`.devcontainer/docker-compose.yml` defines `dev-core` and `dev-archr` services. Use this `devcontainer.json` (recommended default is `dev-archr`):
+```jsonc
+{
+  "name": "your-project",
+  "dockerComposeFile": ".devcontainer/docker-compose.yml",
+  "service": "dev-archr",      # or "dev-core"
+  "workspaceFolder": "/workspaces/project",
+  "customizations": { "vscode": { "extensions": [
+    "reditorsupport.r","ms-python.python","ms-vscode-remote.remote-containers"
+  ]}}
+}
+```
+- Switch services by changing `service` and Reopen in Container, or attach to the running container.
+- Same commands inside as in the single-image flow (radian wrappers, `usepy` switchers).
+
+Important: r-base/r-archr vs service choice
+
+- Service `dev-core` (image: scdock-r-dev):
+  - `r-base` works (base R libs).
+  - `r-archr` only sets `USE_ARCHR=1`; ArchR is NOT installed here → `library(ArchR)` fails. Use the `dev-archr` service when you need ArchR.
+- Service `dev-archr` (image: scdock-r-archr):
+  - `r-base` works and does NOT prepend ArchR lib path.
+  - `r-archr` sets `USE_ARCHR=1` so `.Rprofile` prepends `ARCHR_LIB`; `library(ArchR)` succeeds.
+
+Recommendation: default to `dev-archr` in development unless you specifically want the leaner `dev-core` image.
+
+### Switching environments quickly
+
+- R (radian front-end):
+  - Base: `r-base`
+  - ArchR: `r-archr` (sets `USE_ARCHR=1`, prepends `ARCHR_LIB` in `.Rprofile`)
+- Python venvs:
+  - `usepy base|squid|atac|comms`
+  - One-off: `py-base`, `py-squid`, `py-atac`, `py-comms`
+
+### Worked example: RNA + ATAC interoperability and integration
+
+Scenario: You have parallel scRNA-seq and scATAC-seq datasets preprocessed/UMAPed and annotated in Seurat. You want to integrate in Python (scVI/PeakVI or SCGLUE) and run GRN inference (SCENIC+), then round-trip back to Seurat.
+
+1) Start in R for Seurat preprocessing
+```bash
+r-base   # radian (base libs)
+```
+- Ensure assays and reductions are in good shape (Seurat v5: counts/data/scale.data).
+- Check reductions and graphs:
+```r
+names(s@reductions); names(s@graphs); Layers(s[["RNA"]])
+```
+
+2) Export to Python-friendly formats
+- Single-modality RNA or ATAC: write `.h5ad` (faithful with loadings/graphs):
+```r
+library(MuDataSeurat)
+WriteH5AD(object = s, file = "rna.h5ad", assay = "RNA")
+```
+- True multiome (paired) or to keep modalities together: write `.h5mu`:
+```r
+WriteH5MU(s, "multiome.h5mu")
+```
+- Alternative R-only path: `anndataR` reads/writes H5AD natively:
+```r
+library(anndataR)
+s <- read_h5ad("in.h5ad", as = "Seurat")
+# or write_h5ad(s, "out.h5ad")
+```
+
+3) Switch to Python (base) for scVI/SCGLUE
+```bash
+usepy base
+python -c "import scanpy as sc, muon as mu; print('OK')"
+```
+- Load data:
+```python
+import scanpy as sc, muon as mu
+m = mu.read_h5mu("multiome.h5mu")  # if multiome
+rna = m.mod["RNA"]; atac = m.mod["ATAC"]
+# or: rna = sc.read_h5ad("rna.h5ad"); atac = sc.read_h5ad("atac.h5ad")
+```
+- Compute embeddings (examples):
+  - scVI on RNA → store in `obsm['X_scvi']`
+  - PeakVI on ATAC → `obsm['X_peakvi']`
+  - SCGLUE → `obsm['X_scglue']`
+- Ensure standard keys so converters recognize them.
+
+4) Optional: use `usepy atac` if you keep ATAC-only stack separate
+```bash
+usepy atac   # snapatac2 and ATAC-focused deps
+```
+
+5) Write back to disk
+- Keep multiome fidelity: `.h5mu`
+- Or per-modality `.h5ad` files with embeddings in `obsm` and graphs in `obsp`.
+
+6) Return to R and import
+```bash
+r-base
+```
+- Via MuDataSeurat (recommended for fidelity):
+```r
+library(MuDataSeurat)
+# Single assay back from H5AD
+s <- Seurat::ReadH5AD("rna.h5ad")
+# Multiome
+s_multi <- ReadH5MU("multiome.h5mu")
+```
+- Check round-trip:
+```r
+names(s@reductions)    # expect pca, umap, tsne, scvi, peakvi, scglue ...
+head(Embeddings(s, "pca"))
+names(s@graphs)
+```
+
+7) Conversion checklists (don’t lose artifacts)
+- Before writing H5AD (Python):
+  - `adata.X` vs `adata.raw.X` consistent with expectations
+  - Embeddings in `obsm`: `X_pca`, `X_umap`, `X_scvi`, `X_peakvi`, `X_scglue`
+  - Graphs in `obsp`: connectivities/distances
+- After import in R:
+  - `names(s@reductions)` contains your embeddings
+  - `names(s@graphs)` populated
+  - For Seurat v5, `Layers(s[["RNA"]])` includes counts/data/scale
+
+8) GRN inference (SCENIC+)
+- Use the COMMS venv for LR/GRN tools:
+```bash
+usepy comms
+python -c "import pycistarget, pycistopic; print('OK')"  # scenicplus via source if needed
+```
+- If `scenicplus` is required and not preinstalled, install at runtime:
+```bash
+usepy comms
+pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
+```
+
+### Tips and pitfalls
+- Prefer `.h5mu` for true multiome; use `.h5ad` per-assay when needed.
+- Use predictable embedding keys (X_scvi, X_peakvi, X_scglue) to preserve reductions on round-trip.
+- Large datasets: prefer backed I/O (.h5mu with muon; Seurat v5 disk-aware flows).
+- If a reduction/graph is missing after import, re-emit using `MuDataSeurat::WriteH5AD`.
+
+---

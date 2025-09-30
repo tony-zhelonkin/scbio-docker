@@ -1,5 +1,5 @@
 # ArchR variant built FROM the base image
-ARG BASE_IMAGE=scdock-r-dev:v0.4.0
+ARG BASE_IMAGE=scdock-r-dev:v0.4.1
 FROM ${BASE_IMAGE}
 
 ARG USER=devuser

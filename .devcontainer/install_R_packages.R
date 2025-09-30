@@ -48,7 +48,9 @@ cran_packages <- c(
   "lightgbm","rliger","splines","sleepwalk","singleCellHaystack","ClusterR","DDRTree",
   "densityClust","stringi","WGCNA","msigdbr","RhpcBLASctl","parallelly",
   # ---- your requested additions ----
-  "RcppML","GeneNMF","aricode","cluster","FNN"
+  "RcppML","GeneNMF","aricode","cluster","FNN",
+  # Interop & analysis extras
+  "reticulate","scCustomize","FactoMineR","factoextra"
 )
 safe_install(cran_packages, install.packages, repos = "https://cloud.r-project.org")
 
@@ -76,7 +78,9 @@ bioc_packages <- c(
   "DropletUtils",
   "JASPAR2022","JASPAR2024","TFBSTools","motifmatchr","scTensor",
   "SingleCellSignalR","slingshot","sctransform","splatter","sva",
-  "UCell","mixOmics","MOFA2","lemur","SingleCellMultiModal"
+  "UCell","mixOmics","MOFA2","lemur","SingleCellMultiModal",
+  # Requested additions (safe-install; will skip on failure)
+  "decoupleR","progeny","dorothea","CoGAPS","miloR","monocle3","OmnipathR"
 )
 safe_install(bioc_packages, BiocManager::install, ask = FALSE, update = FALSE)
 
@@ -100,7 +104,6 @@ github_packages <- c(
   # QC tools
   "powellgenomicslab/DropletQC",
   "chris-mcginnis-ucsf/DoubletFinder",
-
   "settylab/convert2anndata",
   "cole-trapnell-lab/monocle3",
   "meichendong/SCDC",
@@ -116,6 +119,11 @@ github_packages <- c(
   "Zhen-Miao/PACS",
   "quadbio/Pando",
   "buenrostrolab/FigR",
+  # Requested additions
+  "smorabit/hdWGCNA",
+  "YosefLab/VISION",
+  "saeyslab/nichenetr",
+  
   # Integration/IO helpers
   "pmbio/MuDataSeurat",
   "cellgeni/sceasy"
