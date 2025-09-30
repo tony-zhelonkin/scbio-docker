@@ -22,7 +22,12 @@ if (interactive() && Sys.getenv("TERM_PROGRAM") == "vscode" && exists(".vsc.brow
 local_mirror <- Sys.getenv("CRAN_MIRROR", unset = "https://cloud.r-project.org")
 options(repos = c(CRAN = local_mirror))
 
-# Optional ArchR toggle: when USE_ARCHR=1, prepend ARCHR_LIB to .libPaths()
+# Ensure a writable user library comes first for runtime installs
+user_lib <- Sys.getenv("R_LIBS_USER", unset = file.path(Sys.getenv("HOME"), "R", paste0(R.version$platform, "-library"), paste0(R.version$major, ".", strsplit(R.version$minor, "\\.")[[1]][1])))
+if (!dir.exists(user_lib)) dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
+.libPaths(c(user_lib, .libPaths()))
+
+# Optional ArchR toggle: when USE_ARCHR=1, prepend ARCHR_LIB to .libPaths() (ahead of user lib)
 if (nzchar(Sys.getenv("USE_ARCHR"))) {
   archr_lib <- Sys.getenv("ARCHR_LIB", unset = file.path(Sys.getenv("HOME"), "R", "archr-lib"))
   if (!dir.exists(archr_lib)) dir.create(archr_lib, recursive = TRUE, showWarnings = FALSE)
