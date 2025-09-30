@@ -4,6 +4,7 @@ FROM ${BASE_IMAGE}
 
 ARG USER=devuser
 ENV ARCHR_LIB=/home/${USER}/R/archr-lib
+ENV IMAGE_FLAVOR=dev-archr
 
 # Install ArchR via a dedicated script for readability/maintainability
 COPY .devcontainer/install_R_archr.R /opt/settings/install_R_archr.R

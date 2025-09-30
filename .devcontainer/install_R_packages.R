@@ -47,9 +47,7 @@ cran_packages <- c(
   "httpgd","ggrastr","networkD3","r2d3","Matrix","tidyverse","ggpubr","Cairo","imager",
   "lightgbm","rliger","splines","sleepwalk","singleCellHaystack","ClusterR","DDRTree",
   "densityClust","stringi","WGCNA","msigdbr","RhpcBLASctl","parallelly",
-  # ---- your requested additions ----
   "RcppML","GeneNMF","aricode","cluster","FNN",
-  # Interop & analysis extras
   "reticulate","scCustomize","FactoMineR","factoextra"
 )
 safe_install(cran_packages, install.packages, repos = "https://cloud.r-project.org")
@@ -66,7 +64,7 @@ try(install.packages('https://cran.r-project.org/src/contrib/Archive/locfit/locf
 bioc_packages <- c(
   "scran","txdbmaker","dittoSeq","impute","SingleR","celldex","preprocessCore",
   "GenomicRanges","GenomeInfoDb","DESeq2","Rsamtools","S4Vectors","IRanges",
-  "BiocParallel","DelayedArray","biovizBase","SoupX","scater","scDblFinder","scry","muscat",
+  "BiocParallel","DelayedArray","biovizBase","SoupX","scater","scDblFinder","scry","muscat","GSVA",
   "zellkonverter","SingleCellExperiment","ComplexHeatmap","tidySingleCellExperiment",
   "BiocGenerics","DelayedMatrixStats","limma","SummarizedExperiment","batchelor",
   "HDF5Array","terra","Gviz","rtracklayer","chromVAR","scmap","DOSE","pathview",

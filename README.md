@@ -469,6 +469,24 @@ profiles {
 
 ---
 
+## Installing R packages and writing results inside the container
+
+- Runtime R installs go to a user-writable library first (`~/.R/...` via `R_LIBS_USER`). This means you can install with:
+```r
+install.packages("GSVA")
+BiocManager::install("GSVA")
+```
+No sudo is needed; packages land in your home library. If you switch to the ArchR session (`r-archr`), its library path is prepended for ArchR-related packages while still keeping your user library writable and visible.
+
+- Creating output folders: R won’t create intermediate directories for `saveRDS`. Ensure the path exists before writing:
+```r
+dir.create("03_Results/DEG", recursive = TRUE, showWarnings = FALSE)
+saveRDS(dge, "03_Results/DEG/preprocessed_DGEList.rds")
+```
+- If you bind-mount the workspace, make sure the host path is writable by your UID/GID (the container runs as your host IDs). Adjust permissions on the host if needed.
+
+---
+
 ## Included Tools & Packages
 
 1. **R** (v4.4.2) and key single-cell packages
@@ -821,5 +839,28 @@ pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
 - Use predictable embedding keys (X_scvi, X_peakvi, X_scglue) to preserve reductions on round-trip.
 - Large datasets: prefer backed I/O (.h5mu with muon; Seurat v5 disk-aware flows).
 - If a reduction/graph is missing after import, re-emit using `MuDataSeurat::WriteH5AD`.
+
+---
+
+## Permissions, UID/GID, and AD users (group names with spaces)
+
+- Containers run as your host UID/GID (passed at build and used at runtime). This avoids root-owned files on your mounts.
+- For AD-controlled users (e.g., primary group name contains a space like `domain users`):
+  - The Dockerfile already normalizes/handles group creation via numeric GID and falls back to safe names if needed.
+  - When binding a workspace path, ensure the host directory is writable by your UID/GID:
+    ```bash
+    id -u; id -g; id -gn
+    ls -ld /path/to/workspace
+    # Adjust on host if needed:
+    sudo chown -R $(id -u):$(id -g) /path/to/workspace
+    # or grant group write:
+    sudo chmod -R g+rwX /path/to/workspace
+    ```
+- R user library: the container sets `R_LIBS_USER` and `.Rprofile` prepends it. Startup sanity now checks:
+  - R user lib writable
+  - Workspace write (creates and removes a temp dir)
+  If either fails, the sanity script prints IDs and path info to guide fixes.
+
+- VS Code Dev Containers: When using compose, both services inherit the same mount and user IDs; choose `dev-archr` by default if you want ArchR availability.
 
 ---

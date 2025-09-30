@@ -43,6 +43,10 @@ ENV R_VERSION_PATCH=$R_VERSION_PATCH
 ENV QUARTO_VER=$QUARTO_VER
 ENV CONFIGURE_OPTIONS="--with-cairo --with-jpeglib --enable-R-shlib --with-blas --with-lapack"
 ENV CRAN_MIRROR=$CRAN_MIRROR
+## Ensure a per-user R library for installs at runtime (first on .libPaths via .Rprofile)
+ENV R_LIBS_USER=/home/${USER}/R/x86_64-pc-linux-gnu-library/${R_VERSION_MAJOR}.${R_VERSION_MINOR}
+## Image flavor identifier for sanity messages
+ENV IMAGE_FLAVOR=dev-core
 
 # GitHub token (build arg only; not persisted in final image)
 ARG GITHUB_PAT
@@ -227,7 +231,10 @@ RUN set -eux; \
     chown ${USER_ID}:${GROUP_ID} "${user_home}/.Rprofile"; \
     mkdir -p "${user_home}/.vscode-R"; \
     printf '# VS Code R init (placeholder)\n' > "${user_home}/.vscode-R/init.R"; \
-    chown -R ${USER_ID}:${GROUP_ID} "${user_home}/.vscode-R"
+    chown -R ${USER_ID}:${GROUP_ID} "${user_home}/.vscode-R"; \
+    # Create user-level R library path for runtime installs
+    mkdir -p "${user_home}/R/x86_64-pc-linux-gnu-library/${R_VERSION_MAJOR}.${R_VERSION_MINOR}"; \
+    chown -R ${USER_ID}:${GROUP_ID} "${user_home}/R"
 
 # If you have a lock pre-committed, copy it here; if not, this line is harmless.
 # (You can add /opt/settings/renv.lock later and the restore step below will use it.)
