@@ -513,125 +513,28 @@ See the [Dockerfile](./.devcontainer/Dockerfile) and [install_R_packages.R](./.d
 
 ---
 
-## Future directions
+## Backlog and roadmap
 
-* R packages to be added 
-```
-install.packages('msigdbdf', repos = 'https://igordot.r-universe.dev')
-```
+This section reflects the current design (dev-core vs dev-archr) and what remains to validate or improve.
 
-* Python env update 
-The python pip modules are installed not into the venv right now, and so python doesn`t see imported modules. 
+### Now
+- Build v0.4.1 images and validate
+  - dev-core: build and run `.devcontainer/scripts/poststart_sanity.sh`
+  - dev-archr: build and validate ArchR (`library(ArchR)`) and macs2 symlink
+- Validate httpgd in VS Code radian; ensure fallback works as documented
+- Smoke-test Python venvs: base/squid/atac/comms core imports
 
-I activated pip3 directly. And this lead to incorrect path of installation.
->[!error]
->```
-># Set up virtual environment
->RUN python3 -m venv /opt/$VENV_NAME \
->&& export PATH=/opt/$VENV_NAME/bin:$PATH \
->&& echo "source /opt/$VENV_NAME/bin/activate" >> ~/.bashrc
->
-># Install dependencies first
->RUN pip3 install setuptools wheel
->RUN pip3 install numpy scipy pandas
->RUN pip3 install anndata==0.10.9
->RUN pip3 install "python-igraph==0.10.4"
->
-># Install requirements
->RUN python3 -m pip install --upgrade pip setuptools wheel && \
->pip3 install -r ./settings/requirements.txt
->```
+### Next
+- Decide scGLUE TensorFlow wheels strategy (pin `tensorflow-cpu` vs runtime optional)
+- Document `scenicplus` runtime install and known dependency pins in COMMS env
+- Add round-trip QA script for `.h5mu`/`.h5ad` conversions (embeddings/graphs/layers checks)
+- Make `dev-archr` the recommended default in templates/examples
+- Add a training example (RNA+ATAC) in `02_Analysis` showing R↔Python interop
 
-Instead of using pip3 directly, I should first activate the venv, and then install inside it
-```
-# Instead of using pip3 directly, activate the virtual environment first
-RUN . /opt/$VENV_NAME/bin/activate && \
-    python -m pip install setuptools wheel && \
-    python -m pip install numpy scipy pandas && \
-    python -m pip install anndata==0.10.9 && \
-    python -m pip install "python-igraph==0.10.4" && \
-    python -m pip install --upgrade pip setuptools wheel && \
-    python -m pip install -r ./settings/requirements.txt
-```
-
-Right now got away with the 
-```
-python -m pip install --upgrade -r ./settings/requirements.txt
-```
-Where the requirements.txt is 
-```
-setuptools
-wheel
-numpy
-scipy
-pandas
-anndata==0.10.9
-python-igraph==0.10.4
-
-# Core Scientific Computing
-#numpy (pre-install for better dependency handling)
-#scipy
-#pandas
-numba
-statsmodels
-umap-learn
-scikit-learn
-
-# Data Storage & Processing
-h5py
-cooler
-tables
-htseq
-PySam
-SWIG
-Cython==0.29.32
-pybedtools==0.10.0
-pyBigWig==0.3.23
-
-# Feature counters
-TEtranscripts==2.2.3
-
-# Visualization Libraries
-matplotlib
-seaborn
-plotly
-bokeh
-
-# Single-Cell Analysis
-scanpy==1.10.4
-scvi-tools==1.2.0
-cellrank==2.0.6
-scvelo==0.3.2
-snapatac2==2.7.1
-scrublet==0.2.3
-harmony-pytorch
-scib==1.1.5
-scirpy==0.19.0
-squidpy==1.6.2
-muon==0.1.7
-
-# Epigenomics 
-MACS3==3.0.2
-episcanpy==0.4.0
-deeptools
-
-# Network Analysis
-python-louvain==0.16
-networkx==3.4.2
-leidenalg==0.10.1
-pyscenic==0.12.1
-
-
-# Quality Control & Processing
-RSeQC
-multiqc==1.25.2
-cutadapt
-
-# R and Python Integration
-pyreadr==0.5.2
-rpy2==3.5.17
-anndata2ri==1.3.2
-```
+### Later
+- Add CI smoke tests for sanity script and env imports
+- Consider slim (no toolchain) and GPU variants; document supported scopes
+- Evaluate packaging some shared R functionality as internal packages
 
 ---
 
