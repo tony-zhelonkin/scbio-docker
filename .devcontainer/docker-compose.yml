@@ -1,7 +1,6 @@
-version: "3.8"
 services:
-  base:
-    image: scdock-r-dev:v0.4.0
+  dev-core:
+    image: scdock-r-dev:v0.4.1
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/project
     volumes:
@@ -9,13 +8,13 @@ services:
     # add your mounts below using environment substitution
     # - /path/to/data:/workspaces/project/00_Data:ro
 
-  archr:
-    image: scdock-r-archr:v0.4.0
+  dev-archr:
+    image: scdock-r-archr:v0.4.1
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/project
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/project
-    # duplicate the same mounts as base for consistency
+    # duplicate the same mounts as dev-core for consistency
     # - /path/to/data:/workspaces/project/00_Data:ro
 
 
