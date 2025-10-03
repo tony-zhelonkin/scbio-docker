@@ -1,20 +1,26 @@
 services:
   dev-core:
-    image: scdock-r-dev:v0.4.1
+    image: scdock-r-dev:v0.5.0
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/project
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/project
-    # add your mounts below using environment substitution
-    # - /path/to/data:/workspaces/project/00_Data:ro
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    # Add your data mounts below using environment substitution
+    # - /path/to/data:/workspaces/project/data/raw:ro
 
   dev-archr:
-    image: scdock-r-archr:v0.4.1
+    image: greenleaflab/archr:1.0.3-base-r4.4
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/project
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/project
-    # duplicate the same mounts as dev-core for consistency
-    # - /path/to/data:/workspaces/project/00_Data:ro
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    # Duplicate the same data mounts as dev-core for consistency
+    # - /path/to/data:/workspaces/project/data/raw:ro
 
 

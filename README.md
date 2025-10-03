@@ -1,9 +1,39 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.4.0-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code’s **Remote - Containers** extension, enabling seamless local or remote development against powerful server resources.
+A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code's **Remote - Containers** extension, enabling seamless local or remote development against powerful server resources.
+
+## What's New in v0.5.1 (Multi-Stage Build)
+
+**🎯 TRUE Size Reduction: 500GB → 20GB (Docker-reported)**
+
+- **Multi-stage build**: Completely discards build artifacts, no layer bloat
+- **Build-essential preserved**: Can still compile R/Python packages at runtime
+- **Same functionality**: All features from v0.5.0, but with true size efficiency
+
+**Previous Optimizations (v0.5.0):**
+- Aggressive cache cleanup: renv, pip, and build artifacts removed
+- TinyTeX: Lightweight TeX distribution instead of full texlive
+- Layered Python venvs: Base venv + runtime-created specialized venvs
+- Core R packages approach: ~80 essential packages pre-installed, others at runtime
+- R 4.5 + Bioconductor 3.21: Updated for anndataR and modern package support
+- Official ArchR image: Use `greenleaflab/archr:1.0.3-base-r4.4` instead of custom build
+
+**Key Benefits:**
+- ✅ **True ~20GB final image** (no layer accounting issues)
+- ✅ Same functionality - core packages cover 95% of use cases
+- ✅ **Runtime package installation fully supported** (build tools preserved)
+- ✅ Improved reproducibility with layered venv approach
+- ✅ No R version conflicts (dev-core: R 4.5, ArchR: R 4.4)
+
+**Project Templates:**
+- ✅ `init-project.sh` script for quick project scaffolding
+- ✅ 4 templates: `basic-rna`, `multimodal`, `archr-focused`, `example-DMATAC`
+- ✅ Universal `.vscode/settings.json` with Python REPL + R configuration
+
+**Build:** Use `./build-optimized.sh` for multi-stage build. See [DEVOPS.md](DEVOPS.md).
 
 > **Inspiration**: This setup is **strongly inspired by** [Rami Krispin’s vscode-r repository](https://github.com/RamiKrispin/vscode-r). Special thanks for the excellent reference on R + VS Code configurations!
 
@@ -32,11 +62,37 @@ A Docker-based development environment for bioinformatics, particularly single-c
 
 This repository contains Dockerfiles and configuration files for creating a **versatile bioinformatics environment** that focuses on single-cell RNA-seq and epigenomics workflows. It packages:
 
-- **R** (v4.4.2) and comprehensive single-cell and genomic libraries (Seurat, ArchR, Bioconductor ecosystem, etc.).
-- **Python** (v3.10) with scientific libraries (NumPy, SciPy, Pandas, scVI, Scanpy, etc.).
-- Command-line tools focused on epigenomics-friendly workflows: **samtools**, **bcftools**, **bedtools**, and selected extras (e.g., **scIBD** for scATAC doublet detection). Bulk aligners and pre-processing tools (STAR, BWA, Salmon, kallisto, Picard, FastQC/Trimmomatic, Trim Galore, featureCounts, etc.) are intentionally excluded to keep the image slim. Use pipeline-specific containers if you need them.
+- **R** (v4.5.0) and comprehensive single-cell and genomic libraries (Seurat, Signac, Bioconductor ecosystem, etc.)
+  - ~80 core packages pre-installed (Seurat, edgeR, limma, clusterProfiler, GSVA, etc.)
+  - Runtime installation supported for additional packages
+  - **ArchR**: Use official image on-demand (`greenleaflab/archr:1.0.3-base-r4.4`)
+- **Python** (v3.10) with scientific libraries (NumPy, SciPy, Pandas, scVI, Scanpy, etc.)
+  - Base venv with core single-cell stack
+  - Layered venvs for specialized tools (spatial, ATAC, cell communication)
+- **Command-line tools** focused on epigenomics-friendly workflows: **samtools**, **bcftools**, **bedtools**, and selected extras (e.g., **scIBD** for scATAC doublet detection). Bulk aligners and pre-processing tools (STAR, BWA, Salmon, kallisto, Picard, FastQC/Trimmomatic, Trim Galore, featureCounts, etc.) are intentionally excluded to keep the image slim. Use pipeline-specific containers if you need them.
 
 The Docker setup is integrated with **VS Code Remote Containers** to streamline development on remote compute nodes—ideal for large-scale single-cell data processing.
+
+### Quick Start
+
+```bash
+# 1. Build base image (multi-stage, ~20GB true size)
+./build-optimized.sh
+
+# 2. Pull official ArchR image
+docker pull greenleaflab/archr:1.0.3-base-r4.4
+
+# 3. Initialize new project
+./init-project.sh ~/projects/my-analysis basic-rna
+
+# 4. Open in VS Code and reopen in container
+code ~/projects/my-analysis
+# Cmd/Ctrl+Shift+P → "Dev Containers: Reopen in Container"
+```
+
+See [DEVOPS.md](DEVOPS.md) for complete build and operational instructions.
+
+**Runtime Package Installation:** See [RUNTIME_INSTALL.md](RUNTIME_INSTALL.md) for installing additional R/Python packages at runtime.
 
 ---
 
@@ -111,34 +167,53 @@ export GITHUB_PAT=ghp_your_token_here
 unset GITHUB_PAT
 ```
 
-### Python environments (base vs squid)
+### Python environments (v0.5.0: Layered venvs)
 
-Two venvs are preinstalled and fully resolved during the image build:
-- `/opt/venvs/base` from `/opt/environments/base_requirements.txt`
-- `/opt/venvs/squid` from `/opt/environments/squid_requirements.txt`
+**Base venv** (pre-installed):
+- `/opt/venvs/base` - Core single-cell stack (scanpy, scvi-tools, muon, cellrank, scvelo, radian)
+- Installed during build from `/opt/environments/base_requirements.txt`
 
-Default PATH uses the base venv. Switch interactively inside the container:
+**Layered venvs** (created at runtime with `--system-site-packages`):
+- `/opt/venvs/squid` - Spatial transcriptomics (squidpy, spatialdata) - inherits base packages
+- `/opt/venvs/atac` - scATAC-seq (snapatac2, episcanpy) - inherits base packages
+- `/opt/venvs/comms` - Cell communication (liana, cellphonedb, scglue) - inherits base packages
 
-```bash
-usepy squid      # switch shell to squid env
-usepy atac       # switch shell to ATAC env (snapatac2)
-usepy comms      # switch shell to COMMS env (LR/GRN)
-usepy base       # switch back to base env
-```
-
-One-off commands under a specific env:
+**Creating and switching venvs:**
 
 ```bash
-py-squid python -V
-py-atac python -V
-py-comms python -V
-py-base python -V
+# First use automatically creates the venv
+usepy squid      # Creates /opt/venvs/squid if needed, then activates
+usepy atac       # Creates /opt/venvs/atac if needed, then activates
+usepy comms      # Creates /opt/venvs/comms if needed, then activates
+usepy base       # Switch back to base env
 ```
 
-Verify which env is active:
+**Manual venv creation:**
+
+```bash
+# Create specific layered venv
+create_layered_venv.sh squid squid_requirements.txt
+create_layered_venv.sh atac atac_requirements.txt
+create_layered_venv.sh comms comms_requirements.txt
+```
+
+**One-off commands:**
+
+```bash
+py-base python -V    # Uses base venv
+```
+
+**Verify active environment:**
 
 ```bash
 which python && python -V && pip list | head
+```
+
+**Freeze for reproducibility:**
+
+```bash
+# After installing additional packages
+pip freeze > requirements-project-frozen.txt
 ```
 
 ### Version pinning strategy

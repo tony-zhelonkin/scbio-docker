@@ -36,7 +36,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager", repos = "https://cloud.r-project.org")
 
 # Stick to a Bioc release (pins major/minor versions reasonably)
-BiocManager::install(version = "3.20", ask = FALSE)
+BiocManager::install(version = "3.21", ask = FALSE)
 
 # ---- CRAN packages ----
 cran_packages <- c(
