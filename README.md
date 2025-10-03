@@ -864,3 +864,35 @@ pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
 - VS Code Dev Containers: When using compose, both services inherit the same mount and user IDs; choose `dev-archr` by default if you want ArchR availability.
 
 ---
+
+## Image slimming (what we removed and how to keep it small)
+
+- Heavy R annotation/data packages moved to optional (install on-demand):
+  - BSgenome.* (hg19, hg38, mm10, mm39), EnsDb.* (multiple versions), org.*.eg.db, reactome.db
+  - Reason: multi-GB footprint; not always needed for development
+  - To install when required:
+    ```bash
+    # Build with heavy data included
+    docker build -f .devcontainer/Dockerfile \
+      --build-arg INCLUDE_HEAVY_R_DATA=1 \
+      -t scdock-r-dev:heavy .
+    ```
+    Or inside R at runtime via BiocManager installs.
+
+- Python venv trims:
+  - Moved cross R/Py bridging packages to on-demand: pyreadr, rpy2, anndata2ri (commented in base_requirements.txt)
+  - Keep heavy stacks only where necessary; avoid duplicating scanpy/scvi across multiple venvs
+
+- Cleanup and build hygiene:
+  - Remove build sources after install (R sources are removed; keep iterating where applicable)
+  - Consider TinyTeX or minimal TeX set if PDF output isn’t central
+  - Optionally purge renv cache in final stage if you don’t need rebuild acceleration
+
+- Quick size audit (inside a container):
+  ```bash
+  du -hsx /* 2>/dev/null | sort -h | tail -n 20
+  du -hs /usr/local/lib/R/library/* | sort -h | tail -n 30
+  du -hs /opt/venvs/* | sort -h
+  ```
+
+---
