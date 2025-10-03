@@ -43,8 +43,6 @@ ENV R_VERSION_PATCH=$R_VERSION_PATCH
 ENV QUARTO_VER=$QUARTO_VER
 ENV CONFIGURE_OPTIONS="--with-cairo --with-jpeglib --enable-R-shlib --with-blas --with-lapack"
 ENV CRAN_MIRROR=$CRAN_MIRROR
-## Ensure a per-user R library for installs at runtime (first on .libPaths via .Rprofile)
-ENV R_LIBS_USER=/home/${USER}/R/x86_64-pc-linux-gnu-library/${R_VERSION_MAJOR}.${R_VERSION_MINOR}
 ## Image flavor identifier for sanity messages
 ENV IMAGE_FLAVOR=dev-core
 

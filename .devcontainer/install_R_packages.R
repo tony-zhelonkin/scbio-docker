@@ -60,7 +60,7 @@ try(install.packages("RcppPlanc", repos = "https://welch-lab.r-universe.dev"), s
 try(install.packages('https://cran.r-project.org/src/contrib/Archive/locfit/locfit_1.5-9.4.tar.gz',
                      repos = NULL, type = 'source'), silent = TRUE)
 
-# ---- Bioconductor packages ----
+# ---- Bioconductor packages (core) ----
 bioc_packages <- c(
   "scran","txdbmaker","dittoSeq","impute","SingleR","celldex","preprocessCore",
   "GenomicRanges","GenomeInfoDb","DESeq2","Rsamtools","S4Vectors","IRanges",
@@ -69,10 +69,9 @@ bioc_packages <- c(
   "BiocGenerics","DelayedMatrixStats","limma","SummarizedExperiment","batchelor",
   "HDF5Array","terra","Gviz","rtracklayer","chromVAR","scmap","DOSE","pathview",
   "clusterProfiler","AnnotationHub","biomaRt","ensembldb",
-  "BSgenome.Hsapiens.UCSC.hg19","BSgenome.Hsapiens.UCSC.hg38",
-  "BSgenome.Mmusculus.UCSC.mm10","BSgenome.Mmusculus.UCSC.mm39",
-  "clusterExperiment","msigdb","EnsDb.Hsapiens.v75","EnsDb.Hsapiens.v79","EnsDb.Hsapiens.v86",
-  "EnsDb.Mmusculus.v75","EnsDb.Mmusculus.v79","org.Hs.eg.db","org.Mm.eg.db",
+  # moved heavy annotation/data sets to optional
+  # "BSgenome.*", "EnsDb.*", "org.*.eg.db", "reactome.db"
+  "clusterExperiment","msigdb",
   "DropletUtils",
   "JASPAR2022","JASPAR2024","TFBSTools","motifmatchr","scTensor",
   "SingleCellSignalR","slingshot","sctransform","splatter","sva",
@@ -198,3 +197,17 @@ try(write.csv(gh_df, file.path(log_dir, "installed_R_github_remotes.csv"), row.n
     silent = TRUE)
 
 message("R package installation completed and logs written.")
+
+# Optional heavy data installs
+heavy_flag <- Sys.getenv("INCLUDE_HEAVY_R_DATA", unset = "0")
+if (identical(heavy_flag, "1")) {
+  message("Installing heavy annotation/data packages ...")
+  heavy_pkgs <- c(
+    "BSgenome.Hsapiens.UCSC.hg19","BSgenome.Hsapiens.UCSC.hg38",
+    "BSgenome.Mmusculus.UCSC.mm10","BSgenome.Mmusculus.UCSC.mm39",
+    "EnsDb.Hsapiens.v75","EnsDb.Hsapiens.v79","EnsDb.Hsapiens.v86",
+    "EnsDb.Mmusculus.v75","EnsDb.Mmusculus.v79",
+    "org.Hs.eg.db","org.Mm.eg.db","reactome.db"
+  )
+  safe_install(heavy_pkgs, BiocManager::install, ask = FALSE, update = FALSE)
+}
