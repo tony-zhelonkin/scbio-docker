@@ -1,6 +1,6 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.0-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.1-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code's **Remote - Containers** extension, enabling seamless local or remote development against powerful server resources.
