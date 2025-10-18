@@ -21,13 +21,14 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Default values
+# Default values (GENERIC for shareability)
 GITHUB_PAT="${GITHUB_PAT:-}"
 TAG="scdock-r-dev:v0.5.1"
-USER_ID=$(id -u)
-GROUP_ID=$(id -g)
-USER_NAME=$USER
-GROUP_NAME=$(id -gn)
+USER_ID=1000           # Generic default (shareable image)
+GROUP_ID=1000          # Generic default
+USER_NAME=devuser      # Generic username
+GROUP_NAME=devgroup    # Generic group
+BUILD_MODE="generic"   # Track build mode for display
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -40,17 +41,53 @@ while [[ $# -gt 0 ]]; do
             TAG="$2"
             shift 2
             ;;
+        --user-id)
+            USER_ID="$2"
+            BUILD_MODE="custom"
+            shift 2
+            ;;
+        --group-id)
+            GROUP_ID="$2"
+            shift 2
+            ;;
+        --user)
+            USER_NAME="$2"
+            shift 2
+            ;;
+        --group)
+            GROUP_NAME="$2"
+            shift 2
+            ;;
+        --personal)
+            # Convenience flag: use current user's UID/GID
+            USER_ID=$(id -u)
+            GROUP_ID=$(id -g)
+            USER_NAME=$USER
+            GROUP_NAME=$(id -gn)
+            BUILD_MODE="personal"
+            shift
+            ;;
         --help)
-            echo "Usage: $0 [--github-pat TOKEN] [--tag TAG]"
+            echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --github-pat TOKEN   GitHub personal access token (avoids rate limits)"
             echo "  --tag TAG            Docker image tag (default: scdock-r-dev:v0.5.1)"
+            echo "  --personal           Build with YOUR UID/GID (for personal use only)"
+            echo "  --user-id UID        Custom user ID (default: 1000 for shareable image)"
+            echo "  --group-id GID       Custom group ID (default: 1000)"
+            echo "  --user NAME          Custom username (default: devuser)"
+            echo "  --group NAME         Custom group name (default: devgroup)"
+            echo ""
+            echo "Build Modes:"
+            echo "  GENERIC (default):   Builds devuser:1000 - shareable with team/registry"
+            echo "  PERSONAL:            Builds with your UID - only for your use"
             echo ""
             echo "Examples:"
-            echo "  $0"
-            echo "  $0 --github-pat ghp_xxxxx"
-            echo "  $0 --tag scdock-r-dev:custom"
+            echo "  $0                              # Generic build (devuser:1000)"
+            echo "  $0 --github-pat ghp_xxxxx       # Generic with PAT"
+            echo "  $0 --personal                   # Personal build (your UID)"
+            echo "  $0 --personal --github-pat ...  # Personal with PAT"
             exit 0
             ;;
         *)
@@ -66,6 +103,7 @@ echo -e "${BLUE}Building Size-Optimized Docker Image${NC}"
 echo -e "${BLUE}======================================${NC}"
 echo ""
 echo -e "${GREEN}Build Configuration:${NC}"
+echo "  Mode:       $BUILD_MODE"
 echo "  Tag:        $TAG"
 echo "  User ID:    $USER_ID"
 echo "  Group ID:   $GROUP_ID"
@@ -75,6 +113,12 @@ if [ -n "$GITHUB_PAT" ]; then
     echo "  GitHub PAT: ✓ Set (first 10 chars: ${GITHUB_PAT:0:10}...)"
 else
     echo -e "  GitHub PAT: ${YELLOW}✗ Not set (may hit rate limits)${NC}"
+fi
+echo ""
+if [ "$BUILD_MODE" = "generic" ]; then
+    echo -e "${GREEN}Building GENERIC image (devuser:1000) - shareable with team${NC}"
+elif [ "$BUILD_MODE" = "personal" ]; then
+    echo -e "${YELLOW}Building PERSONAL image (${USER_NAME}:${USER_ID}) - for your use only${NC}"
 fi
 echo ""
 

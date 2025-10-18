@@ -127,7 +127,7 @@ mkdir -p .devcontainer
 cp /path/to/scbio-docker/.devcontainer/docker-compose.yml .devcontainer/
 
 # Edit to add your data mounts
-nano .devcontainer/docker-compose.yml
+vim .devcontainer/docker-compose.yml
 ```
 
 **Start services:**

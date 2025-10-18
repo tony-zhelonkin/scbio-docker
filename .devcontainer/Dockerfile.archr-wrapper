@@ -1,0 +1,86 @@
+##############################################
+### ArchR Wrapper Dockerfile (UID-Compatible)
+##############################################
+# This Dockerfile wraps the official ArchR image with a consistent user setup
+# matching the scdock-r-dev image pattern. This ensures seamless switching
+# between dev-core and dev-archr services with identical UID/GID handling.
+#
+# Official base: greenleaflab/archr:1.0.3-base-r4.4
+# - R 4.4.x + ArchR 1.0.3
+# - Maintained by ArchR developers
+# - Default user: rstudio (1000:1000)
+#
+# This wrapper:
+# - Removes rstudio user
+# - Creates devuser with configurable UID/GID (default 1000:1000)
+# - Matches scdock-r-dev user creation logic for consistency
+
+FROM greenleaflab/archr:1.0.3-base-r4.4
+
+LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
+LABEL version="v0.5.1-wrapper"
+LABEL description="ArchR wrapper with consistent UID/GID handling"
+
+####################################################
+### Arguments for user configuration
+####################################################
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USER=devuser
+ARG GROUP=devgroup
+
+USER root
+
+####################################################
+### Replace rstudio user with configurable devuser
+####################################################
+# Remove default rstudio user and create new user with same logic as Dockerfile.optimized
+RUN set -eux; \
+    # Remove rstudio user (default in official image)
+    userdel -r rstudio 2>/dev/null || true; \
+    \
+    # Create user with same logic as Dockerfile.optimized (lines 223-242)
+    SAN_GROUP="$(printf '%s' "${GROUP}" | tr '[:space:]' '_')"; \
+    if getent group "${GROUP_ID}" >/dev/null; then \
+        GROUP_NAME="$(getent group "${GROUP_ID}" | cut -d: -f1)"; \
+    else \
+        groupadd -g "${GROUP_ID}" "${SAN_GROUP}" || groupadd -g "${GROUP_ID}" "grp_${GROUP_ID}"; \
+        GROUP_NAME="$(getent group "${GROUP_ID}" | cut -d: -f1)"; \
+    fi; \
+    if id -u "${USER_ID}" >/dev/null 2>&1; then \
+        USER_NAME="$(getent passwd "${USER_ID}" | cut -d: -f1)"; \
+    else \
+        useradd -m -s /bin/bash -u "${USER_ID}" -g "${GROUP_ID}" "${USER}"; \
+        USER_NAME="${USER}"; \
+    fi; \
+    \
+    # Set up home directory structure
+    mkdir -p /home/${USER_NAME}/reference_genome /home/${USER_NAME}/data; \
+    chown -R ${USER_ID}:${GROUP_ID} /home/${USER_NAME}; \
+    echo "alias ll='ls -la --color=auto'" >> /home/${USER_NAME}/.bashrc; \
+    \
+    # Grant sudo access
+    mkdir -p /etc/sudoers.d; \
+    echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${USER_NAME}; \
+    chmod 440 /etc/sudoers.d/90-${USER_NAME}; \
+    \
+    # Create user R library directory for runtime installs (matches Dockerfile.optimized)
+    # Extract R version from environment
+    R_MAJOR=$(Rscript -e "cat(R.version\$major)" 2>/dev/null || echo "4"); \
+    R_MINOR=$(Rscript -e "cat(R.version\$minor)" 2>/dev/null | cut -d. -f1 || echo "4"); \
+    mkdir -p "/home/${USER_NAME}/R/x86_64-pc-linux-gnu-library/${R_MAJOR}.${R_MINOR}"; \
+    chown -R ${USER_ID}:${GROUP_ID} "/home/${USER_NAME}/R"
+
+####################################################
+### Create writable workspace directory
+####################################################
+RUN mkdir -p /workspaces/DC_Dictionary && \
+    chown -R ${USER_ID}:${GROUP_ID} /workspaces/DC_Dictionary
+
+####################################################
+### Set working directory and default user
+####################################################
+WORKDIR /workspaces/DC_Dictionary
+USER ${USER_ID}:${GROUP_ID}
+
+CMD ["/bin/bash"]

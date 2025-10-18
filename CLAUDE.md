@@ -32,12 +32,39 @@ This is a Docker-based development environment for single-cell RNA-seq and epige
 
 ### Building the base image (v0.5.1 - Multi-Stage)
 
-**Recommended: Use build script**
+**IMPORTANT: Build Strategy (Shareable vs Personal)**
+
+The build system supports TWO modes:
+- **GENERIC (default)**: Creates `devuser:1000` - shareable with team/registry
+- **PERSONAL**: Creates image with YOUR UID - only for your use
+
+**Recommended: Generic build (shareable)**
 ```bash
-./build-optimized.sh --github-pat ghp_your_token_here
+./build-optimized.sh                       # Generic build (devuser:1000)
+./build-optimized.sh --github-pat ghp_...  # With GitHub PAT
 ```
 
-**Manual build:**
+**Personal build (your UID only):**
+```bash
+./build-optimized.sh --personal            # Bakes your UID into image
+./build-optimized.sh --personal --github-pat ghp_...
+```
+
+**How UID remapping works:**
+- **Generic image (devuser:1000)**: VS Code remaps 1000 → your UID automatically via `updateRemoteUserUID: true`
+- **Personal image (your UID)**: No remapping needed, but NOT shareable with others
+- **Best practice**: Use generic build + push to registry for team sharing
+
+**Manual generic build:**
+```bash
+docker build . \
+  -f .devcontainer/Dockerfile.optimized \
+  --build-arg GITHUB_PAT=$GITHUB_PAT \
+  -t scdock-r-dev:v0.5.1
+# Note: USER_ID defaults to 1000 (no need to specify)
+```
+
+**Manual personal build:**
 ```bash
 docker build . \
   -f .devcontainer/Dockerfile.optimized \
@@ -46,38 +73,30 @@ docker build . \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg USER=$USER \
   --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.5.1
+  -t scdock-r-dev:v0.5.1-personal
 ```
 
-**Legacy build (v0.5.0 - single-stage, has size issue):**
-```bash
-docker build . \
-  -f .devcontainer/Dockerfile \
-  --build-arg GITHUB_PAT=$GITHUB_PAT \
-  --build-arg USER_ID=$(id -u) \
-  --build-arg GROUP_ID=$(id -g) \
-  --build-arg USER=$USER \
-  --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.5.0
-```
+### Building ArchR Wrapper Image
 
-### Using Official ArchR Image (Recommended)
+The ArchR wrapper provides UID-compatible layer over official ArchR image:
 
 ```bash
-# Pull official ArchR image (no custom build needed)
-docker pull greenleaflab/archr:1.0.3-base-r4.4
-
-# Tag for consistency with compose files (optional)
-docker tag greenleaflab/archr:1.0.3-base-r4.4 archr-official:1.0.3
+./build-archr-wrapper.sh                   # Generic build (devuser:1000)
+./build-archr-wrapper.sh --personal        # Personal build (your UID)
 ```
 
-**Why official image?**
-- Maintained by ArchR developers
-- Stable R 4.4 (tested with ArchR)
-- No R version conflicts with dev-core (R 4.5)
-- Smaller size (~15GB vs custom build)
+**What it does:**
+- Pulls official `greenleaflab/archr:1.0.3-base-r4.4`
+- Removes `rstudio` user, creates `devuser` with same pattern as base image
+- Result: Consistent UID handling across dev-core ↔ dev-archr switching
 
-**Note:** Custom ArchR Dockerfile (`.devcontainer/Dockerfile.archr`) is deprecated. See `.devcontainer/Dockerfile.archr.DEPRECATED` for rationale.
+**Why use wrapper instead of official image directly:**
+- Official image has `rstudio:1000` - different user from `devuser:1000`
+- Wrapper ensures both images use identical user setup
+- Seamless switching between dev-core and dev-archr services
+- VS Code UID remapping works consistently
+
+**Note:** Custom ArchR Dockerfile (`.devcontainer/Dockerfile.archr`) is deprecated. Use wrapper instead.
 
 ### Extracting renv lockfile after first build
 
@@ -368,13 +387,65 @@ docker compose -f .devcontainer/docker-compose.yml down
 **CLI tools:**
 - Explicit version pinning in Dockerfile (samtools 1.21, bcftools 1.21, bedtools 2.31.1)
 
-### UID/GID Handling
+### UID/GID Handling (Generic + Runtime Remapping)
 
-The Dockerfile handles Active Directory users with group names containing spaces:
+**New Strategy (v0.5.1+): Generic Images with Runtime UID Remapping**
+
+Images are built with **generic user (devuser:1000)** by default, then mapped to actual user at runtime:
+
+**How it works:**
+1. **Build**: Create generic `devuser:1000` (shareable image)
+2. **Runtime**: Remap 1000 → your actual UID
+   - **VS Code**: Automatic via `updateRemoteUserUID: true` in devcontainer.json
+   - **Docker Compose**: Manual via `LOCAL_UID=${LOCAL_UID:-1000}` env vars
+   - **Docker run**: Manual via `-u $(id -u):$(id -g)`
+
+**Benefits:**
+- ✅ **Single image works for everyone** (shareable via registry)
+- ✅ **Runs as YOUR UID** when you use it (trackable in htop)
+- ✅ **Runs as Bob's UID** when Bob uses it (auto-remapped)
+- ✅ **No permission conflicts** (files owned by actual user)
+- ✅ **Team-friendly** (build once, everyone can use)
+
+**VS Code Setup (Automatic Remapping):**
+```json
+// .devcontainer/devcontainer.json
+{
+  "remoteUser": "devuser",
+  "updateRemoteUserUID": true  // ← Remaps 1000 to your UID
+}
+```
+
+**Docker Compose Setup (Env Var Override):**
+```yaml
+# docker-compose.yml
+services:
+  dev-core:
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"  # Override via env
+```
+
+```bash
+# .env file
+LOCAL_UID=788715489  # Your UID (run: id -u)
+LOCAL_GID=788600513  # Your GID (run: id -g)
+```
+
+**Manual Docker Run:**
+```bash
+docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.1
+```
+
+**Active Directory / Special Characters:**
+The Dockerfile still handles AD users with group names containing spaces:
 - Normalizes group names by replacing spaces with underscores
 - Falls back to `grp_<gid>` if group creation fails
 - Uses numeric IDs for `chown` operations to avoid name parsing issues
-- Containers run as host UID/GID to preserve file permissions on mounted volumes
+
+**Legacy (Personal Build):**
+If you need a personal-only image (not shareable):
+```bash
+./build-optimized.sh --personal  # Bakes YOUR UID into image
+```
 
 ### R Profile and Startup
 
