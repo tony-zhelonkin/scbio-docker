@@ -1,5 +1,9 @@
 # Size Optimization Summary (v0.5.0 → v0.5.1)
 
+**Author:** Anton Zhelonkin (with Claude Code assistance)
+**Date:** 2025-10-03
+**Version:** v0.5.1
+
 ## Problem Statement
 
 **v0.5.0 Issue:**
@@ -102,40 +106,6 @@ Use **two-stage Docker build**:
 - Can compile Python packages requiring compilation
 - Can build additional tools from source
 
-## Migration Guide
-
-### For v0.5.0 Users
-
-**Option 1: Rebuild with v0.5.1 (recommended)**
-```bash
-./build-optimized.sh --github-pat ghp_xxxxx
-```
-
-**Option 2: Flatten existing v0.5.0 image**
-```bash
-docker export $(docker create scdock-r-dev:v0.5.0) | docker import - scdock-r-dev:v0.5.0-flat
-```
-
-### For New Users
-
-Simply use the optimized build:
-```bash
-./build-optimized.sh
-```
-
-## Documentation Updates
-
-### New Files
-1. **`Dockerfile.optimized`** - Multi-stage Dockerfile
-2. **`build-optimized.sh`** - Build script with user-friendly interface
-3. **`RUNTIME_INSTALL.md`** - Comprehensive guide for runtime package installation
-4. **`SIZE_OPTIMIZATION_SUMMARY.md`** - This document
-
-### Updated Files
-1. **`DEVOPS.md`** - Added multi-stage build instructions, updated "Known Issues"
-2. **`README.md`** - Updated "What's New" section, Quick Start
-3. **`CLAUDE.md`** - Updated version info, build commands, architecture
-
 ## Technical Details
 
 ### Multi-Stage Build Benefits
@@ -190,8 +160,7 @@ Actual filesystem: 20GB
    - Separate R and Python builds in parallel stages
 
 4. **Base image alternatives**
-   - Consider `ubuntu:22.04-minimal` (saves ~50MB)
-   - Or `debian:bookworm-slim` for even smaller base
+   - Consider smaller alternatives
 
 ## Lessons Learned
 
@@ -235,9 +204,3 @@ docker run --rm scdock-r-dev:v0.5.1 bash -c "source /opt/venvs/base/bin/activate
 - Docker multi-stage builds: https://docs.docker.com/build/building/multi-stage/
 - Docker layer caching: https://docs.docker.com/build/cache/
 - BuildKit optimization: https://docs.docker.com/build/buildkit/
-
----
-
-**Author:** Anton Zhelonkin (with Claude Code assistance)
-**Date:** 2025-10-03
-**Version:** v0.5.1
