@@ -7,7 +7,7 @@ A Docker-based development environment for bioinformatics, particularly single-c
 
 ## What's New in v0.5.1 (Multi-Stage Build)
 
-** TRUE Size Reduction: 500GB → 20GB (Docker-reported)**
+** Size Reduction: 500GB → 20GB (Docker-reported)**
 
 - **Multi-stage build**: Completely discards build artifacts, no layer bloat
 - **Build-essential preserved**: Should still compile R/Python packages at runtime
@@ -22,7 +22,7 @@ A Docker-based development environment for bioinformatics, particularly single-c
 - Official ArchR image: Use `greenleaflab/archr:1.0.3-base-r4.4` instead of custom build, custom build discarded
 
 **Key Benefits:**
-- ✅ **True ~20GB final image** (no layer accounting issues)
+- ✅ **~20GB final image** (no layer accounting issues)
 - ✅ Same functionality - core packages cover many standard use cases
 - ✅ **Runtime package installation fully supported** (build tools preserved)
 - ✅ Improved reproducibility with layered venv approach
