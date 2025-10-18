@@ -52,6 +52,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev gfortran \
+    # ImageMagick (for magick R package)
+    libmagick++-dev \
     # X11 dependencies (required for R)
     libx11-dev libxt-dev x11proto-core-dev \
     # Python build dependencies
@@ -207,6 +209,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev \
+    # ImageMagick (for magick R package)
+    libmagick++-dev \
     # X11 dependencies (required for R)
     libx11-dev libxt-dev x11proto-core-dev \
     # Python runtime dependencies

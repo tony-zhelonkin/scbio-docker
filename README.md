@@ -7,23 +7,23 @@ A Docker-based development environment for bioinformatics, particularly single-c
 
 ## What's New in v0.5.1 (Multi-Stage Build)
 
-**🎯 TRUE Size Reduction: 500GB → 20GB (Docker-reported)**
+** TRUE Size Reduction: 500GB → 20GB (Docker-reported)**
 
 - **Multi-stage build**: Completely discards build artifacts, no layer bloat
-- **Build-essential preserved**: Can still compile R/Python packages at runtime
-- **Same functionality**: All features from v0.5.0, but with true size efficiency
+- **Build-essential preserved**: Should still compile R/Python packages at runtime
+- **Same functionality**: All features from v0.5.0, but with size efficiency
 
 **Previous Optimizations (v0.5.0):**
 - Aggressive cache cleanup: renv, pip, and build artifacts removed
 - TinyTeX: Lightweight TeX distribution instead of full texlive
 - Layered Python venvs: Base venv + runtime-created specialized venvs
-- Core R packages approach: ~80 essential packages pre-installed, others at runtime
+- Core R packages approach: ~80 essential packages pre-installed, others at runtime on-demand
 - R 4.5 + Bioconductor 3.21: Updated for anndataR and modern package support
-- Official ArchR image: Use `greenleaflab/archr:1.0.3-base-r4.4` instead of custom build
+- Official ArchR image: Use `greenleaflab/archr:1.0.3-base-r4.4` instead of custom build, custom build discarded
 
 **Key Benefits:**
 - ✅ **True ~20GB final image** (no layer accounting issues)
-- ✅ Same functionality - core packages cover 95% of use cases
+- ✅ Same functionality - core packages cover many standard use cases
 - ✅ **Runtime package installation fully supported** (build tools preserved)
 - ✅ Improved reproducibility with layered venv approach
 - ✅ No R version conflicts (dev-core: R 4.5, ArchR: R 4.4)
