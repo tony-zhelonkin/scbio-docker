@@ -36,7 +36,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager", repos = "https://cloud.r-project.org")
 
 # Stick to a Bioc release (pins major/minor versions reasonably)
-BiocManager::install(version = "3.20", ask = FALSE)
+BiocManager::install(version = "3.21", ask = FALSE)
 
 # ---- CRAN packages ----
 cran_packages <- c(
@@ -47,9 +47,7 @@ cran_packages <- c(
   "httpgd","ggrastr","networkD3","r2d3","Matrix","tidyverse","ggpubr","Cairo","imager",
   "lightgbm","rliger","splines","sleepwalk","singleCellHaystack","ClusterR","DDRTree",
   "densityClust","stringi","WGCNA","msigdbr","RhpcBLASctl","parallelly",
-  # ---- your requested additions ----
   "RcppML","GeneNMF","aricode","cluster","FNN",
-  # Interop & analysis extras
   "reticulate","scCustomize","FactoMineR","factoextra"
 )
 safe_install(cran_packages, install.packages, repos = "https://cloud.r-project.org")
@@ -62,19 +60,18 @@ try(install.packages("RcppPlanc", repos = "https://welch-lab.r-universe.dev"), s
 try(install.packages('https://cran.r-project.org/src/contrib/Archive/locfit/locfit_1.5-9.4.tar.gz',
                      repos = NULL, type = 'source'), silent = TRUE)
 
-# ---- Bioconductor packages ----
+# ---- Bioconductor packages (core) ----
 bioc_packages <- c(
   "scran","txdbmaker","dittoSeq","impute","SingleR","celldex","preprocessCore",
   "GenomicRanges","GenomeInfoDb","DESeq2","Rsamtools","S4Vectors","IRanges",
-  "BiocParallel","DelayedArray","biovizBase","SoupX","scater","scDblFinder","scry","muscat",
+  "BiocParallel","DelayedArray","biovizBase","SoupX","scater","scDblFinder","scry","muscat","GSVA",
   "zellkonverter","SingleCellExperiment","ComplexHeatmap","tidySingleCellExperiment",
   "BiocGenerics","DelayedMatrixStats","limma","SummarizedExperiment","batchelor",
   "HDF5Array","terra","Gviz","rtracklayer","chromVAR","scmap","DOSE","pathview",
   "clusterProfiler","AnnotationHub","biomaRt","ensembldb",
-  "BSgenome.Hsapiens.UCSC.hg19","BSgenome.Hsapiens.UCSC.hg38",
-  "BSgenome.Mmusculus.UCSC.mm10","BSgenome.Mmusculus.UCSC.mm39",
-  "clusterExperiment","msigdb","EnsDb.Hsapiens.v75","EnsDb.Hsapiens.v79","EnsDb.Hsapiens.v86",
-  "EnsDb.Mmusculus.v75","EnsDb.Mmusculus.v79","org.Hs.eg.db","org.Mm.eg.db",
+  # moved heavy annotation/data sets to optional
+  # "BSgenome.*", "EnsDb.*", "org.*.eg.db", "reactome.db"
+  "clusterExperiment","msigdb",
   "DropletUtils",
   "JASPAR2022","JASPAR2024","TFBSTools","motifmatchr","scTensor",
   "SingleCellSignalR","slingshot","sctransform","splatter","sva",
@@ -200,3 +197,17 @@ try(write.csv(gh_df, file.path(log_dir, "installed_R_github_remotes.csv"), row.n
     silent = TRUE)
 
 message("R package installation completed and logs written.")
+
+# Optional heavy data installs
+heavy_flag <- Sys.getenv("INCLUDE_HEAVY_R_DATA", unset = "0")
+if (identical(heavy_flag, "1")) {
+  message("Installing heavy annotation/data packages ...")
+  heavy_pkgs <- c(
+    "BSgenome.Hsapiens.UCSC.hg19","BSgenome.Hsapiens.UCSC.hg38",
+    "BSgenome.Mmusculus.UCSC.mm10","BSgenome.Mmusculus.UCSC.mm39",
+    "EnsDb.Hsapiens.v75","EnsDb.Hsapiens.v79","EnsDb.Hsapiens.v86",
+    "EnsDb.Mmusculus.v75","EnsDb.Mmusculus.v79",
+    "org.Hs.eg.db","org.Mm.eg.db","reactome.db"
+  )
+  safe_install(heavy_pkgs, BiocManager::install, ask = FALSE, update = FALSE)
+}

@@ -1,9 +1,39 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.4.0-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.1-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code’s **Remote - Containers** extension, enabling seamless local or remote development against powerful server resources.
+A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code's [**Dev Containers**](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension, enabling seamless local or remote development against powerful server resources.
+
+## What's New in v0.5.1 (Multi-Stage Build)
+
+** Size Reduction: 500GB → 20GB (Docker-reported)**
+
+- **Multi-stage build**: Completely discards build artifacts, no layer bloat
+- **Build-essential preserved**: Should still compile R/Python packages at runtime
+- **Same functionality**: All features from v0.5.0, but with size efficiency
+
+**Previous Optimizations (v0.5.0):**
+- Aggressive cache cleanup: renv, pip, and build artifacts removed
+- TinyTeX: Lightweight TeX distribution instead of full texlive
+- Layered Python venvs: Base venv + runtime-created specialized venvs
+- Core R packages approach: ~80 essential packages pre-installed, others at runtime on-demand
+- R 4.5 + Bioconductor 3.21: Updated for anndataR and modern package support
+- Official ArchR image: Use `greenleaflab/archr:1.0.3-base-r4.4` instead of custom build, custom build discarded
+
+**Key Benefits:**
+- ✅ **~20GB final image** (no layer accounting issues)
+- ✅ Same functionality - core packages cover many standard use cases
+- ✅ **Runtime package installation fully supported** (build tools preserved)
+- ✅ Improved reproducibility with layered venv approach
+- ✅ No R version conflicts (dev-core: R 4.5, ArchR: R 4.4)
+
+**Project Templates:**
+- ✅ `init-project.sh` script for quick project scaffolding
+- ✅ 4 templates: `basic-rna`, `multimodal`, `archr-focused`, `example-DMATAC`
+- ✅ Universal `.vscode/settings.json` with Python REPL + R configuration
+
+**Build:** Use `./build-optimized.sh` for multi-stage build. See [DEVOPS.md](DEVOPS.md).
 
 > **Inspiration**: This setup is **strongly inspired by** [Rami Krispin’s vscode-r repository](https://github.com/RamiKrispin/vscode-r). Special thanks for the excellent reference on R + VS Code configurations!
 
@@ -32,11 +62,37 @@ A Docker-based development environment for bioinformatics, particularly single-c
 
 This repository contains Dockerfiles and configuration files for creating a **versatile bioinformatics environment** that focuses on single-cell RNA-seq and epigenomics workflows. It packages:
 
-- **R** (v4.4.2) and comprehensive single-cell and genomic libraries (Seurat, ArchR, Bioconductor ecosystem, etc.).
-- **Python** (v3.10) with scientific libraries (NumPy, SciPy, Pandas, scVI, Scanpy, etc.).
-- Command-line tools focused on epigenomics-friendly workflows: **samtools**, **bcftools**, **bedtools**, and selected extras (e.g., **scIBD** for scATAC doublet detection). Bulk aligners and pre-processing tools (STAR, BWA, Salmon, kallisto, Picard, FastQC/Trimmomatic, Trim Galore, featureCounts, etc.) are intentionally excluded to keep the image slim. Use pipeline-specific containers if you need them.
+- **R** (v4.5.0) and comprehensive single-cell and genomic libraries (Seurat, Signac, Bioconductor ecosystem, etc.)
+  - ~80 core packages pre-installed (Seurat, edgeR, limma, clusterProfiler, GSVA, etc.)
+  - Runtime installation supported for additional packages
+  - **ArchR**: Use official image on-demand (`greenleaflab/archr:1.0.3-base-r4.4`)
+- **Python** (v3.10) with scientific libraries (NumPy, SciPy, Pandas, scVI, Scanpy, etc.)
+  - Base venv with core single-cell stack
+  - Layered venvs for specialized tools (spatial, ATAC, cell communication)
+- **Command-line tools** focused on epigenomics-friendly workflows: **samtools**, **bcftools**, **bedtools**, and selected extras (e.g., **scIBD** for scATAC doublet detection). Bulk aligners and pre-processing tools (STAR, BWA, Salmon, kallisto, Picard, FastQC/Trimmomatic, Trim Galore, featureCounts, etc.) are intentionally excluded to keep the image slim. Use pipeline-specific containers if you need them.
 
 The Docker setup is integrated with **VS Code Remote Containers** to streamline development on remote compute nodes—ideal for large-scale single-cell data processing.
+
+### Quick Start
+
+```bash
+# 1. Build base image (multi-stage, ~20GB true size)
+./build-optimized.sh
+
+# 2. Pull official ArchR image
+docker pull greenleaflab/archr:1.0.3-base-r4.4
+
+# 3. Initialize new project
+./init-project.sh ~/projects/my-analysis basic-rna
+
+# 4. Open in VS Code and reopen in container
+code ~/projects/my-analysis
+# Cmd/Ctrl+Shift+P → "Dev Containers: Reopen in Container"
+```
+
+See [DEVOPS.md](DEVOPS.md) for complete build and operational instructions.
+
+**Runtime Package Installation:** See [RUNTIME_INSTALL.md](RUNTIME_INSTALL.md) for installing additional R/Python packages at runtime.
 
 ---
 
@@ -111,34 +167,53 @@ export GITHUB_PAT=ghp_your_token_here
 unset GITHUB_PAT
 ```
 
-### Python environments (base vs squid)
+### Python environments (v0.5.0: Layered venvs)
 
-Two venvs are preinstalled and fully resolved during the image build:
-- `/opt/venvs/base` from `/opt/environments/base_requirements.txt`
-- `/opt/venvs/squid` from `/opt/environments/squid_requirements.txt`
+**Base venv** (pre-installed):
+- `/opt/venvs/base` - Core single-cell stack (scanpy, scvi-tools, muon, cellrank, scvelo, radian)
+- Installed during build from `/opt/environments/base_requirements.txt`
 
-Default PATH uses the base venv. Switch interactively inside the container:
+**Layered venvs** (created at runtime with `--system-site-packages`):
+- `/opt/venvs/squid` - Spatial transcriptomics (squidpy, spatialdata) - inherits base packages
+- `/opt/venvs/atac` - scATAC-seq (snapatac2, episcanpy) - inherits base packages
+- `/opt/venvs/comms` - Cell communication (liana, cellphonedb, scglue) - inherits base packages
 
-```bash
-usepy squid      # switch shell to squid env
-usepy atac       # switch shell to ATAC env (snapatac2)
-usepy comms      # switch shell to COMMS env (LR/GRN)
-usepy base       # switch back to base env
-```
-
-One-off commands under a specific env:
+**Creating and switching venvs:**
 
 ```bash
-py-squid python -V
-py-atac python -V
-py-comms python -V
-py-base python -V
+# First use automatically creates the venv
+usepy squid      # Creates /opt/venvs/squid if needed, then activates
+usepy atac       # Creates /opt/venvs/atac if needed, then activates
+usepy comms      # Creates /opt/venvs/comms if needed, then activates
+usepy base       # Switch back to base env
 ```
 
-Verify which env is active:
+**Manual venv creation:**
+
+```bash
+# Create specific layered venv
+create_layered_venv.sh squid squid_requirements.txt
+create_layered_venv.sh atac atac_requirements.txt
+create_layered_venv.sh comms comms_requirements.txt
+```
+
+**One-off commands:**
+
+```bash
+py-base python -V    # Uses base venv
+```
+
+**Verify active environment:**
 
 ```bash
 which python && python -V && pip list | head
+```
+
+**Freeze for reproducibility:**
+
+```bash
+# After installing additional packages
+pip freeze > requirements-project-frozen.txt
 ```
 
 ### Version pinning strategy
@@ -466,6 +541,147 @@ profiles {
   ```bash
   R_PROFILE_USER=/dev/null R_ENVIRON_USER=/dev/null Rscript --vanilla your_script.R
   ```
+
+---
+
+## R Library Architecture: Two-Tier Design
+
+### Understanding the System Library vs User Library
+
+The container uses a **two-tier R library architecture** for reproducibility, shareability, and efficient runtime package installation:
+
+```
+System Library (read-only)          User Library (writable)
+/usr/local/lib/R/library            ~/R/x86_64-pc-linux-gnu-library/4.5
+├─ Core packages (~80)              ├─ Runtime installs
+├─ Pinned via renv.lock            ├─ Project-specific packages
+├─ Same across all containers      ├─ Can differ per user/project
+├─ Built into image (~10GB)        ├─ Persists in home directory
+└─ Owned by root (read-only)       └─ Owned by devuser (writable)
+```
+
+**Check your library paths in R:**
+```r
+.libPaths()
+# [1] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5"  # User library (writable)
+# [2] "/usr/local/lib/R/library"                          # System library (read-only)
+```
+
+### Why Read-Only System Library?
+
+**1. Reproducibility**
+- Core packages are pinned via `renv.lock` at build time
+- Same package versions across all container instances
+- Updates to system packages are tested before baking into new image versions
+
+**2. Image Shareability**
+- Generic image with `devuser:1000` can be pushed to registry and shared with team
+- System packages identical for all users
+- Only user-installed packages differ (stored in home directory)
+
+**3. Disk Space Efficiency**
+- Core 80 packages (~10GB) shared across all container instances
+- Each user's runtime installs (~1-5GB) stored separately in home directory
+- Alternative (writable system lib) → every update creates new Docker layers
+
+**4. Separation of Concerns**
+- **System library**: Stable, tested baseline for all users
+- **User library**: Experimental, project-specific, can be wiped without rebuilding image
+
+### Installing R Packages at Runtime
+
+**Runtime R installs automatically go to the writable user library** (`~/R/...`). No sudo needed:
+
+```r
+# Install from CRAN
+install.packages("AnnotationHub")
+
+# Install from Bioconductor
+BiocManager::install("AnnotationHub")
+
+# Install from GitHub
+remotes::install_github("user/package")
+```
+
+Packages install to `/home/devuser/R/x86_64-pc-linux-gnu-library/4.5` and take **precedence** over system library versions.
+
+### Expected Warning: "Installation paths not writeable"
+
+**This warning is NORMAL and EXPECTED:**
+
+```r
+r$> BiocManager::install("AnnotationHub")
+Bioconductor version 3.21 (BiocManager 1.30.26), R 4.5.0 (2025-04-11)
+Installing package(s) 'AnnotationHub'
+...
+* DONE (AnnotationHub)
+
+Installation paths not writeable, unable to update packages
+  path: /usr/local/lib/R/library
+  packages:
+    aplot, BiocGenerics, boot, colorspace, Matrix, Seurat, ...
+```
+
+**What this means:**
+- ✅ **AnnotationHub installed successfully** to user library
+- ⚠️ BiocManager checked if any system packages need updates (they do)
+- ❌ Cannot update system packages because you're not root (by design)
+
+**This is intentional because:**
+- Updating system packages would break reproducibility
+- Updates should be tested before baking into new image versions
+- You can install newer versions in user library (they take precedence)
+
+**To suppress these warnings:**
+```r
+# Disable update checks (installs new packages only)
+BiocManager::install("AnnotationHub", update = FALSE)
+```
+
+### Verifying Package Installation
+
+**Check where a package is installed:**
+```r
+find.package("AnnotationHub")
+# [1] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5/AnnotationHub"
+
+# Check if package loads
+library(AnnotationHub)
+```
+
+**List all packages and their locations:**
+```r
+ip <- installed.packages()[, c("Package", "LibPath")]
+head(ip[ip[, "LibPath"] == .libPaths()[1], ])  # User library
+head(ip[ip[, "LibPath"] == .libPaths()[2], ])  # System library
+```
+
+### ArchR Library Path (dev-archr service only)
+
+When using the `dev-archr` service with `r-archr` wrapper:
+```bash
+r-archr  # Sets USE_ARCHR=1
+```
+
+The library path becomes:
+```r
+.libPaths()
+# [1] "/home/devuser/R/archr-lib"                         # ArchR library (highest priority)
+# [2] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5"  # User library
+# [3] "/usr/local/lib/R/library"                          # System library
+```
+
+This allows ArchR's specific package versions to override system versions without conflicts.
+
+### Creating Output Folders
+
+R won't create intermediate directories for `saveRDS`. Ensure the path exists before writing:
+```r
+dir.create("03_Results/DEG", recursive = TRUE, showWarnings = FALSE)
+saveRDS(dge, "03_Results/DEG/preprocessed_DGEList.rds")
+```
+
+If you bind-mount the workspace, ensure the host path is writable by your UID/GID (the container runs as your host IDs). Adjust permissions on the host if needed.
 
 ---
 
@@ -821,5 +1037,60 @@ pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
 - Use predictable embedding keys (X_scvi, X_peakvi, X_scglue) to preserve reductions on round-trip.
 - Large datasets: prefer backed I/O (.h5mu with muon; Seurat v5 disk-aware flows).
 - If a reduction/graph is missing after import, re-emit using `MuDataSeurat::WriteH5AD`.
+
+---
+
+## Permissions, UID/GID, and AD users (group names with spaces)
+
+- Containers run as your host UID/GID (passed at build and used at runtime). This avoids root-owned files on your mounts.
+- For AD-controlled users (e.g., primary group name contains a space like `domain users`):
+  - The Dockerfile already normalizes/handles group creation via numeric GID and falls back to safe names if needed.
+  - When binding a workspace path, ensure the host directory is writable by your UID/GID:
+    ```bash
+    id -u; id -g; id -gn
+    ls -ld /path/to/workspace
+    # Adjust on host if needed:
+    sudo chown -R $(id -u):$(id -g) /path/to/workspace
+    # or grant group write:
+    sudo chmod -R g+rwX /path/to/workspace
+    ```
+- R user library: the container sets `R_LIBS_USER` and `.Rprofile` prepends it. Startup sanity now checks:
+  - R user lib writable
+  - Workspace write (creates and removes a temp dir)
+  If either fails, the sanity script prints IDs and path info to guide fixes.
+
+- VS Code Dev Containers: When using compose, both services inherit the same mount and user IDs; choose `dev-archr` by default if you want ArchR availability.
+
+---
+
+## Image slimming (what we removed and how to keep it small)
+
+- Heavy R annotation/data packages moved to optional (install on-demand):
+  - BSgenome.* (hg19, hg38, mm10, mm39), EnsDb.* (multiple versions), org.*.eg.db, reactome.db
+  - Reason: multi-GB footprint; not always needed for development
+  - To install when required:
+    ```bash
+    # Build with heavy data included
+    docker build -f .devcontainer/Dockerfile \
+      --build-arg INCLUDE_HEAVY_R_DATA=1 \
+      -t scdock-r-dev:heavy .
+    ```
+    Or inside R at runtime via BiocManager installs.
+
+- Python venv trims:
+  - Moved cross R/Py bridging packages to on-demand: pyreadr, rpy2, anndata2ri (commented in base_requirements.txt)
+  - Keep heavy stacks only where necessary; avoid duplicating scanpy/scvi across multiple venvs
+
+- Cleanup and build hygiene:
+  - Remove build sources after install (R sources are removed; keep iterating where applicable)
+  - Consider TinyTeX or minimal TeX set if PDF output isn’t central
+  - Optionally purge renv cache in final stage if you don’t need rebuild acceleration
+
+- Quick size audit (inside a container):
+  ```bash
+  du -hsx /* 2>/dev/null | sort -h | tail -n 20
+  du -hs /usr/local/lib/R/library/* | sort -h | tail -n 30
+  du -hs /opt/venvs/* | sort -h
+  ```
 
 ---
