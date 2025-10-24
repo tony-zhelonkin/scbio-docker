@@ -544,21 +544,144 @@ profiles {
 
 ---
 
-## Installing R packages and writing results inside the container
+## R Library Architecture: Two-Tier Design
 
-- Runtime R installs go to a user-writable library first (`~/.R/...` via `R_LIBS_USER`). This means you can install with:
-```r
-install.packages("GSVA")
-BiocManager::install("GSVA")
+### Understanding the System Library vs User Library
+
+The container uses a **two-tier R library architecture** for reproducibility, shareability, and efficient runtime package installation:
+
 ```
-No sudo is needed; packages land in your home library. If you switch to the ArchR session (`r-archr`), its library path is prepended for ArchR-related packages while still keeping your user library writable and visible.
+System Library (read-only)          User Library (writable)
+/usr/local/lib/R/library            ~/R/x86_64-pc-linux-gnu-library/4.5
+├─ Core packages (~80)              ├─ Runtime installs
+├─ Pinned via renv.lock            ├─ Project-specific packages
+├─ Same across all containers      ├─ Can differ per user/project
+├─ Built into image (~10GB)        ├─ Persists in home directory
+└─ Owned by root (read-only)       └─ Owned by devuser (writable)
+```
 
-- Creating output folders: R won’t create intermediate directories for `saveRDS`. Ensure the path exists before writing:
+**Check your library paths in R:**
+```r
+.libPaths()
+# [1] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5"  # User library (writable)
+# [2] "/usr/local/lib/R/library"                          # System library (read-only)
+```
+
+### Why Read-Only System Library?
+
+**1. Reproducibility**
+- Core packages are pinned via `renv.lock` at build time
+- Same package versions across all container instances
+- Updates to system packages are tested before baking into new image versions
+
+**2. Image Shareability**
+- Generic image with `devuser:1000` can be pushed to registry and shared with team
+- System packages identical for all users
+- Only user-installed packages differ (stored in home directory)
+
+**3. Disk Space Efficiency**
+- Core 80 packages (~10GB) shared across all container instances
+- Each user's runtime installs (~1-5GB) stored separately in home directory
+- Alternative (writable system lib) → every update creates new Docker layers
+
+**4. Separation of Concerns**
+- **System library**: Stable, tested baseline for all users
+- **User library**: Experimental, project-specific, can be wiped without rebuilding image
+
+### Installing R Packages at Runtime
+
+**Runtime R installs automatically go to the writable user library** (`~/R/...`). No sudo needed:
+
+```r
+# Install from CRAN
+install.packages("AnnotationHub")
+
+# Install from Bioconductor
+BiocManager::install("AnnotationHub")
+
+# Install from GitHub
+remotes::install_github("user/package")
+```
+
+Packages install to `/home/devuser/R/x86_64-pc-linux-gnu-library/4.5` and take **precedence** over system library versions.
+
+### Expected Warning: "Installation paths not writeable"
+
+**This warning is NORMAL and EXPECTED:**
+
+```r
+r$> BiocManager::install("AnnotationHub")
+Bioconductor version 3.21 (BiocManager 1.30.26), R 4.5.0 (2025-04-11)
+Installing package(s) 'AnnotationHub'
+...
+* DONE (AnnotationHub)
+
+Installation paths not writeable, unable to update packages
+  path: /usr/local/lib/R/library
+  packages:
+    aplot, BiocGenerics, boot, colorspace, Matrix, Seurat, ...
+```
+
+**What this means:**
+- ✅ **AnnotationHub installed successfully** to user library
+- ⚠️ BiocManager checked if any system packages need updates (they do)
+- ❌ Cannot update system packages because you're not root (by design)
+
+**This is intentional because:**
+- Updating system packages would break reproducibility
+- Updates should be tested before baking into new image versions
+- You can install newer versions in user library (they take precedence)
+
+**To suppress these warnings:**
+```r
+# Disable update checks (installs new packages only)
+BiocManager::install("AnnotationHub", update = FALSE)
+```
+
+### Verifying Package Installation
+
+**Check where a package is installed:**
+```r
+find.package("AnnotationHub")
+# [1] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5/AnnotationHub"
+
+# Check if package loads
+library(AnnotationHub)
+```
+
+**List all packages and their locations:**
+```r
+ip <- installed.packages()[, c("Package", "LibPath")]
+head(ip[ip[, "LibPath"] == .libPaths()[1], ])  # User library
+head(ip[ip[, "LibPath"] == .libPaths()[2], ])  # System library
+```
+
+### ArchR Library Path (dev-archr service only)
+
+When using the `dev-archr` service with `r-archr` wrapper:
+```bash
+r-archr  # Sets USE_ARCHR=1
+```
+
+The library path becomes:
+```r
+.libPaths()
+# [1] "/home/devuser/R/archr-lib"                         # ArchR library (highest priority)
+# [2] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5"  # User library
+# [3] "/usr/local/lib/R/library"                          # System library
+```
+
+This allows ArchR's specific package versions to override system versions without conflicts.
+
+### Creating Output Folders
+
+R won't create intermediate directories for `saveRDS`. Ensure the path exists before writing:
 ```r
 dir.create("03_Results/DEG", recursive = TRUE, showWarnings = FALSE)
 saveRDS(dge, "03_Results/DEG/preprocessed_DGEList.rds")
 ```
-- If you bind-mount the workspace, make sure the host path is writable by your UID/GID (the container runs as your host IDs). Adjust permissions on the host if needed.
+
+If you bind-mount the workspace, ensure the host path is writable by your UID/GID (the container runs as your host IDs). Adjust permissions on the host if needed.
 
 ---
 

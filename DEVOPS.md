@@ -410,7 +410,11 @@ packageVersion("ArchR")  # Should be 1.0.3
 
 ### R Package Installation
 
-**Runtime installation (to user library):**
+**Two-tier library design:**
+- **System library** (`/usr/local/lib/R/library`): Read-only, ~80 core packages, pinned via renv
+- **User library** (`~/R/...`): Writable, runtime installs, project-specific packages
+
+**Runtime installation (to user library, no sudo needed):**
 ```r
 # Automatically installs to ~/R/...
 if (!require("GSVA")) BiocManager::install("GSVA")
@@ -418,8 +422,30 @@ install.packages("ggExtra")
 
 # Check library paths
 .libPaths()
-# [1] "/home/user/R/x86_64-pc-linux-gnu-library/4.5"  # writable
-# [2] "/usr/local/lib/R/library"                       # system (core packages)
+# [1] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5"  # writable (runtime installs)
+# [2] "/usr/local/lib/R/library"                          # system (core packages)
+```
+
+**Expected warning (NORMAL and harmless):**
+```r
+BiocManager::install("AnnotationHub")
+...
+* DONE (AnnotationHub)
+
+Installation paths not writeable, unable to update packages
+  path: /usr/local/lib/R/library
+  packages:
+    aplot, BiocGenerics, Matrix, Seurat, ...
+```
+
+**What this means:**
+- ✅ Package installed successfully to user library
+- ⚠️ BiocManager checked for updates to system packages (default behavior)
+- ❌ Cannot update system packages (by design for reproducibility)
+
+**To suppress warnings:**
+```r
+BiocManager::install("PACKAGE", update = FALSE)
 ```
 
 **Pre-installed core packages (~80):**
