@@ -1,0 +1,233 @@
+# {{PROJECT_NAME}} — Analysis Plan
+
+**Version:** 1.0
+**Last Updated:** {{DATE}}
+**Status:** Planning
+
+---
+
+## 📋 Purpose of This File
+
+`plan.md` is your **strategic compass** for the project. It contains:
+
+1. **Scientific narrative** — The biological question and analysis approach
+2. **Known issues** — Problems encountered and proposed solutions
+3. **Data inventory** — Where data lives, what it contains
+4. **Big questions** — What you're trying to discover
+
+**Target length:** ~2000-3000 words (longer is fine if needed)
+
+**Update frequency:** After completing major milestones or discovering new issues
+
+**Read by:** Every new work session, especially after breaks or context switches
+
+**Complements:**
+- `tasks.md` — Concrete execution steps (what to do next)
+- `notes.md` — Research findings, external resources
+- `handoff.md` — Session-to-session continuity
+
+---
+
+## 🎯 Core Scientific Question
+
+**What are you trying to understand?**
+
+_Example:_
+> Can we identify cell type-specific regulatory programs that change with age/treatment/disease?
+
+**Specific hypotheses:**
+1. _Hypothesis 1: ..._
+2. _Hypothesis 2: ..._
+3. _Hypothesis 3: ..._
+
+**Expected outcomes:**
+- _What would success look like?_
+- _What plots/tables will answer the question?_
+
+---
+
+## 📊 Data Inventory
+
+### Primary Dataset
+
+**Name:** {{PROJECT_NAME}}
+**Assay:** scRNA-seq / scATAC-seq / Multimodal / Bulk
+**Organism:** Mouse / Human / Other
+**Genome:** mm10 / hg38 / ...
+**Conditions:**
+- Condition 1: N = ? samples
+- Condition 2: N = ? samples
+
+**File locations:**
+- Raw data: `/workspaces/{{PROJECT_NAME}}/00_data/raw/...`
+- Metadata: `...`
+- Expected cell count: ~XXk cells
+
+### External Datasets (if applicable)
+
+**For validation or reference:**
+- Dataset 1: GEO accession, purpose
+- Dataset 2: ...
+
+---
+
+## 🗺️ Analysis Narrative
+
+### High-Level Strategy
+
+_Describe your analysis approach in 3-5 sentences_
+
+Example:
+> We will first QC and normalize scRNA-seq data, then cluster cells and annotate cell types using known markers. Next, we'll perform differential expression between conditions within each cell type. Finally, we'll run pathway enrichment to identify biological processes enriched in each comparison.
+
+### Analysis Levels
+
+**Level 1: Quality Control**
+- Goal: Remove low-quality cells and doublets
+- Method: Standard QC metrics, doublet detection
+- Success criteria: ~XX% cells retained, clear UMAP structure
+
+**Level 2: Cell Type Identification**
+- Goal: Annotate major cell types
+- Method: Marker-based annotation / reference mapping
+- Success criteria: Known markers express in expected clusters
+
+**Level 3: Differential Analysis**
+- Goal: Find condition-specific changes
+- Method: Pseudobulk DE / DA / ChromVAR
+- Success criteria: Biologically interpretable results
+
+**Level 4: Functional Interpretation**
+- Goal: Pathway-level understanding
+- Method: GSEA, TF enrichment, network analysis
+- Success criteria: Pathways align with known biology
+
+---
+
+## ⚠️ Known Issues & Proposed Solutions
+
+**Format:** Document problems as you discover them, along with proposed fixes
+
+### Issue #1: [Issue Name]
+
+**Problem:**
+_Description of the issue_
+
+**Impact:**
+_How does this affect the analysis?_
+
+**Proposed Solution:**
+_What you plan to do about it_
+
+**Status:** Open / Testing / Resolved
+
+---
+
+### Issue #2: [Issue Name]
+
+...
+
+---
+
+## 🔄 Analysis Stages (High-Level)
+
+**This section maps to detailed substeps in `tasks.md`**
+
+### Stage 1: [Name]
+**Goal:** _What this stage accomplishes_
+**Input:** _What data/objects are needed_
+**Output:** _What checkpoints/results are created_
+**Time estimate:** ~X hours
+
+### Stage 2: [Name]
+...
+
+### Stage 3: [Name]
+...
+
+---
+
+## 🧪 Validation Strategy
+
+**How will you know your results are correct?**
+
+1. **Positive controls:**
+   - Known marker genes should express in expected cell types
+   - Known pathways should enrich in expected conditions
+
+2. **Negative controls:**
+   - Random gene sets should not enrich
+   - Unrelated conditions should not cluster together
+
+3. **External validation:**
+   - Compare to published datasets
+   - Check if findings replicate in independent cohorts
+
+---
+
+## 📈 Success Criteria (Overall)
+
+**You'll know the project is complete when:**
+
+- [ ] All stages in `tasks.md` marked as ✅
+- [ ] Key plots generated and interpretable
+- [ ] Results documented in `03_results/`
+- [ ] Findings can be summarized in 2-3 bullet points
+- [ ] Code is reproducible (can re-run from checkpoints)
+
+---
+
+## 🎯 Big Questions (Ultimate Goals)
+
+_What biological insights are you hoping to gain?_
+
+1. **Question 1:**
+   - _What does this tell us about the system?_
+
+2. **Question 2:**
+   - _How does this change our understanding?_
+
+3. **Question 3:**
+   - _What experiments does this suggest?_
+
+---
+
+## 🔀 Dependencies & External Tools
+
+**Submodules in `01_scripts/`:**
+- Tool 1: Purpose, version
+- Tool 2: Purpose, version
+
+**External databases:**
+- Reference 1: Source, purpose
+- Reference 2: Source, purpose
+
+---
+
+## 📝 Maintenance Notes
+
+**When to update this file:**
+- Discovery of new issues → Add to "Known Issues"
+- Change in analysis approach → Update "Analysis Narrative"
+- New datasets added → Update "Data Inventory"
+- After major milestones → Update "Status" at top
+
+**When NOT to update this file:**
+- Completing individual substeps → Update `tasks.md` instead
+- Session progress notes → Use `handoff.md` instead
+- Daily findings → Use `notes.md` instead
+
+---
+
+## 🚀 Next Actions
+
+_After filling out this plan:_
+
+1. Review with collaborators/advisor
+2. Create detailed `tasks.md` based on stages above
+3. Begin Stage 1 execution
+4. Update this file as issues/insights emerge
+
+---
+
+**End of Plan**
