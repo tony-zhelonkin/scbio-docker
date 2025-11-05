@@ -1,0 +1,270 @@
+# {{PROJECT_NAME}}
+
+**Created:** {{DATE}}
+**Docker Image:** {{IMAGE_VERSION}}
+**Analysis Type:** {{TEMPLATE_TYPE}}
+
+---
+
+## Project Structure
+
+```
+{{PROJECT_NAME}}/
+├── 00_data/              # Data storage
+│   ├── raw/              # Raw input data (read-only mounts recommended)
+│   ├── processed/        # Processed/intermediate data
+│   └── references/       # Reference genomes, annotations
+├── 01_scripts/           # Analysis scripts and external tools
+│   └── README.md         # Instructions for adding submodules
+├── 02_analysis/          # Analysis workflows
+│   └── config/           # Pipeline configuration files
+├── 03_results/           # Analysis outputs
+│   ├── checkpoints/      # Intermediate R/Python objects
+│   ├── plots/            # Figures and visualizations
+│   └── tables/           # Result tables and summaries
+├── logs/                 # Log files (tmux, job outputs)
+├── .devcontainer/        # Container configuration
+├── .vscode/              # VS Code settings
+└── plan.md, tasks.md     # Project planning documents
+```
+
+---
+
+## Getting Started
+
+### 1. Open in VS Code Dev Container
+
+```bash
+code {{PROJECT_PATH}}
+# Press Ctrl+Shift+P → "Dev Containers: Reopen in Container"
+```
+
+### 2. Verify Environment
+
+The post-start script runs automatically and checks:
+- R/Python availability
+- Key packages (Seurat, scanpy, httpgd)
+- Library write permissions
+- Workspace write access
+
+If checks fail, see `.devcontainer/scripts/poststart_sanity.sh`
+
+### 3. Configure Data Mounts
+
+Edit `.devcontainer/docker-compose.yml` to add your data paths:
+
+```yaml
+volumes:
+  - ..:/workspaces/{{PROJECT_NAME}}
+  # Add your data mounts:
+  - /path/to/your/data:/workspaces/{{PROJECT_NAME}}/00_data/raw:ro
+```
+
+After editing, rebuild the container:
+```bash
+# In VS Code: Ctrl+Shift+P → "Dev Containers: Rebuild Container"
+```
+
+---
+
+## Workflow Philosophy
+
+> "If I had an hour to vibe code a solution, I'd spend the first 50 minutes on setting the damn context."
+> — [DeanOnDelivery](https://www.reddit.com/user/DeanOnDelivery/)
+
+### Core Principle: Context Over Speed
+
+Bioinformatics projects are complex. Before writing code, establish context:
+
+1. **Understand the biology** - What question are you asking?
+2. **Map the data** - What assays, conditions, samples do you have?
+3. **Plan the analysis** - What stages, what checkpoints, what tests?
+4. **Document continuously** - Context degrades faster than code
+
+### Recommended Workflow
+
+#### 1. Plan Before You Code
+
+Create `plan.md` with:
+- Scientific question and hypotheses
+- Known issues and proposed solutions
+- Data inventory and file paths
+- Analysis narrative (high-level strategy)
+
+**Why:** Prevents scope creep, keeps focus on biology, serves as session handoff
+
+#### 2. Break Work Into Stages
+
+Create `tasks.md` with:
+- Concrete stages (S1, S2, S3...)
+- Substeps with clear deliverables
+- Testing criteria for each substep
+- Status markers (⏸️ pending, 🔄 in progress, ✅ complete, ⛔ blocked)
+
+**Why:** Makes progress trackable, prevents "almost done" syndrome, enables resumption after breaks
+
+#### 3. Work Stage-by-Stage
+
+**Never** try to implement the whole pipeline at once:
+- ❌ "Let me write all 8 stages today" → buggy, untested, unmaintainable
+- ✅ "Let me complete Stage 1 and test it" → robust, documented, iterative
+
+**Protocol:**
+- Complete one stage
+- Test thoroughly (visual QC, compare to expected)
+- Mark as ✅ in `tasks.md`
+- Clear context (new chat/session)
+- Move to next stage
+
+**Why:** Prevents context overflow, ensures quality, maintains mental clarity
+
+#### 4. Use Checkpoints Liberally
+
+Save intermediate objects at every stage:
+
+```r
+# R example
+saveRDS(seurat_obj, "03_results/checkpoints/S1_preprocessed.rds")
+```
+
+```python
+# Python example
+adata.write_h5ad("03_results/checkpoints/S2_integrated.h5ad")
+```
+
+**Why:** Enables resumption, speeds up iteration, prevents re-running expensive steps
+
+#### 5. Document Handoffs
+
+Create `handoff.md` when:
+- Switching containers (e.g., dev-core → dev-archr)
+- Ending a work session
+- Passing work to collaborator
+
+**Include:**
+- What was accomplished
+- What's blocked (and why)
+- Next immediate steps
+- File paths for inputs/outputs
+
+**Why:** Continuity across sessions, no lost context, smooth collaboration
+
+---
+
+## Common Patterns
+
+### Long-Running Jobs with tmux
+
+For scripts >30 minutes, use tmux to survive disconnects:
+
+```bash
+# Start persistent R session
+tmux new-session -s analysis radian
+
+# Run script with logging
+Rscript 02_analysis/S1_preprocessing.R 2>&1 | tee logs/S1_$(date +%Y%m%d_%H%M%S).log
+
+# Detach: Ctrl+B then D
+# Session keeps running
+
+# Re-attach later
+tmux attach -s analysis
+```
+
+### Python Environment Switching
+
+```bash
+usepy base       # Core single-cell stack (scanpy, scvi-tools)
+usepy squid      # Spatial transcriptomics (squidpy)
+usepy atac       # scATAC-seq (snapatac2, episcanpy)
+usepy comms      # Cell communication (liana, pyscenic)
+```
+
+### R Sessions
+
+```bash
+radian           # Standard R with base libraries
+# For ArchR, switch to dev-archr service in devcontainer.json
+```
+
+---
+
+## Analysis Templates
+
+Depending on your template type (`{{TEMPLATE_TYPE}}`), see:
+
+- **basic-rna**: Standard scRNA-seq (QC → Clustering → DE → GSEA)
+- **multimodal**: RNA + ATAC or CITE-seq (Integration → Joint embedding)
+- **archr-focused**: ArchR scATAC-seq (Peak calling → Motif → DA)
+- **example-DMATAC**: Differential accessibility (From DC_Dictionary project)
+
+---
+
+## Best Practices
+
+### For AI-Assisted Coding (Claude Code, Cursor, etc.)
+
+1. **Start fresh frequently** - Clear chat every 1-2 stages to remove stale context
+2. **Write context down** - Never rely on message history; use `plan.md`/`notes.md`
+3. **Work phase-by-phase** - One stage at a time, test before moving on
+4. **Mark completion in tasks.md** - Track progress explicitly
+5. **Use double ESC** - Go back in chat to rephrase misunderstood requests
+
+### For Manual Coding
+
+1. **Read plan.md first** - Understand the big picture
+2. **Follow tasks.md** - Execute stages in order
+3. **Test after each substep** - Don't accumulate untested code
+4. **Update documentation** - Keep plan.md/tasks.md synchronized with reality
+5. **Use checkpoints** - Save intermediate results frequently
+
+---
+
+## Troubleshooting
+
+### Container Issues
+
+**Permission errors:**
+```bash
+# Check UID/GID mapping
+id -u; id -g
+ls -ld /workspaces/{{PROJECT_NAME}}
+
+# Fix on host if needed:
+sudo chown -R $(id -u):$(id -g) {{PROJECT_PATH}}
+```
+
+**R library not writable:**
+```r
+.libPaths()  # First entry should be writable
+# Expected: /home/devuser/R/x86_64-pc-linux-gnu-library/4.5
+```
+
+**Missing packages:**
+```r
+# Install to user library (no sudo needed)
+BiocManager::install("PACKAGE")
+```
+
+### Data Access Issues
+
+**Read-only mounts:** If you need to write to `00_data/raw/`, remove `:ro` flag from docker-compose.yml volume
+
+**Missing data:** Verify mount paths exist on host before starting container
+
+---
+
+## Resources
+
+- **Image build documentation:** `{{SCBIO_DOCKER_PATH}}/DEVOPS.md`
+- **Architecture details:** `{{SCBIO_DOCKER_PATH}}/CLAUDE.md`
+- **Container configuration:** `.devcontainer/devcontainer.json`
+- **Data mount setup:** `.devcontainer/docker-compose.yml`
+
+---
+
+## Notes
+
+- This project uses the [scbio-docker](https://github.com/YOUR_USERNAME/scbio-docker) development environment
+- Docker image version: `{{IMAGE_VERSION}}`
+- For issues or improvements, see project repository
