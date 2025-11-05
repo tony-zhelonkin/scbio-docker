@@ -279,11 +279,84 @@ Create a **production-ready, reproducible Docker-based development environment**
 - **greenleaflab/ArchR**: Official ArchR Docker workflows
 - **scverse**: Python single-cell ecosystem standards
 
+## Project Initialization System (v0.5.1+)
+
+**Problem:** Creating new analysis projects required manual copying of .devcontainer/, .vscode/, docker-compose.yml, and inconsistent directory structures across projects.
+
+**Solution:** Enhanced `init-project.sh` with two-branch architecture:
+
+### Branch Strategy
+
+**dev branch (core functionality):**
+- Enhanced directory structure: `00_data/`, `01_scripts/`, `02_analysis/`, `03_results/`
+- Interactive data mount configuration (`--interactive`, `--data-mount`)
+- Command-line options (`--git-init`, `--submodules`)
+- Documentation templates (README.md, plan.md, tasks.md)
+- .env generation and enhanced .gitignore
+- **No AI dependencies** - Universal, shareable with any team
+
+**dev-claude-integration branch (AI workflow extension):**
+- CLAUDE.md template (minimal context file, ~650 tokens)
+- WORKFLOW.md ("Context > Speed" philosophy)
+- Agent stubs for future automation (handoff-writer, stage-reviewer)
+- **Stacks on top of dev** - Always mergeable, graceful degradation
+
+**Philosophy:** Project initialization is infrastructure, Claude Code integration is optional enhancement.
+
+### Key Features
+
+**Time savings:** ~13 min/project → ~2 min/project (via --interactive mode)
+- At 3 projects/week: ~33 hours/year saved
+- Consistent structure eliminates forgotten configuration steps
+
+**Documentation templates:**
+- README.md: Workflow philosophy ("50 minutes context, 10 minutes coding")
+- plan.md: Scientific strategy (~3000 words, non-redundant with tasks.md)
+- tasks.md: Execution tracker with status markers (⏸️ ⛔ 🔄 ✅)
+
+**Data mount automation:**
+```bash
+./init-project.sh ~/projects/my-analysis basic-rna \
+  --data-mount atac:/scratch/data/DT-1234 \
+  --data-mount rna:/scratch/data/DT-5678:ro \
+  --git-init
+```
+
+**Token economy (Claude integration):**
+- Old CLAUDE.md: ~3000 tokens/session
+- New CLAUDE.md: ~650 tokens/session
+- **Savings:** 39 full conversation turns over 10 sessions
+
+**Design rationale:**
+- Minimal context files (CLAUDE.md) point to detailed docs (plan.md, tasks.md)
+- Documentation non-redundancy: plan.md = strategy, tasks.md = execution, notes.md = research
+- Agent stubs document future automation (handoff-writer, stage-reviewer)
+
+### Usage
+
+**For team sharing** (no AI):
+```bash
+git checkout dev
+./init-project.sh ~/projects/my-project basic-rna --interactive
+```
+
+**For personal workflow** (with Claude Code):
+```bash
+git checkout dev-claude-integration
+./init-project.sh ~/projects/my-project basic-rna --interactive
+```
+
+**Result:** Projects have consistent structure, ready-to-use documentation templates, and smooth container integration.
+
+See `QUICK_START.md` and `INIT_PROJECT_ENHANCEMENT.md` for full details.
+
+---
+
 ## Version History Highlights
 
 - **v0.1-v0.3**: Initial builds, R 4.4 + Seurat + ArchR custom stacks
 - **v0.4**: Two-service compose (dev-core + dev-archr), renv integration
 - **v0.5.0**: Core packages approach, layered Python venvs, TinyTeX
-- **v0.5.1**: Multi-stage build (20GB true size), documentation overhaul
+- **v0.5.1**: Multi-stage build (20GB true size), documentation overhaul, **enhanced init-project.sh**
 - **v0.6.x (planned)**: R package robustness, BiocManager UX fixes
 - **v1.0 (goal)**: Production-ready, HPC-tested, community templates

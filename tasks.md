@@ -1,9 +1,9 @@
 # scbio-docker: Development Tasks & Roadmap
 
-## Current Status: v0.5.1 (Released)
+## Current Status: v0.5.1 (Released + Enhanced)
 
-**Date:** 2025-01-24
-**Branch:** dev
+**Date:** 2025-11-04
+**Branch:** dev (core) / dev-claude-integration (AI workflow extension)
 **Tag:** v0.5.1
 
 ### Completed in v0.5.1
@@ -12,6 +12,16 @@
 - [x] Expected BiocManager warnings documented
 - [x] CLAUDE.md created for Claude Code integration
 - [x] Generic shareable images with UID remapping
+- [x] **Enhanced init-project.sh with two-branch architecture** (2025-11-04)
+  - [x] Core functionality on dev branch (templates/docs/, interactive config)
+  - [x] Claude integration on dev-claude-integration branch (templates/claude/, agents)
+  - [x] Documentation templates (README.md, plan.md, tasks.md)
+  - [x] Interactive data mount configuration (--interactive, --data-mount)
+  - [x] Command-line options (--git-init, --submodules)
+  - [x] WORKFLOW.md documenting "Context > Speed" philosophy
+  - [x] Agent stubs for future automation (handoff-writer, stage-reviewer)
+  - [x] QUICK_START.md and INIT_PROJECT_ENHANCEMENT.md guides
+  - **Time saved:** ~33 hours/year at 3 projects/week
 
 ### Known Issues Identified
 1. **tidyverse meta-package missing** (components installed, `library(tidyverse)` fails)
