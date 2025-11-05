@@ -221,6 +221,32 @@ if [ -f "${TEMPLATES_DIR}/docs/.env.example" ]; then
     cp "${TEMPLATES_DIR}/docs/.env.example" "${PROJECT_DIR}/.env.example"
 fi
 
+# Copy Claude Code integration files (if available - dev-claude-integration branch)
+if [ -d "${TEMPLATES_DIR}/claude" ]; then
+    echo "Setting up Claude Code integration..."
+
+    # Copy CLAUDE.md
+    if [ -f "${TEMPLATES_DIR}/claude/CLAUDE.md.template" ]; then
+        cp "${TEMPLATES_DIR}/claude/CLAUDE.md.template" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{STATUS}}|Planning|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{IMAGE_VERSION}}|scdock-r-dev:v0.5.1|g" "${PROJECT_DIR}/CLAUDE.md"
+    fi
+
+    # Copy WORKFLOW.md
+    if [ -f "${TEMPLATES_DIR}/claude/WORKFLOW.md" ]; then
+        cp "${TEMPLATES_DIR}/claude/WORKFLOW.md" "${PROJECT_DIR}/WORKFLOW.md"
+    fi
+
+    # Copy .claude/agents/ directory
+    if [ -d "${TEMPLATES_DIR}/claude/.claude" ]; then
+        mkdir -p "${PROJECT_DIR}/.claude"
+        cp -r "${TEMPLATES_DIR}/claude/.claude"/* "${PROJECT_DIR}/.claude/"
+    fi
+fi
+
 # Copy devcontainer configuration
 echo "Setting up devcontainer configuration..."
 mkdir -p "${PROJECT_DIR}/.devcontainer"

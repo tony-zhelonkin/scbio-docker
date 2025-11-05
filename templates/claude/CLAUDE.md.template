@@ -1,0 +1,224 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+**Version:** 1.0
+**Last Updated:** {{DATE}}
+**Project:** {{PROJECT_NAME}}
+
+---
+
+## Token Economics
+
+This file is designed to be **lightweight** (~500-700 words, ~650 tokens).
+
+**Philosophy:**
+- Only essential reference data used in >80% of sessions
+- Detailed context lives in `plan.md`, `tasks.md`, `notes.md`
+- Session-specific context goes in `handoff.md`
+
+---
+
+## 🗺️ Project Overview
+
+**Name:** {{PROJECT_NAME}}
+**Type:** {{TEMPLATE_TYPE}} analysis
+**Status:** {{STATUS}}
+
+**Core Question:**
+_[1-2 sentences from plan.md]_
+
+---
+
+## 📊 Reference Data
+
+### Primary Dataset
+
+**Assay:** [scRNA-seq / scATAC-seq / Multimodal]
+**Organism:** [Mouse / Human]
+**Genome:** [mm10 / hg38]
+**Conditions:** [List conditions with N]
+**Expected cells:** ~[XX]k cells
+
+**Key file paths:**
+- Raw data: `/workspaces/{{PROJECT_NAME}}/00_data/raw/...`
+- Checkpoints: `03_results/checkpoints/`
+- Scripts: `02_analysis/`
+
+### Sample Naming Convention
+
+_[If applicable, document sample ID patterns]_
+
+Example:
+- `WT_PBS_rep1` - Wild-type, PBS treatment, replicate 1
+- `KO_IL12_rep2` - Knockout, IL-12 treatment, replicate 2
+
+---
+
+## ⚠️ Critical Warnings
+
+**NEVER:**
+1. **Overwrite checkpoints without confirmation** - Checkpoints save hours of compute time
+2. **Commit data files** - Check `.gitignore` before `git add`
+3. **Run long jobs without tmux** - Scripts >10 min should use tmux + logging
+4. **Skip testing after substeps** - Always verify outputs before marking ✅
+
+**ALWAYS:**
+1. **Read `tasks.md` first** - Execution order matters
+2. **Update `tasks.md` in real-time** - Mark ✅ ⏸️ ⛔ 🔄 as you work
+3. **Save checkpoints liberally** - After every substep
+4. **Verify file permissions** - Container UID/GID must match host
+
+---
+
+## 🔧 Essential Commands
+
+### Container Environment
+
+```bash
+# Python environment switching
+usepy base       # Core single-cell (scanpy, scvi-tools)
+usepy squid      # Spatial transcriptomics
+usepy atac       # scATAC-seq tools
+usepy comms      # Cell communication
+
+# R sessions
+radian           # Standard R with base libraries
+# For ArchR: switch to dev-archr service in devcontainer.json
+```
+
+### Long-Running Jobs
+
+```bash
+# Start persistent session
+tmux new -s S1_qc
+
+# Run with logging
+Rscript 02_analysis/S1_qc.R 2>&1 | tee logs/S1_qc_$(date +%Y%m%d_%H%M%S).log
+
+# Detach: Ctrl+B, then D
+# Re-attach: tmux attach -s S1_qc
+```
+
+### Checkpoint Management
+
+```r
+# R
+source("02_analysis/config/checkpoint_helpers.R")
+checkpoint_save(obj, "S1_qc_filtered")
+obj <- checkpoint_load("S1_qc_filtered")
+```
+
+```python
+# Python
+adata.write_h5ad("03_results/checkpoints/S2_integrated.h5ad")
+adata = sc.read_h5ad("03_results/checkpoints/S2_integrated.h5ad")
+```
+
+---
+
+## 📋 Context Pointers
+
+**For scientific strategy:**
+→ Read `plan.md` (~3000 words)
+- Big questions, known issues, analysis narrative
+
+**For execution steps:**
+→ Read `tasks.md` (~2500 words)
+- Concrete substeps, testing protocols, status tracking
+
+**For research notes:**
+→ Read `notes.md` (if exists)
+- External resources, troubleshooting, discoveries
+
+**For session continuity:**
+→ Read `handoff.md` (if exists)
+- What was done, what's blocked, next steps
+
+---
+
+## 🔄 Workflow Protocol
+
+**Starting a new session:**
+1. Read this file (you're here ✓)
+2. Read `handoff.md` if exists
+3. Check `tasks.md` for current stage
+4. Identify next ⏸️ substep, mark as 🔄
+5. Execute, test, mark ✅
+
+**Ending a session:**
+1. Save all checkpoints
+2. Update `tasks.md` status
+3. Create/update `handoff.md`
+4. Document any blockers
+
+**When blocked:**
+1. Mark substep as ⛔ in `tasks.md`
+2. Document issue in `plan.md` "Known Issues"
+3. Propose solution
+4. Update `handoff.md`
+
+---
+
+## 🧪 Testing Requirements
+
+After each substep:
+- [ ] Checkpoint file created
+- [ ] Visual QC plots generated
+- [ ] Metrics within expected range
+- [ ] No errors in logs
+
+**Only mark ✅ when all checks pass.**
+
+---
+
+## 🐛 Known Issues
+
+_See `plan.md` for detailed issue list._
+
+Quick reference:
+- Issue #1: [Brief description] → [Status]
+- Issue #2: [Brief description] → [Status]
+
+---
+
+## 📁 Directory Structure
+
+```
+{{PROJECT_NAME}}/
+├── 00_data/           # Data storage
+├── 01_scripts/        # External tools, submodules
+├── 02_analysis/       # Analysis scripts
+│   └── config/        # Pipeline config
+├── 03_results/        # Outputs
+│   ├── checkpoints/   # Intermediate objects
+│   ├── plots/         # Figures
+│   └── tables/        # Result tables
+└── logs/              # Job logs (tmux)
+```
+
+---
+
+## 🔧 Container Switching
+
+**dev-core → dev-archr** (for ArchR analyses):
+1. Edit `.devcontainer/devcontainer.json`: change `"service": "dev-core"` to `"dev-archr"`
+2. VS Code: Ctrl+Shift+P → "Dev Containers: Rebuild Container"
+
+---
+
+## 📝 Notes
+
+- Docker image: {{IMAGE_VERSION}}
+- Container UID/GID: Auto-remapped via `updateRemoteUserUID: true`
+- Checkpoints persist across container rebuilds
+- Data mounts are read-only by default (remove `:ro` to write)
+
+---
+
+**End of CLAUDE.md**
+
+**For detailed context, see:**
+- `plan.md` - Strategy & issues
+- `tasks.md` - Execution tracker
+- `README.md` - Workflow philosophy
