@@ -23,7 +23,7 @@ NC='\033[0m' # No Color
 
 # Default values (GENERIC for shareability)
 GITHUB_PAT="${GITHUB_PAT:-}"
-TAG="scdock-r-dev:v0.5.1"
+TAG="scdock-r-dev:v0.5.2"
 USER_ID=1000           # Generic default (shareable image)
 GROUP_ID=1000          # Generic default
 USER_NAME=devuser      # Generic username

@@ -13,16 +13,21 @@ github_pat <- Sys.getenv("GITHUB_PAT")
 if (nzchar(github_pat)) Sys.setenv(GITHUB_PAT = github_pat)
 
 # Helper function
+# Note: Use installed.packages() instead of require() to handle meta-packages correctly
+# (require() returns TRUE if ANY component loads, causing meta-packages like tidyverse to be skipped)
 safe_install <- function(pkgs, installer, ...) {
+  installed <- installed.packages()[, "Package"]
   for (pkg in pkgs) {
-    tryCatch({
-      if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-        message(sprintf("Installing %s ...", pkg))
+    if (!(pkg %in% installed)) {
+      message(sprintf("Installing %s ...", pkg))
+      tryCatch({
         installer(pkg, ...)
-      }
-    }, error = function(e) {
-      message(sprintf("Failed to install %s: %s", pkg, e$message))
-    })
+      }, error = function(e) {
+        warning(sprintf("Failed to install %s: %s", pkg, e$message))
+      })
+    } else {
+      message(sprintf("Package %s already installed, skipping", pkg))
+    }
   }
 }
 
@@ -96,7 +101,8 @@ cran_core <- c(
   vscode_support,
   r_python,
   "devtools",       # Development tools
-  "hdf5r"           # HDF5 file format
+  "hdf5r",          # HDF5 file format (requires libhdf5-dev)
+  "pandoc"          # Document conversion
 )
 
 safe_install(cran_core, install.packages, repos = "https://cloud.r-project.org")
@@ -134,6 +140,8 @@ bioc_core <- c(
 
   # Annotation
   "biomaRt",
+  "AnnotationHub",
+  "AnnotationDbi",
 
   # HDF5 and data structures
   "HDF5Array",
@@ -177,6 +185,27 @@ safe_install(gsea_packages, BiocManager::install, ask = FALSE, update = FALSE)
 # decoupleR and PROGENy/DoRothEA (Bioc + GitHub)
 safe_install("decoupleR", BiocManager::install, ask = FALSE, update = FALSE)
 
+# ---- Chromatin Accessibility & Motif Analysis ----
+
+chromatin_packages <- c(
+  "chromVAR",          # Chromatin accessibility variation
+  "motifmatchr",       # Motif matching for genomic sequences
+  "TFBSTools",         # Transcription factor binding site tools
+  "JASPAR2022",        # JASPAR motif database
+  "SingleR",           # Cell type annotation
+  "celldex"            # Reference datasets for SingleR
+)
+
+safe_install(chromatin_packages, BiocManager::install, ask = FALSE, update = FALSE)
+
+# ---- Organism-Specific Annotations ----
+
+organism_packages <- c(
+  "EnsDb.Mmusculus.v79"  # Mouse Ensembl annotations
+)
+
+safe_install(organism_packages, BiocManager::install, ask = FALSE, update = FALSE)
+
 # ---- Multi-factorial & Latent Embeddings ----
 
 multifactorial <- c(
@@ -207,7 +236,10 @@ github_packages <- c(
   "carmonalab/GeneNMF",
 
   # LIGER (multi-modal)
-  "welch-lab/liger"
+  "welch-lab/liger",
+
+  # Chromatin accessibility analysis
+  "immunogenomics/crescendo"
 )
 
 for (pkg in github_packages) {
