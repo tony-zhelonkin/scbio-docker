@@ -52,6 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev gfortran \
+    # Additional scientific libraries (for R packages)
+    libhdf5-dev \
+    libgsl-dev \
     # ImageMagick (for magick R package)
     libmagick++-dev \
     # X11 dependencies (required for R)
@@ -166,7 +169,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.1"
+LABEL version="v0.5.2"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -209,6 +212,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev \
+    # Additional scientific libraries (for runtime R package compilation)
+    libhdf5-dev \
+    libgsl-dev \
     # ImageMagick (for magick R package)
     libmagick++-dev \
     # X11 dependencies (required for R)
