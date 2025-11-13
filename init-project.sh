@@ -154,8 +154,18 @@ if [ "$INTERACTIVE" = true ]; then
         IFS=',' read -ra SUBMODULES <<< "$submodules_input"
     fi
 
+    # Resource limits
+    read -p "Max CPUs (default: 50): " max_cpus
+    MAX_CPUS="${max_cpus:-50}"
+    read -p "Max Memory (default: 450G): " max_memory
+    MAX_MEMORY="${max_memory:-450G}"
+
     echo ""
 fi
+
+# Non-interactive defaults (if not set by interactive mode)
+: ${MAX_CPUS:=50}
+: ${MAX_MEMORY:=450G}
 
 # Check if project directory exists
 if [ -d "$PROJECT_DIR" ]; then
@@ -245,17 +255,28 @@ cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
   "remoteUser": "devuser",
   "updateRemoteUserUID": true,
   "shutdownAction": "stopCompose",
+  "settings": {
+    "files.associations": {
+      "*.Rmd": "rmd"
+    }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
-        "REditorSupport.r",
+        "rdebugger.r-debugger",
+        "reditorsupport.r",
+        "quarto.quarto",
+        "purocean.drawio-preview",
+        "redhat.vscode-yaml",
+        "yzhang.markdown-all-in-one",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
         "ms-python.python",
-        "ms-toolsai.jupyter",
-        "quarto.quarto"
+        "ms-toolsai.jupyter"
       ]
     }
   },
-  "postStartCommand": "bash .devcontainer/scripts/poststart_sanity.sh"
+  "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh'"
 }
 EOF
 
@@ -287,23 +308,47 @@ services:
     image: scdock-r-dev:v0.5.1
     user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
     working_dir: /workspaces/${PROJECT_NAME}
+    env_file: .env
     environment:
       - CONTEXT7_API_KEY=\${CONTEXT7_API_KEY}
+    ports:
+      - "8787:8787"  # httpgd graphics server
     volumes:
       - \${WORKSPACE_FOLDER:-.}:/workspaces/${PROJECT_NAME}
 ${DATA_MOUNT_LINES}    stdin_open: true
     tty: true
     command: /bin/bash
+    deploy:
+      resources:
+        limits:
+          cpus: '\${MAX_CPUS:-${MAX_CPUS}}'
+          memory: \${MAX_MEMORY:-${MAX_MEMORY}}
+        reservations:
+          cpus: '2'
+          memory: 8G
 
   dev-archr:
     image: scdock-r-archr:v0.5.1
     user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
     working_dir: /workspaces/${PROJECT_NAME}
+    env_file: .env
+    environment:
+      - CONTEXT7_API_KEY=\${CONTEXT7_API_KEY}
+    ports:
+      - "8787:8787"  # httpgd graphics server
     volumes:
       - \${WORKSPACE_FOLDER:-.}:/workspaces/${PROJECT_NAME}
 ${DATA_MOUNT_LINES}    stdin_open: true
     tty: true
     command: /bin/bash
+    deploy:
+      resources:
+        limits:
+          cpus: '\${MAX_CPUS:-${MAX_CPUS}}'
+          memory: \${MAX_MEMORY:-${MAX_MEMORY}}
+        reservations:
+          cpus: '2'
+          memory: 8G
 EOF
 
 # Copy poststart sanity script from scbio-docker repo
@@ -325,17 +370,21 @@ SANITY_EOF
     chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
 fi
 
-# Create .env file
-if [ ! -f "${PROJECT_DIR}/.env" ]; then
+# Create .env file in .devcontainer/
+if [ ! -f "${PROJECT_DIR}/.devcontainer/.env" ]; then
     echo "Creating .env file..."
-    cat > "${PROJECT_DIR}/.env" <<EOF
+    cat > "${PROJECT_DIR}/.devcontainer/.env" <<EOF
 # Docker Compose environment variables
 LOCAL_UID=$(id -u)
 LOCAL_GID=$(id -g)
-WORKSPACE_FOLDER=.
+WORKSPACE_FOLDER=..
 
 # MCP Server API Keys (optional)
 CONTEXT7_API_KEY=
+
+# Resource Limits (adjust based on your system)
+MAX_CPUS=50
+MAX_MEMORY=450G
 EOF
 fi
 
@@ -396,8 +445,8 @@ logs/*
 Thumbs.db
 
 # Environment
-.env
-.env.local
+.devcontainer/.env
+.devcontainer/.env.local
 EOF
 fi
 
