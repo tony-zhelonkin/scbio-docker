@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# init-project.sh - Initialize a new project directory from templates
+# init-project.sh - Initialize a new scbio-dock project directory from templates
 #
 # Usage:
 #   ./init-project.sh <project-dir> <template-name> [OPTIONS]
@@ -9,6 +9,7 @@
 #   multimodal      - RNA + ATAC or CITE-seq
 #   archr-focused   - ArchR scATAC-seq analysis
 #   example-DMATAC  - Differential chromatin accessibility
+#   claude          - claude code powered project template 
 #
 # Options:
 #   --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)
@@ -25,7 +26,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks to get actual script location
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [ -L "$SCRIPT_PATH" ]; do
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+    SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+    [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 TEMPLATES_DIR="${SCRIPT_DIR}/templates"
 
 # Color output
@@ -49,6 +57,7 @@ usage() {
     echo "  multimodal      - RNA + ATAC or CITE-seq"
     echo "  archr-focused   - ArchR scATAC-seq analysis (uses dev-archr service)"
     echo "  example-DMATAC  - Differential chromatin accessibility"
+    echo "  claude          - Claude Code powered project template"
     echo ""
     echo "Options:"
     echo "  --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)"
