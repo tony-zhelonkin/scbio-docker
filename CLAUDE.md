@@ -8,6 +8,8 @@ This is a Docker-based development environment for single-cell RNA-seq and epige
 
 **Current Version:** v0.5.2 (Enhanced Package Set)
 
+> **Using Codex/GPT instead of Claude?** See `GPT-CODEX.md` for the companion workflow guide.
+
 **Image Variants:**
 - **scdock-r-dev:v0.5.2** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
 - **greenleaflab/archr:1.0.3-base-r4.4** (official ArchR): R 4.4 + ArchR 1.0.3, maintained by ArchR developers
@@ -127,6 +129,35 @@ COPY renv.lock /opt/settings/renv.lock
 docker run --rm scdock-r-dev:v0.5.2 bash -lc '.devcontainer/scripts/poststart_sanity.sh'
 docker run --rm scdock-r-archr:v0.5.2 bash -lc '.devcontainer/scripts/poststart_sanity.sh'
 ```
+
+## AI Bootstrap (Claude + Hybrid Projects)
+
+- The base image now ships with **Node.js 20.x, npm/npx, `nvm`, and the Python `uv` tool**, so Claude’s MCP servers (`serena`, `sequential-thinking`) run without re-installing dependencies on each container start.
+- `init-project.sh` accepts `--ai claude` (or `--ai both`) to copy the Claude template bundle, including `.claude/agents`, `CLAUDE.md`, and MCP-ready configuration files.
+- A tracked `.devcontainer/scripts/install_ai_tooling.sh` runs via `postCreateCommand` inside every generated project. It:
+  1. Verifies `node`, `npm`, `npx`, and `uvx` are available.
+  2. Installs/updates the Claude CLI unless `SKIP_CLAUDE_CLI_INSTALL=1`.
+  3. Warns if `.mcp.json` is missing so you can regenerate it from `templates/ai-common/mcp.json.template`, and reminds you to set `CONTEXT7_API_KEY` when the `context7` server is enabled.
+- You can rerun the installer manually at any time:
+
+```bash
+bash -lc '.devcontainer/scripts/install_ai_tooling.sh'
+```
+
+- To scaffold a hybrid project with both Claude and Codex assets:
+
+```bash
+./init-project.sh ~/projects/my-analysis basic-rna --ai both
+```
+
+## MCP Defaults
+
+- `.mcp.json` now lives in the project root and is generated from a shared template so both Claude and Codex get the same configuration.
+- Servers included by default:
+  - `context7` (requires `CONTEXT7_API_KEY` or a manual OAuth flow initiated via `/mcp` inside Claude Code with SSH port forwarding).
+  - `serena start-mcp-server --context ide-assistant --project /workspaces/<project>` with deterministic cache location.
+  - `sequential-thinking` with persistent history under `.gpt-codex/logs/` (harmless for Claude; Codex reads the same file).
+- Update `.mcp.json` only in `templates/ai-common/mcp.json.template` to keep `dev`, `dev-claude-integration`, and `dev-gpt-codex-integration` aligned; merge dev → AI branches whenever the template changes.
 
 ## Architecture
 

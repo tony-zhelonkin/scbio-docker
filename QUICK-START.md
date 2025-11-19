@@ -182,7 +182,15 @@ init-scproject ~/projects/my-project basic-rna --interactive
 # Creates project WITH Claude integration files (CLAUDE.md, WORKFLOW.md, .claude/)
 ```
 
-**The script auto-detects which branch you're on** and includes Claude files only if `templates/claude/` exists.
+### Using dev-gpt-codex-integration branch (GPT/Codex workflow)
+```bash
+cd ~/pipeline/scbio-docker
+git checkout dev-gpt-codex-integration
+init-scproject ~/projects/my-project basic-rna --interactive
+# Creates project WITH GPT-Codex files (GPT-CODEX.md, WORKFLOW-gpt-codex.md, .gpt-codex/)
+```
+
+**The script auto-detects which branch you're on** and copies AI assets only if the corresponding template directory (`templates/claude/` or `templates/gpt-codex/`) exists.
 
 ---
 

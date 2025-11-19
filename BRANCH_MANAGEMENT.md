@@ -24,6 +24,7 @@ main (production releases)
 | `main` | Stable releases | Tagged versions (v0.5.1, v0.5.2, etc.) | Production users |
 | `dev` | Active development | Latest features, Docker enhancements | All users |
 | `dev-claude-integration` | AI workflow layer | dev + Claude Code integration files | Claude Code users |
+| `dev-gpt-codex-integration` | AI workflow layer | dev + GPT-Codex integration files | Codex CLI users |
 
 ---
 
@@ -32,17 +33,26 @@ main (production releases)
 The `init-project.sh` script uses **branch-aware conditional logic**:
 
 ```bash
-# Lines 224-248 in init-project.sh
+# Lines 224-270 in init-project.sh
 if [ -d "${TEMPLATES_DIR}/claude" ]; then
     echo "Setting up Claude Code integration..."
-    # Copy CLAUDE.md, WORKFLOW.md, .claude/agents/
+fi
+
+if [ -d "${TEMPLATES_DIR}/gpt-codex" ]; then
+    echo "Setting up GPT-Codex integration..."
 fi
 ```
 
 **Result:**
-- On `dev`: Script skips Claude files (directory doesn't exist)
-- On `dev-claude-integration`: Script includes Claude files (directory exists)
-- **Same script works on both branches** without modification
+- On `dev`: Script skips AI files (directories don’t exist)
+- On `dev-claude-integration`: Script includes Claude files (`templates/claude/`)
+- On `dev-gpt-codex-integration`: Script includes GPT-Codex files (`templates/gpt-codex/`)
+- **Same script works on all branches** without modification
+
+**New in v0.5.2:**
+- `init-project.sh` exposes `--ai {none,claude,codex,both}` (and an interactive prompt). Selecting Codex/Claude copies the matching templates *if they exist* on the current branch and now also generates `.mcp.json` with the correct `/workspaces/<project>` path using `templates/ai-common/mcp.json.template`.
+- `.devcontainer/scripts/install_ai_tooling.sh` ships with every scaffolded project and runs from VS Code’s `postCreateCommand` to install the Claude CLI (when applicable), validate Node.js 20.x + `uvx`, and warn if `context7` is enabled without `CONTEXT7_API_KEY`.
+- When you change `templates/ai-common/mcp.json.template` or AI scripts, immediately merge dev → `dev-claude-integration` and dev → `dev-gpt-codex-integration` so both branches stay aligned on MCP behavior.
 
 ---
 
@@ -50,19 +60,19 @@ fi
 
 ### Trigger: New commits on `dev`
 
-Whenever you commit significant work to `dev`, sync it to `dev-claude-integration`:
+Whenever you commit significant work to `dev`, sync it to both AI branches:
 
 **Examples of sync-worthy changes:**
 - Docker image enhancements (v0.5.2 package additions)
 - `init-project.sh` improvements
 - Template updates in `templates/docs/`
-- Documentation updates (CLAUDE.md, DEVOPS.md, README.md)
+- Documentation updates (CLAUDE.md, GPT-CODEX.md, DEVOPS.md, README.md)
 - Build script changes (`build-optimized.sh`)
 
 **NOT sync-worthy:**
-- Changes already in `dev-claude-integration`
+- Changes already in the AI branches
 - Experimental/WIP commits
-- Branch-specific files (templates/claude/)
+- Branch-specific files (`templates/claude/`, `templates/gpt-codex/`)
 
 ---
 
@@ -90,24 +100,26 @@ git log dev..dev-claude-integration --oneline
 # 0f89707 Add Claude Code integration extension (stacked on dev branch)
 ```
 
-If this shows commits, `dev-claude-integration` has unique work (usually Claude integration files).
+If this shows commits, the AI branch has unique work (Claude or GPT-Codex templates, docs, etc.).
 
 ### 2. View file differences
 
 ```bash
-# What files differ between branches?
+# What files differ between dev and an AI branch?
 git diff dev dev-claude-integration --name-status
+git diff dev dev-gpt-codex-integration --name-status
 
 # Example output:
-# M    init-project.sh              (modified)
-# A    templates/claude/CLAUDE.md.template  (added in dev-claude-integration)
-# A    templates/claude/WORKFLOW.md         (added in dev-claude-integration)
+# M    init-project.sh
+# A    templates/claude/CLAUDE.md.template
+# A    templates/gpt-codex/GPT-CODEX.md.template
 ```
 
 **Expected differences:**
 - `templates/claude/` directory (only in dev-claude-integration)
-- `init-project.sh` has Claude file copying logic (lines 224-248)
-- `plan.md`, `tasks.md` may have Claude-specific documentation
+- `templates/gpt-codex/` directory (only in dev-gpt-codex-integration)
+- `init-project.sh` contains copy logic for whichever AI templates exist
+- `plan.md`, `tasks.md`, AI READMEs may have branch-specific doc sections
 
 **Unexpected differences = branches out of sync**
 
@@ -194,6 +206,25 @@ See "Testing After Merge" section below.
 
 ---
 
+### Scenario: You committed core work to `dev`, need to sync to `dev-gpt-codex-integration`
+
+Steps mirror the Claude workflow—just swap branch names:
+
+1. **Ensure `dev` is clean** (`git status`).
+2. **Inspect divergence**  
+   `git log dev-gpt-codex-integration..dev --oneline`
+3. **Checkout AI branch**  
+   `git checkout dev-gpt-codex-integration`
+4. **Merge dev**  
+   `git merge dev -m "Merge dev into dev-gpt-codex-integration: <summary>"`  
+   Add a note referencing Codex/GPT work if useful.
+5. **Verify GPT assets**  
+   - `ls templates/gpt-codex/`  
+   - Ensure `init-project.sh` copy block still exists (grep for `gpt-codex`).
+6. **Run tests** – scaffold a sample project and confirm `GPT-CODEX.md`, `WORKFLOW-gpt-codex.md`, `.gpt-codex/` appear.
+
+Then continue with the shared testing checklist.
+
 ## Handling Merge Conflicts
 
 ### Common conflict scenarios
@@ -210,7 +241,7 @@ See "Testing After Merge" section below.
 
 3. **Template conflicts** (unlikely)
    - Cause: Overlapping template changes
-   - Resolution: Prefer dev-claude-integration for templates/claude/, dev for templates/docs/
+   - Resolution: Prefer AI branch for its templates (`templates/claude/` or `templates/gpt-codex/`), dev for `templates/docs/`
 
 ### Resolving conflicts
 
@@ -242,12 +273,19 @@ git commit
 ```bash
 git checkout dev
 ls templates/claude/ 2>/dev/null && echo "❌ ERROR: Claude templates exist on dev!" || echo "✅ OK: No Claude templates"
+ls templates/gpt-codex/ 2>/dev/null && echo "❌ ERROR: GPT-Codex templates exist on dev!" || echo "✅ OK: No GPT-Codex templates"
 ```
 
 **On dev-claude-integration branch:**
 ```bash
 git checkout dev-claude-integration
 ls templates/claude/ && echo "✅ OK: Claude templates exist" || echo "❌ ERROR: Claude templates missing!"
+```
+
+**On dev-gpt-codex-integration branch:**
+```bash
+git checkout dev-gpt-codex-integration
+ls templates/gpt-codex/ && echo "✅ OK: GPT-Codex templates exist" || echo "❌ ERROR: GPT-Codex templates missing!"
 ```
 
 ### Test 2: Test init-project.sh on dev branch
@@ -258,6 +296,7 @@ git checkout dev
 
 # Verify created files
 ls /tmp/test-dev/CLAUDE.md 2>/dev/null && echo "❌ ERROR: CLAUDE.md should not exist" || echo "✅ OK"
+ls /tmp/test-dev/GPT-CODEX.md 2>/dev/null && echo "❌ ERROR: GPT-CODEX.md should not exist" || echo "✅ OK"
 ls /tmp/test-dev/plan.md || echo "❌ ERROR: plan.md missing"
 ls /tmp/test-dev/tasks.md || echo "✅ OK"
 
@@ -281,7 +320,22 @@ ls /tmp/test-claude/plan.md || echo "✅ OK"
 rm -rf /tmp/test-claude
 ```
 
-### Test 4: Verify Docker build still works
+### Test 4: Test init-project.sh on dev-gpt-codex-integration branch
+
+```bash
+git checkout dev-gpt-codex-integration
+./init-project.sh /tmp/test-gpt basic-rna --git-init
+
+# Verify created files
+ls /tmp/test-gpt/GPT-CODEX.md || echo "❌ ERROR: GPT-CODEX.md missing"
+ls /tmp/test-gpt/WORKFLOW-gpt-codex.md || echo "❌ ERROR: WORKFLOW-gpt-codex.md missing"
+ls /tmp/test-gpt/.gpt-codex/agents/ || echo "❌ ERROR: .gpt-codex/agents missing"
+
+# Cleanup
+rm -rf /tmp/test-gpt
+```
+
+### Test 5: Verify Docker build still works
 
 ```bash
 git checkout dev
@@ -476,17 +530,18 @@ git reset --hard HEAD~1  # After committing (dangerous!)
 
 ## FAQ
 
-### Q: Why two branches instead of one with feature flags?
+### Q: Why two AI branches instead of one with feature flags?
 
 **A:** Separation of concerns:
 - `dev` = Universal core (anyone can use)
 - `dev-claude-integration` = Opt-in AI layer (Claude users only)
+- `dev-gpt-codex-integration` = Opt-in AI layer (Codex users only)
 
-This allows non-Claude users to clone/use `dev` without seeing AI-specific files, and keeps the repo structure clean.
+This allows non-AI users to clone/use `dev` without seeing AI-specific files, and keeps the repo structure clean.
 
-### Q: Can I work directly on dev-claude-integration?
+### Q: Can I work directly on dev-claude-integration / dev-gpt-codex-integration?
 
-**A:** Yes, for Claude-specific changes (templates/claude/, agent stubs). For core changes (Docker, R packages, init-project.sh core logic), work on `dev` first, then merge.
+**A:** Yes, for branch-specific changes (`templates/claude/` or `templates/gpt-codex/`, agent stubs, AI docs). For core changes (Docker, R packages, init-project.sh core logic), work on `dev` first, then merge.
 
 ### Q: How often should I sync branches?
 
@@ -516,6 +571,11 @@ After every dev commit, run this checklist:
 - [ ] Merged `dev` into `dev-claude-integration`
 - [ ] Verified `templates/claude/` still exists on `dev-claude-integration`
 - [ ] Verified `templates/claude/` does NOT exist on `dev`
+- [ ] Checked `git log dev-gpt-codex-integration..dev`
+- [ ] Switched to `dev-gpt-codex-integration`
+- [ ] Merged `dev` into `dev-gpt-codex-integration`
+- [ ] Verified `templates/gpt-codex/` still exists on `dev-gpt-codex-integration`
+- [ ] Verified `templates/gpt-codex/` does NOT exist on `dev`
 - [ ] Tested `init-project.sh` on both branches
 - [ ] Pushed both branches to remote if needed
 

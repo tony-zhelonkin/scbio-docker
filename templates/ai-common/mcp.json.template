@@ -1,0 +1,64 @@
+{
+  "mcpServers": {
+    "context7": {
+      "transport": {
+        "type": "stdio"
+      },
+      "type": "stdio",
+      "command": "sh",
+      "args": [
+        "-c",
+        "npx -y @upstash/context7-mcp --api-key \"$CONTEXT7_API_KEY\""
+      ],
+      "metadata": {
+        "description": "context7 live documentation. Requires CONTEXT7_API_KEY or OAuth via Claude Code."
+      }
+    },
+    "serena": {
+      "transport": {
+        "type": "stdio"
+      },
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        "{{WORKSPACE_PATH}}",
+        "--log-level",
+        "info"
+      ],
+      "env": {
+        "SERENA_CACHE_DIR": "{{WORKSPACE_PATH}}/.gpt-codex/cache/serena"
+      },
+      "metadata": {
+        "description": "Semantic code search and editing across the codebase."
+      }
+    },
+    "sequential-thinking": {
+      "transport": {
+        "type": "stdio"
+      },
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking",
+        "--workspace",
+        "{{WORKSPACE_PATH}}",
+        "--history",
+        ".gpt-codex/logs/sequential-thinking.jsonl"
+      ],
+      "env": {
+        "DISABLE_THOUGHT_LOGGING": "false"
+      },
+      "metadata": {
+        "description": "Structured reasoning helper for complex technical decisions."
+      }
+    }
+  }
+}

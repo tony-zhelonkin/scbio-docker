@@ -63,7 +63,8 @@ visualization <- c(
   "ragg",           # Anti-aliased graphics
   "kableExtra",     # Tables
   "plotly",         # Interactive plots
-  "ggrastr"         # Rasterize ggplot layers
+  "ggrastr",        # Rasterize ggplot layers
+  "VennDiagram"     # Venn and Euler diagrams
 )
 
 # Statistical modeling
@@ -193,7 +194,9 @@ chromatin_packages <- c(
   "TFBSTools",         # Transcription factor binding site tools
   "JASPAR2022",        # JASPAR motif database
   "SingleR",           # Cell type annotation
-  "celldex"            # Reference datasets for SingleR
+  "celldex",           # Reference datasets for SingleR
+  "DirichletMultinomial", # Dirichlet-multinomial modeling (requires libgsl-dev)
+  "biovizBase"          # Genomic visualization utilities
 )
 
 safe_install(chromatin_packages, BiocManager::install, ask = FALSE, update = FALSE)
@@ -201,7 +204,8 @@ safe_install(chromatin_packages, BiocManager::install, ask = FALSE, update = FAL
 # ---- Organism-Specific Annotations ----
 
 organism_packages <- c(
-  "EnsDb.Mmusculus.v79"  # Mouse Ensembl annotations
+  "EnsDb.Mmusculus.v79",
+  "BSgenome.Mmusculus.UCSC.mm10"  # Mouse genome reference
 )
 
 safe_install(organism_packages, BiocManager::install, ask = FALSE, update = FALSE)
@@ -269,6 +273,17 @@ if (!requireNamespace("anndataR", quietly = TRUE)) {
 
   if (!requireNamespace("anndataR", quietly = TRUE)) {
     try(remotes::install_github("scverse/anndataR"), silent = TRUE)
+  }
+}
+
+# ---- scviR (bridge to scvi-tools) ----
+if (!requireNamespace("scviR", quietly = TRUE)) {
+  try({
+    BiocManager::install("scviR", ask = FALSE, update = FALSE)
+  }, silent = TRUE)
+
+  if (!requireNamespace("scviR", quietly = TRUE)) {
+    try(remotes::install_github("scverse/scviR"), silent = TRUE)
   }
 }
 

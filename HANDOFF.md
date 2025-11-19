@@ -106,7 +106,8 @@ CLAUDE.md
 
 **Untracked files**:
 ```
-.claude/  (Claude Code agent definitions - optional, can gitignore)
+.claude/     (Claude Code agent definitions - optional, can gitignore)
+.gpt-codex/  (GPT-Codex agent definitions - optional, can gitignore)
 ```
 
 **Recent commits**:

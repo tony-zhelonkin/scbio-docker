@@ -246,6 +246,38 @@ project/
 
 ---
 
+## GPT-Codex Integration (dev-gpt-codex-integration branch)
+
+Mirrors the Claude experience but tailored for the Codex CLI (GPT-based agent).
+
+### **GPT-CODEX.md.template**
+
+- Keeps evergreen context within ~650 tokens (Codex context is tighter than Claude’s).
+- Highlights shell/plan requirements, approval protocol, and testing expectations specific to Codex.
+- References documentation split (`plan.md`, `tasks.md`, `notes.md`, `handoff.md`) and `.gpt-codex/agents/`.
+
+### **WORKFLOW-gpt-codex.md**
+
+- Describes session lifecycle (Kickoff → Plan tool → Execution → Testing → Handoff).
+- Emphasizes deterministic command execution, apply_patch usage, and sandbox escalation rules.
+- Introduces the same doc system table as the Claude workflow but with Codex-specific best practices.
+
+### **Agent Stubs (`.gpt-codex/agents/`)**
+
+1. `handoff-writer.md` – blueprint for auto-updating `handoff.md` at the end of Codex sessions.
+2. `stage-reviewer.md` – quality gate spec for Codex runs (checks tasks, outputs, logs before ✅).
+
+Both stubs copy the behavior described for Claude but reference Codex commands and expectations.
+
+### **Branch Behavior**
+
+- `templates/ai-common/mcp.json.template` is shared by both AI branches; `init-project.sh` always uses this template when present, falling back to branch-specific copies only if needed.
+- `templates/gpt-codex/` only exists on `dev-gpt-codex-integration`, so `init-project.sh` copies these files automatically when run from that branch.
+- Projects gain `GPT-CODEX.md`, `WORKFLOW-gpt-codex.md`, `.gpt-codex/agents/`, and a pre-populated `.mcp.json` without affecting users on `dev` (no templates) or `dev-claude-integration` (Claude templates only).
+- `.gitignore` includes `.gpt-codex/` so downstream projects don’t accidentally commit agent configs.
+
+---
+
 ## Testing Results
 
 ### Phase 1 Test (dev branch)
