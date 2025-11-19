@@ -15,6 +15,7 @@
 #   --interactive                  Prompt for all configuration options
 #   --git-init                     Initialize git repository
 #   --submodules LIST              Add submodules to 01_scripts/ (comma-separated)
+#   --ai MODE                      AI helper (none|claude|codex|both). Default: none
 #
 # Examples:
 #   ./init-project.sh ~/projects/my-analysis basic-rna --interactive
@@ -25,7 +26,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks to get actual script location
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [ -L "$SCRIPT_PATH" ]; do
+    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+    SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+    [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 TEMPLATES_DIR="${SCRIPT_DIR}/templates"
 
 # Color output
@@ -40,6 +48,8 @@ INTERACTIVE=false
 GIT_INIT=false
 declare -a DATA_MOUNTS=()
 declare -a SUBMODULES=()
+AI_MODE="none"
+AI_COMMON_DIR="${TEMPLATES_DIR}/ai-common"
 
 usage() {
     echo "Usage: $0 <project-dir> <template-name> [OPTIONS]"
@@ -56,6 +66,7 @@ usage() {
     echo "  --interactive                  Prompt for all configuration options"
     echo "  --git-init                     Initialize git repository"
     echo "  --submodules LIST              Add submodules to 01_scripts/ (comma-separated)"
+    echo "  --ai MODE                      AI helper (none|claude|codex|both). Default: none"
     echo ""
     echo "Examples:"
     echo "  $0 ~/projects/my-analysis basic-rna --interactive"
@@ -65,6 +76,116 @@ usage() {
     echo "      --data-mount rna:/scratch/data/DT-5678:ro \\"
     echo "      --git-init"
     exit 1
+}
+
+validate_ai_mode() {
+    case "$1" in
+        none|claude|codex|both)
+            return 0
+            ;;
+        *)
+            echo -e "${RED}Error: Invalid --ai value '$1'. Use one of: none, claude, codex, both.${NC}"
+            exit 1
+            ;;
+    esac
+}
+
+get_mcp_template_path() {
+    if [ -f "${AI_COMMON_DIR}/mcp.json.template" ]; then
+        printf '%s\n' "${AI_COMMON_DIR}/mcp.json.template"
+        return 0
+    fi
+    if [ -f "${TEMPLATES_DIR}/gpt-codex/mcp.json.template" ]; then
+        printf '%s\n' "${TEMPLATES_DIR}/gpt-codex/mcp.json.template"
+        return 0
+    fi
+    return 1
+}
+
+generate_mcp_config() {
+    local template_path
+    if ! template_path="$(get_mcp_template_path)"; then
+        echo -e "${YELLOW}Warning: MCP template not found; skipping .mcp.json generation.${NC}"
+        return 0
+    fi
+    cp "${template_path}" "${PROJECT_DIR}/.mcp.json"
+    replace_placeholders_in_file "${PROJECT_DIR}/.mcp.json"
+    echo "Generated .mcp.json for MCP servers."
+}
+
+setup_claude_integration() {
+    if [ ! -d "${TEMPLATES_DIR}/claude" ]; then
+        echo -e "${YELLOW}Warning: Claude templates not available on this branch. Skipping Claude integration.${NC}"
+        return 0
+    fi
+
+    echo "Setting up Claude Code integration..."
+
+    if [ -f "${TEMPLATES_DIR}/claude/CLAUDE.md.template" ]; then
+        cp "${TEMPLATES_DIR}/claude/CLAUDE.md.template" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{STATUS}}|Planning|g" "${PROJECT_DIR}/CLAUDE.md"
+        sed -i "s|{{IMAGE_VERSION}}|scdock-r-dev:v0.5.1|g" "${PROJECT_DIR}/CLAUDE.md"
+    fi
+
+    if [ -f "${TEMPLATES_DIR}/claude/WORKFLOW.md" ]; then
+        cp "${TEMPLATES_DIR}/claude/WORKFLOW.md" "${PROJECT_DIR}/WORKFLOW.md"
+    fi
+
+    if [ -d "${TEMPLATES_DIR}/claude/.claude" ]; then
+        mkdir -p "${PROJECT_DIR}/.claude"
+        cp -r "${TEMPLATES_DIR}/claude/.claude"/* "${PROJECT_DIR}/.claude/"
+    fi
+
+    generate_mcp_config
+}
+
+setup_gpt_codex_integration() {
+    if [ ! -d "${TEMPLATES_DIR}/gpt-codex" ]; then
+        echo -e "${YELLOW}Warning: GPT-Codex templates not available on this branch. Skipping GPT-Codex integration.${NC}"
+        return 0
+    fi
+
+    echo "Setting up GPT-Codex integration..."
+
+    if [ -f "${TEMPLATES_DIR}/gpt-codex/GPT-CODEX.md.template" ]; then
+        cp "${TEMPLATES_DIR}/gpt-codex/GPT-CODEX.md.template" "${PROJECT_DIR}/GPT-CODEX.md"
+        sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/GPT-CODEX.md"
+        sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/GPT-CODEX.md"
+        sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/GPT-CODEX.md"
+        sed -i "s|{{STATUS}}|Planning|g" "${PROJECT_DIR}/GPT-CODEX.md"
+    fi
+
+    if [ -f "${TEMPLATES_DIR}/gpt-codex/WORKFLOW-gpt-codex.md" ]; then
+        cp "${TEMPLATES_DIR}/gpt-codex/WORKFLOW-gpt-codex.md" "${PROJECT_DIR}/WORKFLOW-gpt-codex.md"
+    fi
+
+    if [ -d "${TEMPLATES_DIR}/gpt-codex/.gpt-codex" ]; then
+        mkdir -p "${PROJECT_DIR}/.gpt-codex"
+        cp -r "${TEMPLATES_DIR}/gpt-codex/.gpt-codex"/* "${PROJECT_DIR}/.gpt-codex/"
+    fi
+
+    generate_mcp_config
+
+    if [ -d "${TEMPLATES_DIR}/gpt-codex/.devcontainer" ]; then
+        mkdir -p "${PROJECT_DIR}/.devcontainer"
+        cp -r "${TEMPLATES_DIR}/gpt-codex/.devcontainer/." "${PROJECT_DIR}/.devcontainer/"
+        if [ -f "${PROJECT_DIR}/.devcontainer/scripts/setup_codex_mcp.sh" ]; then
+            replace_placeholders_in_file "${PROJECT_DIR}/.devcontainer/scripts/setup_codex_mcp.sh"
+            chmod +x "${PROJECT_DIR}/.devcontainer/scripts/setup_codex_mcp.sh"
+        fi
+    fi
+
+    return 0
+}
+
+replace_placeholders_in_file() {
+    local target_file="$1"
+    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "$target_file"
+    sed -i "s|{{PROJECT_PATH}}|${PROJECT_DIR}|g" "$target_file"
+    sed -i "s|{{WORKSPACE_PATH}}|${WORKSPACE_PATH}|g" "$target_file"
 }
 
 # Parse command line arguments
@@ -95,6 +216,16 @@ while [[ $# -gt 0 ]]; do
             IFS=',' read -ra SUBMODULES <<< "$2"
             shift 2
             ;;
+        --ai)
+            if [ -z "${2:-}" ]; then
+                echo -e "${RED}Error: --ai requires a value (none|claude|codex|both).${NC}"
+                usage
+            fi
+            ai_value="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')"
+            validate_ai_mode "$ai_value"
+            AI_MODE="$ai_value"
+            shift 2
+            ;;
         *)
             echo -e "${RED}Error: Unknown option '$1'${NC}"
             usage
@@ -113,6 +244,7 @@ fi
 
 # Extract project name from path
 PROJECT_NAME=$(basename "$PROJECT_DIR")
+WORKSPACE_PATH="/workspaces/${PROJECT_NAME}"
 
 # Interactive mode: prompt for options
 if [ "$INTERACTIVE" = true ]; then
@@ -160,6 +292,12 @@ if [ "$INTERACTIVE" = true ]; then
     read -p "Max Memory (default: 450G): " max_memory
     MAX_MEMORY="${max_memory:-450G}"
 
+    read -p "AI assistant mode (none/claude/codex/both) [${AI_MODE}]: " ai_mode_input
+    if [ -n "$ai_mode_input" ]; then
+        validate_ai_mode "$ai_mode_input"
+        AI_MODE="$ai_mode_input"
+    fi
+
     echo ""
 fi
 
@@ -181,6 +319,9 @@ else
 fi
 
 echo -e "${GREEN}Initializing project '${PROJECT_NAME}' from '${TEMPLATE}' template...${NC}"
+if [ "$AI_MODE" != "none" ]; then
+    echo "AI assistant mode: ${AI_MODE}"
+fi
 
 # Copy template structure (if template has files)
 if [ -n "$(ls -A "${TEMPLATE_PATH}" 2>/dev/null)" ]; then
@@ -231,6 +372,22 @@ if [ -f "${TEMPLATES_DIR}/docs/.env.example" ]; then
     cp "${TEMPLATES_DIR}/docs/.env.example" "${PROJECT_DIR}/.env.example"
 fi
 
+case "$AI_MODE" in
+    none)
+        echo "Skipping AI assistant scaffolding."
+        ;;
+    claude)
+        setup_claude_integration
+        ;;
+    codex)
+        setup_gpt_codex_integration
+        ;;
+    both)
+        setup_claude_integration
+        setup_gpt_codex_integration
+        ;;
+esac
+
 # Copy devcontainer configuration
 echo "Setting up devcontainer configuration..."
 mkdir -p "${PROJECT_DIR}/.devcontainer"
@@ -276,6 +433,7 @@ cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
       ]
     }
   },
+  "postCreateCommand": "bash -lc 'chmod +x .devcontainer/scripts/install_ai_tooling.sh && .devcontainer/scripts/install_ai_tooling.sh'",
   "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh'"
 }
 EOF
@@ -368,6 +526,19 @@ echo "User: $(whoami) (UID=$(id -u), GID=$(id -g))"
 echo "==================================="
 SANITY_EOF
     chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+fi
+
+# Copy AI tooling installer script
+if [ -f "${SCRIPT_DIR}/.devcontainer/scripts/install_ai_tooling.sh" ]; then
+    cp "${SCRIPT_DIR}/.devcontainer/scripts/install_ai_tooling.sh" \
+       "${PROJECT_DIR}/.devcontainer/scripts/install_ai_tooling.sh"
+    chmod +x "${PROJECT_DIR}/.devcontainer/scripts/install_ai_tooling.sh"
+else
+    cat > "${PROJECT_DIR}/.devcontainer/scripts/install_ai_tooling.sh" <<'AI_EOF'
+#!/usr/bin/env bash
+echo "[AI TOOLING] Placeholder installer missing from template repository."
+AI_EOF
+    chmod +x "${PROJECT_DIR}/.devcontainer/scripts/install_ai_tooling.sh"
 fi
 
 # Create .env file in .devcontainer/
