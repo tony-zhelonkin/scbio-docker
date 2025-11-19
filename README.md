@@ -1,19 +1,26 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.1-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.2-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code's [**Dev Containers**](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension, enabling seamless local or remote development against powerful server resources.
 
-## What's New in v0.5.1 (Multi-Stage Build)
+## What's New in v0.5.2 (AI-ready build)
 
-** Size Reduction: 500GB → 20GB (Docker-reported)**
+- **AI prerequisites baked in** – Node.js 20.x + npm/npx, `nvm`, and the Python `uv` tool (for `uvx`) now ship inside the base image, so Claude/Codex MCP servers work without re-installing dependencies on every container start.
+- **Post-create bootstrap** – New `.devcontainer/scripts/install_ai_tooling.sh` runs from `postCreateCommand` to verify the toolchain, install the Claude CLI (when applicable), and warn if `.mcp.json` is missing.
+- **Branch-agnostic AI scaffolding** – `init-project.sh --ai {none,claude,codex,both}` copies the appropriate templates, generates a project-specific `.mcp.json` (from `templates/ai-common/mcp.json.template`), and syncs Claude/Codex helper scripts regardless of branch.
+- **MCP parity** – The shared `.mcp.json` now provisions `context7` (API key or OAuth), `serena start-mcp-server --context ide-assistant`, and `sequential-thinking` with log/history paths that both Claude Code and Codex CLI understand.
 
-- **Multi-stage build**: Completely discards build artifacts, no layer bloat
-- **Build-essential preserved**: Should still compile R/Python packages at runtime
-- **Same functionality**: All features from v0.5.0, but with size efficiency
+### Highlights from v0.5.1 (Multi-Stage Build)
 
-**Previous Optimizations (v0.5.0):**
+**Size reduction: 500GB → 20GB (Docker-reported)**
+
+- **Multi-stage build**: Completely discards build artifacts, no layer bloat.
+- **Build-essential preserved**: Still compiles R/Python packages at runtime.
+- **Same functionality**: All features from v0.5.0, but with size efficiency.
+
+### Previous Optimizations (v0.5.0)
 - Aggressive cache cleanup: renv, pip, and build artifacts removed
 - TinyTeX: Lightweight TeX distribution instead of full texlive
 - Layered Python venvs: Base venv + runtime-created specialized venvs
@@ -32,6 +39,9 @@ A Docker-based development environment for bioinformatics, particularly single-c
 - ✅ `init-project.sh` script for quick project scaffolding
 - ✅ 4 templates: `basic-rna`, `multimodal`, `archr-focused`, `example-DMATAC`
 - ✅ Universal `.vscode/settings.json` with Python REPL + R configuration
+- ✅ Optional AI assistant overlays via `--ai claude`, `--ai codex`, or `--ai both`
+  - `init-project.sh` copies per-agent docs, generates `.mcp.json`, and wires lifecycle scripts automatically
+  - Claude/Codex assets live on their respective branches, but the same script works everywhere
 
 **Build:** Use `./build-optimized.sh` for multi-stage build. See [DEVOPS.md](DEVOPS.md).
 
@@ -55,6 +65,7 @@ A Docker-based development environment for bioinformatics, particularly single-c
 9. [Contributing](#contributing)
 10. [License](#license)
 11. [Acknowledgments](#acknowledgments)
+12. [Branch Strategy](#branch-strategy)
 
 ---
 
@@ -104,6 +115,9 @@ See [DEVOPS.md](DEVOPS.md) for complete build and operational instructions.
 - **Quarto** for R Markdown, Jupyter, and scientific documentation workflows.
 - **Automated Build** process (via .devcontainer/Dockerfile) including compilation of R, specialized R packages, and Python requirements.
 - **VS Code** integration with recommended extensions for R, Python, Docker, Markdown, and more.
+- **AI-ready base image** (Node.js 20.x + npm/npx, `nvm`, `uvx`) with a tracked `install_ai_tooling.sh` script that installs/validates Claude and Codex integrations once per container.
+- **Shared MCP templates** – `.mcp.json` derives from `templates/ai-common/mcp.json.template`, ensuring `context7`, `serena`, and `sequential-thinking` are configured consistently; set `CONTEXT7_API_KEY` (or run OAuth via Claude Code) before launching context7.
+- **AI-ready base image** (Node.js 20.x + npm/npx, `nvm`, `uvx`) with a tracked `install_ai_tooling.sh` script that installs/validates Claude and Codex integrations once per container.
 
 ---
 
@@ -842,6 +856,10 @@ This project is distributed under the [MIT License](https://github.com/tony-zhel
 ---
 
 ## Acknowledgments
+
+## Branch Strategy
+
+Development happens on `dev`, with AI-focused work stacking on `dev-claude-integration` (Claude Code) and `dev-gpt-codex-integration` (Codex CLI). Whenever you touch shared assets (`init-project.sh`, `.devcontainer/scripts/install_ai_tooling.sh`, `templates/ai-common/mcp.json.template`), merge `dev` into both AI branches so `.mcp.json` generation and lifecycle scripts stay in sync. See [BRANCH_MANAGEMENT.md](BRANCH_MANAGEMENT.md) for the full workflow.
 
 - **Maintainer**: [Anton Zhelonkin](mailto:anton.bioinf.md@gmail.com)
 - **Huge thanks** to [Rami Krispin’s vscode-r repo](https://github.com/RamiKrispin/vscode-r) for serving as a fantastic inspiration.

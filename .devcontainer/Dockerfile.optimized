@@ -45,11 +45,11 @@ ARG GROUP=devgroup
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     locales \
-    build-essential g++ gfortran \
+    build-essential g++ gfortran pkg-config \
     git wget curl ca-certificates \
     # R build dependencies
     libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
-    libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
+    libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libwebp-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev gfortran \
     # Additional scientific libraries (for R packages)
@@ -191,7 +191,8 @@ ENV R_VERSION_MAJOR=$R_VERSION_MAJOR \
     IMAGE_FLAVOR=dev-core \
     PATH="/opt/venvs/base/bin:/root/.TinyTeX/bin/x86_64-linux:/usr/local/bin:${PATH}" \
     PIP_NO_CACHE_DIR=1 \
-    VIRTUALENV_WRAPPER=/opt/venvs
+    VIRTUALENV_WRAPPER=/opt/venvs \
+    NVM_DIR=/opt/nvm
 
 ####################################################
 ### User definition (runtime)
@@ -205,11 +206,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     locales sudo \
     # Keep build-essential and dev libraries for RUNTIME package installation
-    build-essential g++ gfortran \
+    build-essential g++ gfortran pkg-config \
     git wget curl ca-certificates \
     # R runtime dependencies
     libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
-    libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
+    libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libwebp-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev \
     # Additional scientific libraries (for runtime R package compilation)
@@ -228,6 +229,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
+
+####################################################
+### Node.js / npm / nvm / uv tooling
+####################################################
+# Install Node.js 20.x via NodeSource (system-wide), add uv CLI, and preinstall nvm for version pinning
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    pip3 install --no-cache-dir uv && \
+    rm -rf /var/lib/apt/lists/* && \
+    git clone https://github.com/nvm-sh/nvm.git "${NVM_DIR}" && \
+    cd "${NVM_DIR}" && git checkout v0.39.7
+
+# Pre-install Node 20.x under nvm and expose it for interactive shells
+RUN bash -lc '. "${NVM_DIR}/nvm.sh" && nvm install 20 && nvm alias default 20 && nvm cache clear' && \
+    printf 'export NVM_DIR="/opt/nvm"\n[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"\n' > /etc/profile.d/nvm.sh && \
+    chmod +x /etc/profile.d/nvm.sh && \
+    printf '\n# nvm setup\nexport NVM_DIR="/opt/nvm"\n[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"\n' >> /etc/bash.bashrc
+
+# Verify AI tooling prerequisites
+RUN node --version && npm --version && npx --version && uvx --version
 
 # Create user with proper permissions
 RUN set -eux; \

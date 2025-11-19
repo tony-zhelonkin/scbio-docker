@@ -279,6 +279,19 @@ Create a **production-ready, reproducible Docker-based development environment**
 - **greenleaflab/ArchR**: Official ArchR Docker workflows
 - **scverse**: Python single-cell ecosystem standards
 
+## AI Integration Branches
+
+To keep the core (`dev`) branch clean, AI-assisted workflows live on stacked branches:
+
+- **`dev-claude-integration`** — ships CLAUDE.md, WORKFLOW.md, and `.claude/agents/` templates so Claude Code sessions have lightweight context and future automation hooks.
+- **`dev-gpt-codex-integration`** — new branch that mirrors the Claude experience for Codex CLI users via `GPT-CODEX.md`, `WORKFLOW-gpt-codex.md`, and `.gpt-codex/agents/`.
+
+Both branches reuse the same `init-project.sh` script; the script simply copies whichever AI template directories exist. Guardrails:
+
+1. Never commit `templates/claude/` or `templates/gpt-codex/` to `dev`.
+2. Keep AI docs ≤650 tokens so LLM sessions stay efficient.
+3. Update `BRANCH_MANAGEMENT.md` whenever the stacked strategy changes.
+
 ## Version History Highlights
 
 - **v0.1-v0.3**: Initial builds, R 4.4 + Seurat + ArchR custom stacks

@@ -1,0 +1,69 @@
+# GPT-CODEX.md
+
+This file keeps Codex CLI (GPT) runs lightweight while still anchoring each session.
+
+**Version:** 1.0  
+**Last Updated:** {{DATE}}  
+**Project:** {{PROJECT_NAME}}  
+**Template:** {{TEMPLATE_TYPE}}  
+**Status:** {{STATUS}}  
+**Image:** scdock-r-dev:v0.5.2
+
+---
+
+## Snapshot
+
+- **Workspace:** `/workspaces/{{PROJECT_NAME}}`
+- **Data roots:** `00_data/raw`, `00_data/processed`, `00_data/references`
+- **Results:** `03_results/{checkpoints,plots,tables}`
+- **Scripts:** `01_scripts/`, `02_analysis/`
+- **Config:** `.devcontainer/`, `.vscode/`, `.gpt-codex/agents/`
+
+## Guardrails
+
+**Never**
+1. Delete or overwrite checkpoints without backups.
+2. Commit raw data (see `.gitignore`).
+3. Run >10 min jobs outside tmux (`tmux new -s stage1_qc`).
+4. Skip post-step verification; mark tasks ✅ only after checks.
+
+**Always**
+1. Update `tasks.md` status markers (⏸️ 🔄 ✅ ⛔).
+2. Log parameters & file paths in `plan.md` (strategy) or `notes.md` (research).
+3. Save checkpoints after each milestone (`03_results/checkpoints/`).
+4. Use `handoff.md` before pausing; include next commands to run.
+
+## Essential Commands
+
+```bash
+# Switch Python stack
+usepy base|squid|atac|comms
+
+# R via radian
+radian
+
+# Init script
+./init-project.sh ~/projects/new basic-rna --interactive
+```
+
+## Context Files
+
+- `plan.md` – scientific narrative, known issues, hypotheses.
+- `tasks.md` – numbered stages with criteria. Only one substep 🔄 at a time.
+- `notes.md` – external references, troubleshooting breadcrumbs.
+- `handoff.md` – session summary (who/when/next).
+- `.gpt-codex/agents/` – future automation specs (handoff writer, stage reviewer).
+
+## Stage Workflow
+
+1. Read `plan.md` & `tasks.md`. Clarify scope before coding.
+2. Work inside tmux if running long scripts.
+3. After each substep: verify outputs, update `tasks.md`, checkpoint results.
+4. Refresh Codex context between stages (new chat, reattach docs).
+5. Document blockers in `plan.md` (“Known Issues”) and `handoff.md`.
+
+## Token Budget Tips
+
+- Keep this file ≤650 tokens by summarizing only evergreen facts.
+- Push session-specific context to `plan.md`, `tasks.md`, or `handoff.md`.
+- Reference detailed docs instead of duplicating content (e.g., “See `WORKFLOW-gpt-codex.md` for session flow.”)

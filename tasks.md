@@ -159,6 +159,22 @@ if (length(missing) > 0) {
 - `.devcontainer/scripts/smoke_test_R.R` (new)
 - `.devcontainer/Dockerfile.optimized`
 
+#### Task 1.4: GPT-Codex Integration Branch
+
+**Goal:** Mirror the Claude experience for Codex (GPT) users without polluting `dev`.
+
+**Subtasks:**
+- [x] Create `dev-gpt-codex-integration` branch off `dev`.
+- [x] Add `GPT-CODEX.md`, template directory (`templates/gpt-codex/`), and `.gpt-codex/agents/` stubs.
+- [x] Update `init-project.sh` to copy GPT assets when `templates/gpt-codex/` exists.
+- [x] Document branch strategy and workflow updates (`README.md`, `QUICK-START.md`, `INIT_PROJECT_ENHANCEMENT.md`, `BRANCH_MANAGEMENT.md`, `plan.md`, `tasks.md`, `HANDOFF*.md`).
+- [ ] Add CI smoke test to scaffold a GPT project and ensure AI files exist.
+
+**Testing:**
+- `./init-project.sh /tmp/test-gpt basic-rna --git-init` on the AI branch.
+- Verify GPT files absent on `dev`.
+- Ensure `.gitignore` excludes `.gpt-codex/`.
+
 **Testing Checklist:**
 - [ ] Build completes successfully
 - [ ] All 80+ core packages in manifest
@@ -590,6 +606,7 @@ jobs:
 **README.md** - Quick start, features, troubleshooting
 **DEVOPS.md** - Build/run operations, detailed commands
 **CLAUDE.md** - AI assistant instructions (Claude Code)
+**GPT-CODEX.md** - AI assistant instructions (GPT/Codex)
 **plan.md** - Project vision (this file)
 **tasks.md** - Development roadmap (this file)
 
