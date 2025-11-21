@@ -39,6 +39,14 @@ A Docker-based development environment for bioinformatics, particularly single-c
 
 ---
 
+## AI Integration (Optional)
+
+AI features are provided via the external SciAgent‑toolkit. The `dev-claude-integration` and `dev-gpt-codex-integration` branches are deprecated.
+
+- MCP/agent configuration: https://github.com/tony-zhelonkin/SciAgent-toolkit
+
+---
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Features](#features)
