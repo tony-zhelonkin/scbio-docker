@@ -1,4 +1,3 @@
-Security Policy
+Security
 
-Report vulnerabilities privately to the maintainer: anton.bioinf.md@gmail.com. Include steps to reproduce and affected versions. We aim to respond within 7 days.
-
+Report issues privately to: anton.bioinf.md@gmail.com. Include steps to reproduce and affected versions if you can. Expect a reply within ~7 days.
