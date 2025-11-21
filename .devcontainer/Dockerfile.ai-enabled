@@ -1,0 +1,80 @@
+#########################################
+### AI-ENABLED VARIANT
+### Extends base image with MCP servers
+#########################################
+# This Dockerfile extends the base scbio-docker image with MCP (Model Context Protocol)
+# servers for AI-powered scientific research tools.
+#
+# Installed by default:
+#   - Sequential Thinking MCP server (structured reasoning)
+#
+# Optional (via build args):
+#   - ToolUniverse (600+ scientific tools)
+#   - Serena (semantic code search)
+#
+# Build args:
+#   BASE_IMAGE:        Base image to extend (default: scdock-r-dev:v0.5.1)
+#   USER_ID:           User ID for devuser (default: 1000)
+#   GROUP_ID:          Group ID for devuser (default: 1000)
+#   INSTALL_TOOLUNIVERSE: Install ToolUniverse MCP server (default: 0)
+#   INSTALL_SERENA:    Install Serena MCP server (default: 0)
+#
+
+ARG BASE_IMAGE=scdock-r-dev:v0.5.1
+FROM ${BASE_IMAGE}
+
+# Build arguments
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG INSTALL_TOOLUNIVERSE=0
+ARG INSTALL_SERENA=0
+
+USER root
+
+# Install uv package manager (for Python MCP servers)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    cp /root/.cargo/bin/uv /usr/local/bin/ && \
+    chmod +x /usr/local/bin/uv
+
+# Upgrade Node.js to v22+ (required for Codex CLI and some MCP servers)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy SciAgent-toolkit scripts (from submodule in build context)
+# Note: This assumes .sciagent/ submodule exists in build context
+COPY .sciagent/scripts /opt/sciagent/scripts
+
+# Create MCP template directory
+RUN mkdir -p /opt/templates/mcp-configs
+
+# Install Sequential Thinking MCP server (installed by default)
+# This provides structured reasoning capabilities for AI assistants
+RUN npm install -g @modelcontextprotocol/server-sequential-thinking
+
+# Optional: Install ToolUniverse MCP server
+# Provides 600+ scientific research tools (ChEMBL, UniProt, PubMed, etc.)
+RUN if [ "$INSTALL_TOOLUNIVERSE" = "1" ]; then \
+        echo "Installing ToolUniverse MCP server..."; \
+        bash /opt/sciagent/scripts/mcp_servers/setup_tooluniverse.sh; \
+    else \
+        echo "Skipping ToolUniverse installation (set INSTALL_TOOLUNIVERSE=1 to enable)"; \
+    fi
+
+# Optional: Install Serena MCP server
+# Provides semantic code search and analysis capabilities
+RUN if [ "$INSTALL_SERENA" = "1" ]; then \
+        echo "Installing Serena MCP server..."; \
+        bash /opt/sciagent/scripts/mcp_servers/setup_serena.sh; \
+    else \
+        echo "Skipping Serena installation (set INSTALL_SERENA=1 to enable)"; \
+    fi
+
+# Clean up
+RUN rm -rf /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
+
+# Switch back to devuser
+USER ${USER_ID}:${GROUP_ID}
+
+WORKDIR /workspaces/project
+CMD ["/bin/bash"]

@@ -1,0 +1,32 @@
+services:
+  dev-ai:
+    image: scdock-r-dev-ai:v0.5.1
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    working_dir: /workspaces/project
+    volumes:
+      - ${WORKSPACE_FOLDER:-.}:/workspaces/project
+      # Optional: Add data directory mounts below
+      # - /path/to/data:/data:ro
+    environment:
+      - USER=devuser
+      - HOME=/home/devuser
+      # Optional: Add API keys below (or use .env file)
+      # - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      # - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+    # Optional: Uncomment to use .env file for API keys
+    # env_file:
+    #   - ../.env
+
+    # Optional: Add resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '8'
+    #       memory: 32G
+    #     reservations:
+    #       cpus: '4'
+    #       memory: 16G
