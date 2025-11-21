@@ -4,6 +4,13 @@ Quick reference for building, running, and operating the single-cell Docker envi
 
 ---
 
+## Branch Strategy
+- Development happens on `dev`; stable releases are merged into `main`.
+- AI branches `dev-claude-integration` and `dev-gpt-codex-integration` are deprecated.
+- Optional AI integration is delivered via the AI-enabled build wrapper and the external SciAgent‑toolkit. See `docs/AI_TOOLS.md`.
+
+---
+
 ## Build Instructions
 
 ### Recommended: Multi-Stage Build (v0.5.1+)
@@ -753,7 +760,7 @@ See **[RUNTIME_INSTALL.md](RUNTIME_INSTALL.md)** for comprehensive guide on:
 
 ## Support
 
-- **Documentation**: See `README.md` and `CLAUDE.md`
+- **Documentation**: See `README.md` and `docs/AI_TOOLS.md`
 - **Issues**: Check `.devcontainer/scripts/poststart_sanity.sh` output
 - **Logs**: `docker logs <container_id>`
 - **GitHub**: [Repository Issues](https://github.com/tony-zhelonkin/scbio-docker/issues)
