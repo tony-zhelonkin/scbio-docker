@@ -3,7 +3,7 @@
 ![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.1-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-A Docker-based development environment for bioinformatics, particularly single-cell RNA-seq analyses. This repository is structured for use with Visual Studio Code's [**Dev Containers**](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension, enabling seamless local or remote development against powerful server resources.
+A Docker-based development environment for bioinformatics, especially single-cell work. Built for use with VS Code [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). This is a personal convenience toolkit shared publicly — use what’s useful and ignore the rest.
 
 ## What's New in v0.5.1 (Multi-Stage Build)
 
@@ -841,20 +841,13 @@ Recommendation: in general, submodules are fine; migrate to an R package if/when
 
 ## Contributing
 
-Contributions are welcome! To propose a change:
-
-1. Fork this repository.
-2. Create a new branch for your feature/fix.
-3. Commit and push your changes.
-4. Submit a Pull Request (PR) describing your modifications.
-
-Please open an issue for any bugs, installation problems, or improvement ideas.
+Lightweight and informal. Open a PR or issue if you have a concrete improvement. No guarantees on turnaround; this is optimized for personal use.
 
 ---
 
 ## License
 
-This project is distributed under the [MIT License](https://github.com/tony-zhelonkin/scbio-docker/blob/main/LICENCE.md). Feel free to use, modify, and distribute it as permitted.
+MIT. See `LICENSE`.
 
 ---
 

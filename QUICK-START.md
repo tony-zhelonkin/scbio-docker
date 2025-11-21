@@ -1,7 +1,6 @@
 # Quick Start: init-scproject
 
-**Version:** 1.0 (Updated 2025-11-11)
-**Branch Strategy:** `dev` (core) / `dev-claude-integration` (AI workflow)
+Personal quick start. Use what’s useful.
 
 ---
 
@@ -91,14 +90,6 @@ your-project/
 ```
 
 ### Additional Files (dev-claude-integration branch only)
-When you run `init-scproject` from the `dev-claude-integration` branch, you also get:
-```
-├── CLAUDE.md             # Minimal context file (~650 tokens)
-├── WORKFLOW.md           # Claude Code usage philosophy
-└── .claude/              # Agent definitions
-    └── agents/
-        ├── handoff-writer.md
-        └── stage-reviewer.md
 ```
 
 ---

@@ -1,4 +1,3 @@
 Code of Conduct
 
-Be respectful, inclusive, and collaborative. Discrimination, harassment, and aggression are not tolerated. Report issues to the maintainers.
-
+Be decent. No harassment or abuse. That’s it.
