@@ -29,9 +29,11 @@ usage() {
     echo "  multimodal      - RNA + ATAC or CITE-seq"
     echo "  archr-focused   - ArchR scATAC-seq analysis (uses dev-archr service)"
     echo "  example-DMATAC  - Differential chromatin accessibility"
+    echo "  ai-enabled      - AI-enabled variant (MCP-ready via SciAgent‑toolkit)"
     echo ""
     echo "Example:"
     echo "  $0 ~/projects/my-scrna-analysis basic-rna"
+    echo "  $0 ~/projects/my-ai-analysis ai-enabled"
     exit 1
 }
 
@@ -83,17 +85,18 @@ done
 echo "Setting up devcontainer configuration..."
 mkdir -p "${PROJECT_DIR}/.devcontainer"
 
-# Determine which service to use
-if [ "$TEMPLATE" == "archr-focused" ]; then
-    SERVICE="dev-archr"
-    IMAGE="greenleaflab/archr:1.0.3-base-r4.4"
-else
-    SERVICE="dev-core"
-    IMAGE="scdock-r-dev:v0.5.0"
-fi
+if [ "$TEMPLATE" != "ai-enabled" ]; then
+    # Determine which service to use
+    if [ "$TEMPLATE" == "archr-focused" ]; then
+        SERVICE="dev-archr"
+        IMAGE="greenleaflab/archr:1.0.3-base-r4.4"
+    else
+        SERVICE="dev-core"
+        IMAGE="scdock-r-dev:v0.5.0"
+    fi
 
-# Create devcontainer.json
-cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
+    # Create devcontainer.json
+    cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
 {
   "name": "scbio-${TEMPLATE}",
   "dockerComposeFile": "docker-compose.yml",
@@ -114,8 +117,8 @@ cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
 }
 EOF
 
-# Create docker-compose.yml
-cat > "${PROJECT_DIR}/.devcontainer/docker-compose.yml" <<EOF
+    # Create docker-compose.yml
+    cat > "${PROJECT_DIR}/.devcontainer/docker-compose.yml" <<EOF
 services:
   dev-core:
     image: scdock-r-dev:v0.5.0
@@ -142,8 +145,8 @@ services:
     command: /bin/bash
 EOF
 
-# Create post-start.sh
-cat > "${PROJECT_DIR}/.devcontainer/post-start.sh" <<'EOF'
+    # Create post-start.sh
+    cat > "${PROJECT_DIR}/.devcontainer/post-start.sh" <<'EOF'
 #!/bin/bash
 # Post-start sanity checks
 
@@ -167,7 +170,10 @@ fi
 echo "==================================="
 EOF
 
-chmod +x "${PROJECT_DIR}/.devcontainer/post-start.sh"
+    chmod +x "${PROJECT_DIR}/.devcontainer/post-start.sh"
+else
+    echo "ai-enabled template detected: keeping template-provided .devcontainer as-is."
+fi
 
 # Create .env file if it doesn't exist
 if [ ! -f "${PROJECT_DIR}/.env" ]; then
@@ -253,8 +259,15 @@ if [ "$TEMPLATE" == "archr-focused" ]; then
     echo -e "${YELLOW}Note: This project uses the ArchR image (R 4.4).${NC}"
     echo "      To switch between dev-core and dev-archr, see DEVOPS.md"
 fi
+
+if [ "$TEMPLATE" == "ai-enabled" ]; then
+    echo -e "${YELLOW}Note: This project uses the AI-enabled image (MCP-ready).${NC}"
+    echo "      See docs/AI_TOOLS.md and SciAgent‑toolkit for installing"
+    echo "      and configuring Claude/Codex and MCP servers."
+fi
+
 echo ""
 echo "Documentation:"
 echo "  - Project structure: ${PROJECT_DIR}/README.md"
 echo "  - Build/ops guide: ${SCRIPT_DIR}/DEVOPS.md"
-echo "  - Architecture: ${SCRIPT_DIR}/CLAUDE.md"
+echo "  - AI tooling: ${SCRIPT_DIR}/docs/AI_TOOLS.md"
