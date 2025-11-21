@@ -12,13 +12,13 @@ Quick reference for building, running, and operating the single-cell Docker envi
 
 ```bash
 # Simple build with defaults
-./build-optimized.sh
+scripts/build.sh
 
 # With GitHub PAT (recommended to avoid rate limits)
-./build-optimized.sh --github-pat ghp_your_token_here
+scripts/build.sh --github-pat ghp_your_token_here
 
 # Custom tag
-./build-optimized.sh --tag scdock-r-dev:v0.5.1
+scripts/build.sh --tag scdock-r-dev:v0.5.1
 ```
 
 **Benefits of multi-stage build:**
@@ -33,7 +33,7 @@ Quick reference for building, running, and operating the single-cell Docker envi
 export GITHUB_PAT=ghp_your_token_here
 
 docker build . \
-  -f .devcontainer/Dockerfile.optimized \
+  -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g) \

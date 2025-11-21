@@ -31,7 +31,7 @@ This is a Docker-based development environment for single-cell RNA-seq and epige
 - Official ArchR image instead of custom build
 - Project templates + init-project.sh for quick scaffolding
 
-**Build:** Use `./build-optimized.sh` or `docker build -f .devcontainer/Dockerfile.optimized`
+Build: prefer `scripts/build.sh` or `docker build -f docker/base/Dockerfile`
 
 ## Build Commands
 
@@ -45,14 +45,14 @@ The build system supports TWO modes:
 
 **Recommended: Generic build (shareable)**
 ```bash
-./build-optimized.sh                       # Generic build (devuser:1000)
-./build-optimized.sh --github-pat ghp_...  # With GitHub PAT
+scripts/build.sh                       # Generic build (devuser:1000)
+scripts/build.sh --github-pat ghp_...  # With GitHub PAT
 ```
 
 **Personal build (your UID only):**
 ```bash
-./build-optimized.sh --personal            # Bakes your UID into image
-./build-optimized.sh --personal --github-pat ghp_...
+scripts/build.sh --personal            # Bakes your UID into image
+scripts/build.sh --personal --github-pat ghp_...
 ```
 
 **How UID remapping works:**
@@ -63,7 +63,7 @@ The build system supports TWO modes:
 **Manual generic build:**
 ```bash
 docker build . \
-  -f .devcontainer/Dockerfile.optimized \
+  -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
   -t scdock-r-dev:v0.5.2
 # Note: USER_ID defaults to 1000 (no need to specify)
@@ -72,7 +72,7 @@ docker build . \
 **Manual personal build:**
 ```bash
 docker build . \
-  -f .devcontainer/Dockerfile.optimized \
+  -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g) \
@@ -124,8 +124,8 @@ COPY renv.lock /opt/settings/renv.lock
 ### Running sanity checks
 
 ```bash
-docker run --rm scdock-r-dev:v0.5.2 bash -lc '.devcontainer/scripts/poststart_sanity.sh'
-docker run --rm scdock-r-archr:v0.5.2 bash -lc '.devcontainer/scripts/poststart_sanity.sh'
+docker run --rm scdock-r-dev:v0.5.2 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-archr:v0.5.2 bash -lc 'scripts/poststart_sanity.sh'
 ```
 
 ## Architecture
@@ -134,7 +134,7 @@ docker run --rm scdock-r-archr:v0.5.2 bash -lc '.devcontainer/scripts/poststart_
 
 ```
 ubuntu:22.04
-  └─ scdock-r-dev:v0.5.0 (.devcontainer/Dockerfile)
+  └─ scdock-r-dev:v0.5.0 (docker/base/Dockerfile)
        • R 4.5.0 built from source with Cairo, BLAS, LAPACK
        • ~80 core R packages pre-installed (install_R_core.R)
        • Python base venv: /opt/venvs/base
@@ -184,20 +184,20 @@ The repo supports two devcontainer approaches:
 **Base venv (pre-installed in image):**
 - **/opt/venvs/base**: Core single-cell stack (scanpy, scvi-tools, muon, cellrank, scvelo, radian)
   - Pre-installed during build (~25GB)
-  - Requirements: `.environments/base_requirements.txt`
+  - Requirements: `docker/requirements/base.txt`
 
 **Layered venvs (created at runtime with `--system-site-packages`):**
 - **/opt/venvs/squid**: Spatial transcriptomics (squidpy, spatialdata)
   - Inherits from base, adds only squidpy-specific packages (~3-5GB additional)
-  - Requirements: `.environments/squid_requirements.txt`
+  - Requirements: `docker/requirements/squid.txt`
 
 - **/opt/venvs/atac**: scATAC-seq tools (snapatac2, episcanpy)
   - Inherits from base, adds only ATAC-specific packages (~2-3GB additional)
-  - Requirements: `.environments/atac_requirements.txt`
+  - Requirements: `docker/requirements/atac.txt`
 
 - **/opt/venvs/comms**: Cell communication and GRN (liana, cellphonedb, scglue)
   - Inherits from base, adds only communication tools (~3-4GB additional)
-  - Requirements: `.environments/comms_requirements.txt`
+  - Requirements: `docker/requirements/comms.txt`
 
 **Creating layered venvs:**
 ```bash
