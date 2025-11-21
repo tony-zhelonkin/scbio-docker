@@ -45,6 +45,15 @@ AI features are provided via the external SciAgent‑toolkit. The `dev-claude-in
 
 - MCP/agent configuration: https://github.com/tony-zhelonkin/SciAgent-toolkit
 
+### Archived branches
+
+The deprecated AI branches have been archived as tags for reference:
+
+- `archived/dev-claude-integration`
+- `archived/dev-gpt-codex-integration`
+
+Please use `dev` for active work and open PRs into `main` for releases.
+
 ---
 
 ## Table of Contents
