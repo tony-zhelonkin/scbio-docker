@@ -1,0 +1,42 @@
+{
+  "name": "scbio-ai-enabled",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev-ai",
+  "workspaceFolder": "/workspaces/project",
+  "shutdownAction": "stopCompose",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "REditorSupport.r",
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "quarto.quarto"
+      ],
+      "settings": {
+        "r.rterm.linux": "/usr/local/bin/radian",
+        "r.bracketedPaste": true,
+        "r.plot.useHttpgd": true,
+        "python.defaultInterpreterPath": "/opt/venvs/base/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "jupyter.jupyterServerType": "local"
+      }
+    }
+  },
+
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/claude,target=/home/devuser/.config/claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.codex,target=/home/devuser/.codex,type=bind,consistency=cached"
+  ],
+
+  "remoteUser": "devuser",
+  "updateRemoteUserUID": true,
+
+  "features": {},
+
+  "forwardPorts": [],
+
+  "portsAttributes": {}
+}

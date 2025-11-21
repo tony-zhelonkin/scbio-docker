@@ -1,0 +1,10 @@
+# Codex CLI MCP Server Configuration
+# Generated for scbio-docker AI-enabled environment
+
+[mcp_servers.sequential-thinking]
+command = "npx"
+args = [
+  "-y",
+  "@modelcontextprotocol/server-sequential-thinking"
+]
+startup_timeout_sec = 30
