@@ -33,7 +33,7 @@ A Docker-based development environment for bioinformatics, particularly single-c
 - ✅ 4 templates: `basic-rna`, `multimodal`, `archr-focused`, `example-DMATAC`
 - ✅ Universal `.vscode/settings.json` with Python REPL + R configuration
 
-**Build:** Use `./build-optimized.sh` for multi-stage build. See [DEVOPS.md](DEVOPS.md).
+**Build:** Use `scripts/build.sh` for the multi-stage build. See [docs/build.md](docs/build.md). Note: build assets moved to `docker/base/Dockerfile`.
 
 > **Inspiration**: This setup is **strongly inspired by** [Rami Krispin’s vscode-r repository](https://github.com/RamiKrispin/vscode-r). Special thanks for the excellent reference on R + VS Code configurations!
 
@@ -94,7 +94,7 @@ The Docker setup is integrated with **VS Code Remote Containers** to streamline 
 
 ```bash
 # 1. Build base image (multi-stage, ~20GB true size)
-./build-optimized.sh
+scripts/build.sh
 
 # 2. Pull official ArchR image
 docker pull greenleaflab/archr:1.0.3-base-r4.4
@@ -133,7 +133,7 @@ From the repository root (non-root runtime, nf-core style UID/GID passthrough ba
 ```bash
 # First build: installs R packages and snapshots with renv
 docker build . \
-  -f .devcontainer/Dockerfile \
+  -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g) \
@@ -164,7 +164,7 @@ git add renv.lock R-packages-manifest.csv
 git commit -m "Pin R via renv; add manifest"
 ```
 
-- Deterministic builds thereafter: uncomment the lock copy in `.devcontainer/Dockerfile`:
+- Deterministic builds thereafter: uncomment the lock copy in `docker/base/Dockerfile`:
 
 ```Dockerfile
 # COPY renv.lock /opt/settings/renv.lock
@@ -264,9 +264,9 @@ pip freeze > requirements-project-frozen.txt
 └── LICENCE.md
 ```
 
-- **`.devcontainer/Dockerfile`** is the primary Dockerfile for building R, Python envs, and CLI tools.
+- **`docker/base/Dockerfile`** is the primary Dockerfile for building R, Python envs, and CLI tools.
 - **`.devcontainer/install_R_packages.R`** installs R/Bioconductor/GitHub packages; paired with `renv` for pinning.
-- **`.environments/*.txt`** are the two Python requirement sets installed into separate venvs inside the image.
+- **`docker/requirements/*.txt`** are the Python requirement sets installed into separate venvs inside the image.
 
 ---
 
@@ -293,10 +293,10 @@ Image lineage (Docker layering; not an image-inside-image):
 
 ```text
 ubuntu:22.04
-  └─ scdock-r-dev:v0.4.1 (.devcontainer/Dockerfile)
+  └─ scdock-r-dev:v0.4.1 (docker/base/Dockerfile)
        • System deps, R 4.4.2 built from source
        • R packages via install_R_packages.R, pinned with renv by install_renv_project.R
-       • Python venvs: /opt/venvs/{base,squid,atac,comms} from .environments/*.txt
+       • Python venvs: /opt/venvs/{base,squid,atac,comms} from docker/requirements/*.txt
        • CLI tools (samtools/bcftools/bedtools), Quarto
        • Wrappers: usepy, py-*, r-base, r-archr
        • httpgd installed via install_httpgd.R (CRAN-first, GitHub-fallback)
@@ -352,7 +352,7 @@ From the root of this repository, run:
 
 ```bash
 docker build . \
-    -f ./.devcontainer/Dockerfile \
+    -f docker/base/Dockerfile \
     --build-arg GITHUB_PAT=<your_github_pat> \
     --build-arg R_VERSION_MAJOR=4 \
     --build-arg R_VERSION_MINOR=4 \
@@ -720,7 +720,7 @@ If you bind-mount the workspace, ensure the host path is writable by your UID/GI
 
 4. **Quarto** for rendering R Markdown, Jupyter Notebooks, and other scientific documents.
 
-See the [Dockerfile](./.devcontainer/Dockerfile) and [install_R_packages.R](./.devcontainer/install_R_packages.R) for full details on what gets installed.
+See the Dockerfile at `docker/base/Dockerfile` and core installer at `docker/base/R/install_core.R` for full details on what gets installed.
 
 ---
 

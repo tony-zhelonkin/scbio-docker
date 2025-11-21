@@ -361,7 +361,11 @@ ${DATA_MOUNT_LINES}    stdin_open: true
 EOF
 
 # Copy poststart sanity script from scbio-docker repo
-if [ -f "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
+if [ -f "${SCRIPT_DIR}/scripts/poststart_sanity.sh" ]; then
+    cp "${SCRIPT_DIR}/scripts/poststart_sanity.sh" \
+       "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+    chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+elif [ -f "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
     cp "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" \
        "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
     chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
