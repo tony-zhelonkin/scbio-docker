@@ -1,5 +1,12 @@
 # Single-Cell Docker Dev Environment
 
+> Deprecated Branch
+>
+> This branch (`dev-claude-integration`) is no longer maintained. AI integration is consolidated via the optional AI-enabled build and the external SciAgent‑toolkit.
+>
+> Use the `main` or `dev` branch for active development. For AI configuration and MCP setup, see SciAgent‑toolkit:
+> https://github.com/tony-zhelonkin/SciAgent-toolkit
+
 ![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.1-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
