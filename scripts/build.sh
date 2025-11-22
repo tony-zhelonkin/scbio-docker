@@ -146,4 +146,3 @@ else
   echo "Check the log file for errors."
   exit 1
 fi
-

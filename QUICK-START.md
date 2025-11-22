@@ -1,28 +1,39 @@
-# Quick Start: init-scproject
+# Quick Start
 
-Personal quick start. Use what’s useful.
+Personal quick start.
 
 ---
 
 ## TL;DR
 
-The `init-project.sh` script is available globally as `init-scproject` (symlinked to `~/.local/bin/`).
+Use `./init-project.sh` to scaffold a new analysis project.
+If you have the global wrapper `init-scproject` in PATH, you can use that instead.
 
 ### Basic usage
 ```bash
-# From anywhere (init-scproject is in PATH)
+# From the repo root
+./init-project.sh ~/projects/my-analysis basic-rna
+```
+
+Or, if `init-scproject` is available globally:
+```bash
 init-scproject ~/projects/my-analysis basic-rna
 ```
 
 ### Recommended usage (interactive)
 ```bash
-init-scproject ~/projects/my-analysis basic-rna --interactive
+./init-project.sh ~/projects/my-analysis basic-rna --interactive
 # Follow prompts for data mounts, git init, submodules
+```
+
+Or:
+```bash
+init-scproject ~/projects/my-analysis basic-rna --interactive
 ```
 
 ### Power user (all features)
 ```bash
-init-scproject ~/projects/atac-study archr-focused \
+./init-project.sh ~/projects/atac-study archr-focused \
   --data-mount atac:/scratch/data/DT-1234 \
   --data-mount rna:/scratch/data/DT-5678:ro \
   --git-init \
@@ -89,17 +100,14 @@ your-project/
 └── .gitignore            # Excludes data, checkpoints, logs
 ```
 
-### Additional Files (dev-claude-integration branch only)
-```
-
 ---
 
 ## Workflow After Initialization
 
 ### 1. Initialize Project
 ```bash
-# From anywhere (init-scproject is in PATH)
-init-scproject ~/projects/my-analysis basic-rna --interactive
+# From repo root
+./init-project.sh ~/projects/my-analysis basic-rna --interactive
 ```
 
 ### 2. Open in VS Code
@@ -118,6 +126,11 @@ The post-start script runs automatically and checks:
 - Key packages (Seurat, scanpy)
 - Library write permissions
 - Virtual environment setup
+
+### Switching Services (core ↔ ArchR)
+- Default: dev-core (R 4.5 + Bioc 3.21, Python base)
+- ArchR: dev-archr (official ArchR image with R 4.4)
+- Change `service` in `.devcontainer/devcontainer.json`, then Reopen in Container
 
 ### 5. Fill in Documentation
 
@@ -155,60 +168,13 @@ adata.write_h5ad("03_results/checkpoints/S1_preprocessed.h5ad")
 
 ---
 
-## Branch Usage
-
-### Using dev branch (core only)
-```bash
-cd ~/pipeline/scbio-docker
-git checkout dev
-init-scproject ~/projects/my-project basic-rna --interactive
-# Creates project WITHOUT Claude integration files
-```
-
-### Using dev-claude-integration branch (AI workflow)
-```bash
-cd ~/pipeline/scbio-docker
-git checkout dev-claude-integration
-init-scproject ~/projects/my-project basic-rna --interactive
-# Creates project WITH Claude integration files (CLAUDE.md, WORKFLOW.md, .claude/)
-```
-
-**The script auto-detects which branch you're on** and includes Claude files only if `templates/claude/` exists.
-
----
-
-## Claude Code Workflow (dev-claude-integration branch only)
-
-### Recommended Approach
-
-**Phase 1: Planning (in plan mode)**
-1. Fill in rough draft of `plan.md`
-2. Ask Claude to iterate: *"Review and refine this analysis plan"*
-3. Ask Claude to create `tasks.md`: *"Create detailed tasks from this plan"*
-
-**Phase 2: Execution (phase-by-phase)**
-1. Clear chat (fresh context)
-2. Execute Stage 1 substeps
-3. Test after each substep
-4. Mark ✅ in `tasks.md`
-5. Clear chat, move to Stage 2
-6. Repeat
-
-**Key Principle: Context > Speed**
-- Spend 50 minutes on context, 10 on coding
-- Never dump whole project at once
-- Work one stage at a time
-- Only ONE substep 🔄 at a time
-
-See `WORKFLOW.md` in generated projects for full details.
-
 ---
 
 ## Examples
 
 ### Example 1: Simple RNA-seq Project
 ```bash
-init-scproject ~/projects/pbmc-analysis basic-rna --interactive
+./init-project.sh ~/projects/pbmc-analysis basic-rna --interactive
 # Prompts:
 #   Mount label: rna
 #   Host path: /scratch/data/pbmc-10k
@@ -218,7 +184,7 @@ init-scproject ~/projects/pbmc-analysis basic-rna --interactive
 
 ### Example 2: Multimodal Project (RNA + ATAC)
 ```bash
-init-scproject ~/projects/multiome-study multimodal \
+./init-project.sh ~/projects/multiome-study multimodal \
   --data-mount rna:/scratch/data/DT-1579 \
   --data-mount atac:/scratch/data/DT-1634 \
   --git-init \
@@ -227,7 +193,7 @@ init-scproject ~/projects/multiome-study multimodal \
 
 ### Example 3: ArchR-Focused ATAC Project
 ```bash
-init-scproject ~/projects/atac-aging archr-focused \
+./init-project.sh ~/projects/atac-aging archr-focused \
   --data-mount atac:/scratch/data/aging-atlas \
   --data-mount refs:/data/genomes/mm10:ro \
   --git-init
@@ -235,7 +201,7 @@ init-scproject ~/projects/atac-aging archr-focused \
 
 ### Example 4: Test Project (Disposable)
 ```bash
-init-scproject /tmp/test-project basic-rna --interactive
+./init-project.sh /tmp/test-project basic-rna --interactive
 # Verify structure, then delete
 rm -rf /tmp/test-project
 ```
@@ -243,18 +209,6 @@ rm -rf /tmp/test-project
 ---
 
 ## Troubleshooting
-
-### Command not found: `init-scproject`
-```bash
-# Reload shell config
-source ~/.bashrc
-
-# Or verify PATH
-echo $PATH | grep -o "$HOME/.local/bin"
-
-# Check symlink exists
-ls -l ~/.local/bin/init-scproject
-```
 
 ### Template not found
 **Solution:** Check template name spelling. Available: `basic-rna`, `multimodal`, `archr-focused`, `example-DMATAC`
@@ -271,14 +225,9 @@ ls -l ~/.local/bin/init-scproject
 2. Should match host: `id -u` and `id -g`
 3. Fix if needed, rebuild container
 
-### Claude integration files missing
-**Solution:**
-```bash
-cd ~/pipeline/scbio-docker
-git branch  # Check you're on dev-claude-integration
-git checkout dev-claude-integration
-# Re-run init-scproject
-```
+### Switch between core and ArchR
+- Edit `.devcontainer/devcontainer.json` service
+- Reopen in container
 
 ---
 
@@ -292,7 +241,7 @@ Share `.env.example` with team, each person creates their own `.env` with actual
 
 ### Tip 3: Test with `/tmp` first
 ```bash
-init-scproject /tmp/test-project basic-rna --interactive
+./init-project.sh /tmp/test-project basic-rna --interactive
 # Verify structure looks good, then delete
 rm -rf /tmp/test-project
 ```
@@ -316,25 +265,11 @@ tmux new-session -s my-analysis radian
 
 ---
 
-## Time Investment vs Savings
-
-| Metric | Value |
-|--------|-------|
-| **Time to learn** | ~15 minutes (read this guide) |
-| **Time per project** | ~2 minutes (vs 15 minutes manual) |
-| **Break-even** | After 2 projects |
-| **Benefits** | Consistent structure, no forgotten steps, smooth Claude integration |
-
-**At 3 projects per week:**
-- Weekly savings: ~39 minutes
-- Monthly savings: ~2.6 hours
-- Yearly savings: ~33.8 hours
-
 ---
 
 ## Next Steps
 
-1. ✅ Try creating a test project: `init-scproject /tmp/test basic-rna --interactive`
+1. ✅ Create a test project: `./init-project.sh /tmp/test basic-rna --interactive`
 2. ✅ Review generated files (README.md, plan.md, tasks.md)
 3. ✅ Open in VS Code, reopen in container
 4. ✅ Verify environment works (sanity checks run automatically)

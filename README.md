@@ -1,56 +1,62 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.1-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.2-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-A Docker-based single-cell bioinformatics environment for VS Code Dev Containers. Personal convenience toolkit shared publicly—use what’s useful and ignore the rest.
+Purpose-built Docker images and VS Code Dev Container config for single-cell analysis in R and Python. The goal is a clean, reproducible, and fast-to-start environment you can use locally or remotely without yak-shaving.
 
-> Inspiration: strongly inspired by [Rami Krispin’s vscode-r repository](https://github.com/RamiKrispin/vscode-r). It was a great reference for R + VS Code setup.
+Who this helps
+- Beginners who want a working R/Python stack without setup pain
+- Researchers who switch across machines or share a consistent image with teammates
+- Future me: predictable builds, minimal cognitive load, explicit docs
 
-## Why use it
-- ~20GB true image via multi-stage build
-- R 4.5 + Bioc 3.21 core stack, Python 3.10 base venv
-- Layered venvs for spatial/ATAC/communication toolsets
-- Build tools kept in runtime for on-demand installs
-- Devcontainer-friendly, works locally/remotely
+Key features
+- ~20GB true image via multi-stage build (size-optimized)
+- R 4.5 + Bioconductor 3.21 core stack; Python 3.10 base venv
+- Layered Python venvs on demand: squid (spatial), atac, comms
+- VS Code friendly: httpgd plotting, radian, language server
+- Build tools retained to allow runtime installs when needed
 
-## Quick start
+Quick start
 ```bash
-# Build base image
+# 1) Build the base image
 scripts/build.sh
 
-# (optional) pull official ArchR image
+# 2) (Optional) Pull official ArchR image for scATAC work
 docker pull greenleaflab/archr:1.0.3-base-r4.4
 
-# Scaffold a project
-./init-project.sh ~/projects/my-analysis basic-rna
+# 3) Scaffold a new analysis project
+./init-project.sh ~/projects/my-analysis basic-rna --interactive
 
-# Open in VS Code and Reopen in Container
+# 4) Open + Reopen in Container
 code ~/projects/my-analysis
 ```
 
-## Features
-- R: Seurat, edgeR, limma, clusterProfiler, GSVA, Signac, and friends
-- Python: scanpy, scvi-tools, muon, squidpy (via layered venv), etc.
-- CLI: samtools, bcftools, bedtools; scIBD
-- TinyTeX + httpgd for plotting in VS Code
+Working in the container
+- Default service: dev-core (R 4.5 + Python)
+- Switch to ArchR (R 4.4) by setting service to dev-archr in `.devcontainer/devcontainer.json`
+- R: run `radian` (or `r-base` wrapper)
+- Python envs: `usepy base|squid|atac|comms` (creates layered venvs on demand)
+- Sanity check: `.devcontainer/scripts/poststart_sanity.sh` (in a project) or run `scripts/poststart_sanity.sh` inside the image with a bind mount
 
-## Docs
-- Quick start guide: QUICK-START.md
-- Build: docs/build.md
+Build modes (brief)
+- Generic (default): shareable image with `devuser:1000`
+- Personal: `scripts/build.sh --personal` bakes your UID/GID; not shareable but handy for local use
+
+Documentation
+- Quick start: QUICK-START.md
+- Build guide: docs/build.md
 - Architecture: docs/architecture.md
-- DevOps details: DEVOPS.md
-- Runtime package install: RUNTIME_INSTALL.md
-- Repo layout: docs/repo-structure.md
+- DevOps and operations: DEVOPS.md
+- Runtime R/Python installs: RUNTIME_INSTALL.md
+- Repo structure: docs/repo-structure.md
 - Image size notes: SIZE_OPTIMIZATION_SUMMARY.md
-- Migration (restructure): docs/migration.md
+- Migration notes: docs/migration.md
+- Branches: BRANCH_MANAGEMENT.md
+- Handoff and changes: HANDOFF.md
 
-## Contributing
-Informal and lightweight. Open a PR or issue if you have a concrete improvement. This is optimized for personal use.
+License
+- MIT. See LICENSE.
 
-## License
-MIT. See LICENSE.
-
-## Acknowledgments
-- Thanks to [Rami Krispin’s vscode-r repo](https://github.com/RamiKrispin/vscode-r) for inspiration.
-
+Acknowledgments
+- Inspired by [Rami Krispin’s vscode-r](https://github.com/RamiKrispin/vscode-r) for VS Code + R workflow ideas.
