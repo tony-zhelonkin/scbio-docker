@@ -1,1 +1,11 @@
-$(sed -n '1,999p' .environments/comms_requirements.txt)
+# Communication inference ecosystem (py3.10 compatible where possible)
+liana[common]
+cellphonedb
+# scGLUE (ensure TF2 installed if required wheels exist)
+scglue
+
+# SCENIC+ stack (from PyPI where available)
+#pycistarget
+#pycistopic
+# scenicplus isn't on PyPI for py3.10; install from source at runtime if needed:
+# pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
