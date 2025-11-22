@@ -23,4 +23,3 @@ Editing guidelines
 Testing
 - Smoke tests: ensure R (Seurat/edgeR/httpgd) and Python (scanpy/scvi) import.
 - Sanity script location for built images: scripts/poststart_sanity.sh.
-
