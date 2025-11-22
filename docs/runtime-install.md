@@ -4,7 +4,7 @@ This guide explains how to install additional R packages, Python packages, and s
 
 ## Philosophy
 
-The v0.5.1+ image uses a **multi-stage build** to dramatically reduce size (~20GB actual filesystem) while preserving the ability to install packages at runtime:
+The v0.5.2 image uses a **multi-stage build** to dramatically reduce size (~20GB actual filesystem) while preserving the ability to install packages at runtime:
 
 - **Build-essential and dev libraries are KEPT** in the final image
 - R, Python, and system packages can be compiled from source if needed
@@ -378,7 +378,7 @@ Or compile from source if you need specific versions.
 1. **Option 1:** Add to Dockerfile and rebuild
 2. **Option 2:** Create a custom Dockerfile that extends the base image:
    ```dockerfile
-   FROM scdock-r-dev:v0.5.1
+   FROM scdock-r-dev:v0.5.2
    RUN sudo apt-get update && sudo apt-get install -y my-tool
    ```
 3. **Option 3:** Commit running container to new image:

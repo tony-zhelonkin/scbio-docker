@@ -1,2 +1,6 @@
 *.log
 .claude/
+
+# Personal planning files
+plan.md
+tasks.md

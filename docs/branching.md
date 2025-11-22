@@ -1,29 +1,26 @@
 # Branches (simple guide)
 
-This is a personal toolkit. Branching is kept simple.
+Created as a personal toolkit to support working with remote computational resources in interactive VS Code session, have ended up with minimal branching.
 
-Branches
-- dev: main working branch.
-- dev-claude-integration: optional AI/Claude extras layered on top of dev.
-- main: stable snapshots when needed.
+Active branches
+- dev: working branch.
+- main: stable snapshots/releases.
 
-Syncing dev → dev-claude-integration
-```bash
-git checkout dev-claude-integration
-git merge dev
-git push origin dev-claude-integration
-```
+Archived AI branches
+- Previously used: dev-claude-integration and dev-gpt-codex-integration.
+- Now archived as tags: `archived/dev-claude-integration`, `archived/dev-gpt-codex-integration`.
+- Agent/MCP setup will probably live in SciAgent‑toolkit: https://github.com/tony-zhelonkin/SciAgent-toolkit
 
 Quick checks
 ```bash
-# Commits on dev not yet in dev-claude-integration
-git log dev-claude-integration..dev --oneline | head
+# Commits on dev not yet in main
+git log main..dev --oneline | head
 
 # Files that differ
-git diff --name-status dev dev-claude-integration | head
+git diff --name-status main dev | head
 ```
 
-Releasing
+Release (dev → main)
 ```bash
 git checkout main
 git merge dev -m "Release <tag>"
@@ -31,5 +28,4 @@ git tag -a <tag> -m "<note>"
 git push origin main <tag>
 ```
 
-That’s it—keep it lightweight.
-
+Try to keep it lightweight.

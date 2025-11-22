@@ -12,17 +12,17 @@ Repository Structure (dev-restructure)
 - scripts/
   - build.sh — wrapper to build docker/base/Dockerfile
   - create_layered_venv.sh — runtime layered venv helper
-  - init-project.sh — project scaffolding tool (to be moved here)
+  - init-project.sh — wrapper (delegates to repo-root init-project.sh)
   - poststart_sanity.sh — sanity checks (copied into projects)
 - .devcontainer/
   - devcontainer.json, docker-compose.yml — config only
 - templates/ — project templates
-- docs/ — consolidated documentation
-  - build.md, getting-started.md, runtime-install.md, architecture.md, branching.md, size-optimization.md, handoff.md
+- docs/ — consolidated documentation (core topics)
+  - build.md, architecture.md, migration.md, repo-structure.md
+  - additional docs at repo root: QUICK-START.md, DEVOPS.md, RUNTIME_INSTALL.md, SIZE_OPTIMIZATION_SUMMARY.md, HANDOFF.md, BRANCH_MANAGEMENT.md
 - README.md — short overview + links into docs
 - CONTRIBUTING.md, CODE_OF_CONDUCT.md, AGENTS.md — contribution guidance
 
 Notes
 - Old locations remain during the transition window. Prefer new paths in docs and scripts.
 - Image builds should use scripts/build.sh or docker -f docker/base/Dockerfile.
-
