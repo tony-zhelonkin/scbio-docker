@@ -116,7 +116,7 @@ git add renv.lock R-packages-manifest.csv
 git commit -m "Pin R via renv; add manifest"
 ```
 
-Then uncomment line 239 in `.devcontainer/Dockerfile` to enable deterministic builds:
+Then add the following to `docker/base/Dockerfile` (after line ~95) to enable deterministic builds:
 ```dockerfile
 COPY renv.lock /opt/settings/renv.lock
 ```
@@ -427,7 +427,7 @@ docker compose -f .devcontainer/docker-compose.yml down
 - **ArchR**: Use official image instead of custom build
 
 **Python packages:**
-- Pinned versions in `.environments/*.txt` files
+- Pinned versions in `docker/requirements/*.txt` files
 - Base venv fully resolved during image build
 - Layered venvs created on-demand with `--system-site-packages`
 - No conflicting dependencies between venvs
@@ -492,7 +492,7 @@ The Dockerfile still handles AD users with group names containing spaces:
 **Legacy (Personal Build):**
 If you need a personal-only image (not shareable):
 ```bash
-./build-optimized.sh --personal  # Bakes YOUR UID into image
+scripts/build.sh --personal  # Bakes YOUR UID into image
 ```
 
 ### R Profile and Startup

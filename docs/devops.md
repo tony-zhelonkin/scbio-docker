@@ -1,4 +1,4 @@
-# DevOps Guide - scbio-docker v0.5.1+
+# DevOps Guide - scbio-docker v0.5.2+
 
 Quick reference for building, running, and operating the single-cell Docker environment.
 
@@ -18,7 +18,7 @@ scripts/build.sh
 scripts/build.sh --github-pat ghp_your_token_here
 
 # Custom tag
-scripts/build.sh --tag scdock-r-dev:v0.5.1
+scripts/build.sh --tag scdock-r-dev:v0.5.2
 ```
 
 **Benefits of multi-stage build:**
@@ -39,7 +39,7 @@ docker build . \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg USER=$USER \
   --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.5.1
+  -t scdock-r-dev:v0.5.2
 
 unset GITHUB_PAT
 ```
@@ -63,14 +63,14 @@ docker build . \
 
 ```bash
 # Extract lockfile and manifest
-CID=$(docker create scdock-r-dev:v0.5.1)
+CID=$(docker create scdock-r-dev:v0.5.2)
 docker cp $CID:/opt/settings/renv.lock ./renv.lock
 docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
 docker rm $CID
 
 # Commit for deterministic builds
 git add renv.lock R-packages-manifest.csv
-git commit -m "Pin R packages via renv.lock (v0.5.1)"
+git commit -m "Pin R packages via renv.lock (v0.5.2)"
 ```
 
 ### Pull Official ArchR Image (Recommended)
@@ -102,7 +102,7 @@ docker run --rm -it \
   -v /path/to/project:/workspaces/project \
   -v /path/to/data:/workspaces/project/00_Data:ro \
   --memory=450g --cpus=50 \
-  scdock-r-dev:v0.5.0 bash
+  scdock-r-dev:v0.5.2 bash
 ```
 
 **ArchR image (official):**
@@ -626,10 +626,10 @@ docker load < scdock-r-dev-v0.5.0.tar.gz
 
 | Task | Command |
 |------|---------|
-| Build base image | `docker build -f .devcontainer/Dockerfile -t scdock-r-dev:v0.5.0 .` |
+| Build base image | `docker build -f docker/base/Dockerfile -t scdock-r-dev:v0.5.2 .` |
 | Pull ArchR image | `docker pull greenleaflab/archr:1.0.3-base-r4.4` |
 | Initialize project | `./init-project.sh ~/projects/my-analysis basic-rna` |
-| Run container | `docker run -it -u $(id -u):$(id -g) -v $PWD:/workspaces/project scdock-r-dev:v0.5.0` |
+| Run container | `docker run -it -u $(id -u):$(id -g) -v $PWD:/workspaces/project scdock-r-dev:v0.5.2` |
 | Start radian | `radian` or `r-base` |
 | Start radian in tmux | `tmux new-session -s analysis radian` |
 | Switch Python venv | `usepy squid\|atac\|comms\|base` |
@@ -655,8 +655,6 @@ my-project/
 │   └── settings.json
 ├── renv.lock                    # R package snapshot
 ├── requirements-frozen.txt       # Python package snapshot
-├── .environments/
-│   └── squidpy_requirements.txt  # Extra Python tools
 ├── 00_Data/                     # Raw data (read-only mount)
 ├── 01_Scripts/
 │   ├── R/
@@ -697,7 +695,7 @@ my-project/
 version: "3.8"
 services:
   dev-core:
-    image: scdock-r-dev:v0.5.0
+    image: scdock-r-dev:v0.5.2
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/project
     volumes:
@@ -719,9 +717,9 @@ services:
 - Caused by Docker BuildKit storing intermediate layer states
 
 **Solution (v0.5.1+):**
-Use the **multi-stage build** (`Dockerfile.optimized`):
+Use the canonical multi-stage build (docker/base/Dockerfile):
 ```bash
-./build-optimized.sh
+scripts/build.sh
 ```
 
 **Result:** True ~20GB image size with no layer bloat.
@@ -735,14 +733,14 @@ docker export $(docker create scdock-r-dev:v0.5.0) | docker import - scdock-r-de
 
 ## Version History
 
-- **v0.5.1** (Current): Multi-stage build, **true ~20GB image**, preserves runtime package installation
+- **v0.5.2** (Current): Multi-stage build, **true ~20GB image**, preserves runtime package installation
 - **v0.5.0**: Size-optimized attempt, R 4.5 + Bioc 3.21, layered venvs (533GB Docker size issue)
 - **v0.4.1**: R 4.4.2 + Bioc 3.20, 4 full Python venvs (500GB)
 - **v0.4.0**: Full TeX, no cache cleanup
 
 ## Runtime Package Installation
 
-See **[RUNTIME_INSTALL.md](RUNTIME_INSTALL.md)** for comprehensive guide on:
+See **[runtime-install.md](runtime-install.md)** for comprehensive guide on:
 - Installing R packages (CRAN, Bioconductor, GitHub)
 - Installing Python packages to venvs
 - Installing system dependencies with `sudo apt-get`
