@@ -56,7 +56,18 @@ Documentation
 - Changelog: docs/changelog.md
 
 AI integration (CLI agents)
-- Archived in this repo; installation and MCP setup live in SciAgent‑toolkit: https://github.com/tony-zhelonkin/SciAgent-toolkit
+- This repository can be integrated with the `SciAgent-toolkit` to provide AI-powered assistance for your analysis.
+- The `SciAgent-toolkit` is included as a Git submodule and can be installed into a dedicated Docker image.
+
+To build the AI-enabled image, run the following command:
+```bash
+# Initialize the submodule (only needs to be done once)
+git submodule update --init --recursive
+
+# Build the AI-enabled image
+./build-ai-enabled.sh
+```
+This will create a new Docker image tagged `scdock-ai-dev:v0.5.2` with the `SciAgent-toolkit` pre-installed.
 
 License
 - MIT. See LICENSE.

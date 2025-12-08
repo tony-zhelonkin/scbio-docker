@@ -288,3 +288,25 @@ tmux new-session -s my-analysis radian
 ---
 
 **Happy analyzing!** 🚀
+
+---
+
+## Building the AI-Enabled Image
+
+This project can be integrated with the `SciAgent-toolkit` to provide AI-powered assistance for your analysis.
+
+### 1. Initialize the Submodule
+If you haven't already, initialize the `SciAgent-toolkit` submodule:
+```bash
+git submodule update --init --recursive
+```
+
+### 2. Build the AI-Enabled Image
+Run the dedicated build script:
+```bash
+./build-ai-enabled.sh
+```
+This will create a new Docker image tagged `scdock-ai-dev:v0.5.2` with the `SciAgent-toolkit` pre-installed.
+
+### 3. Use the AI-Enabled Image
+To use the AI-enabled image, you'll need to update your project's `.devcontainer/devcontainer.json` file to point to the new image. Change the `image` property to `scdock-ai-dev:v0.5.2`.
