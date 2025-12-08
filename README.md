@@ -47,13 +47,16 @@ Documentation
 - Quick start: QUICK-START.md
 - Build guide: docs/build.md
 - Architecture: docs/architecture.md
-- DevOps and operations: DEVOPS.md
-- Runtime R/Python installs: RUNTIME_INSTALL.md
+- DevOps and operations: docs/devops.md
+- Runtime R/Python installs: docs/runtime-install.md
 - Repo structure: docs/repo-structure.md
-- Image size notes: SIZE_OPTIMIZATION_SUMMARY.md
+- Image size notes: docs/size-optimization.md
 - Migration notes: docs/migration.md
-- Branches: BRANCH_MANAGEMENT.md
-- Handoff and changes: HANDOFF.md
+- Branching model: docs/branching.md
+- Changelog: docs/changelog.md
+
+AI integration (CLI agents)
+- Archived in this repo; installation and MCP setup live in SciAgent‑toolkit: https://github.com/tony-zhelonkin/SciAgent-toolkit
 
 License
 - MIT. See LICENSE.
