@@ -22,5 +22,3 @@ services:
     command: /bin/bash
     # Duplicate the same data mounts as dev-core for consistency
     # - /path/to/data:/workspaces/project/data/raw:ro
-
-

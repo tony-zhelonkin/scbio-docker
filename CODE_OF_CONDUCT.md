@@ -1,0 +1,3 @@
+Code of Conduct
+
+Be decent. No harassment or abuse

@@ -1,0 +1,6 @@
+# ATAC-specific environment (kept separate to avoid pandas pin conflicts)
+snapatac2==2.7.1
+episcanpy==0.4.0
+kaleido
+multiprocess
+pyarrow

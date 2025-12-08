@@ -6,17 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Docker-based development environment for single-cell RNA-seq and epigenomics analyses, integrated with VS Code Remote Containers. The repository provides optimized Docker images with a focus on reproducibility and size efficiency.
 
-**Current Version:** v0.5.1 (Multi-Stage Build)
+**Current Version:** v0.5.2 (Enhanced Package Set)
 
 **Image Variants:**
-- **scdock-r-dev:v0.5.1** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
+- **scdock-r-dev:v0.5.2** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
 - **greenleaflab/archr:1.0.3-base-r4.4** (official ArchR): R 4.4 + ArchR 1.0.3, maintained by ArchR developers
 
-**Key Changes in v0.5.1:**
+**Key Changes in v0.5.2:**
+- **Additional R packages pre-installed**: chromVAR, motifmatchr, TFBSTools, JASPAR2022, SingleR, celldex, AnnotationHub, EnsDb.Mmusculus.v79, crescendo (GitHub)
+- **Ubuntu libraries added**: libhdf5-dev, libgsl-dev (enables hdf5r, DirichletMultinomial compilation)
+- **Bug fix**: safe_install() now handles meta-packages correctly (tidyverse installs properly)
+- Maintains ~20GB target size with multi-stage build approach
+
+**v0.5.1 Changes (carried forward):**
 - **Multi-stage build** - completely discards build artifacts, no layer bloat
 - **True ~20GB Docker image** (not just filesystem, actual reported size)
 - **Build tools preserved** - can compile R/Python packages at runtime
-- Same functionality as v0.5.0 but with proper size optimization
 
 **v0.5.0 Optimizations (carried forward):**
 - Aggressive cache cleanup (renv, pip, build artifacts)
@@ -26,11 +31,11 @@ This is a Docker-based development environment for single-cell RNA-seq and epige
 - Official ArchR image instead of custom build
 - Project templates + init-project.sh for quick scaffolding
 
-**Build:** Use `./build-optimized.sh` or `docker build -f .devcontainer/Dockerfile.optimized`
+Build: prefer `scripts/build.sh` or `docker build -f docker/base/Dockerfile`
 
 ## Build Commands
 
-### Building the base image (v0.5.1 - Multi-Stage)
+### Building the base image (v0.5.2 - Multi-Stage)
 
 **IMPORTANT: Build Strategy (Shareable vs Personal)**
 
@@ -40,14 +45,14 @@ The build system supports TWO modes:
 
 **Recommended: Generic build (shareable)**
 ```bash
-./build-optimized.sh                       # Generic build (devuser:1000)
-./build-optimized.sh --github-pat ghp_...  # With GitHub PAT
+scripts/build.sh                       # Generic build (devuser:1000)
+scripts/build.sh --github-pat ghp_...  # With GitHub PAT
 ```
 
 **Personal build (your UID only):**
 ```bash
-./build-optimized.sh --personal            # Bakes your UID into image
-./build-optimized.sh --personal --github-pat ghp_...
+scripts/build.sh --personal            # Bakes your UID into image
+scripts/build.sh --personal --github-pat ghp_...
 ```
 
 **How UID remapping works:**
@@ -58,22 +63,22 @@ The build system supports TWO modes:
 **Manual generic build:**
 ```bash
 docker build . \
-  -f .devcontainer/Dockerfile.optimized \
+  -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
-  -t scdock-r-dev:v0.5.1
+  -t scdock-r-dev:v0.5.2
 # Note: USER_ID defaults to 1000 (no need to specify)
 ```
 
 **Manual personal build:**
 ```bash
 docker build . \
-  -f .devcontainer/Dockerfile.optimized \
+  -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg USER=$USER \
   --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.5.1-personal
+  -t scdock-r-dev:v0.5.2-personal
 ```
 
 ### Building ArchR Wrapper Image
@@ -103,7 +108,7 @@ The ArchR wrapper provides UID-compatible layer over official ArchR image:
 After the first successful build (when renv snapshots the packages):
 
 ```bash
-CID=$(docker create scdock-r-dev:v0.4.1)
+CID=$(docker create scdock-r-dev:v0.5.2)
 docker cp $CID:/opt/settings/renv.lock ./renv.lock
 docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
 docker rm $CID
@@ -111,7 +116,7 @@ git add renv.lock R-packages-manifest.csv
 git commit -m "Pin R via renv; add manifest"
 ```
 
-Then uncomment line 239 in `.devcontainer/Dockerfile` to enable deterministic builds:
+Then add the following to `docker/base/Dockerfile` (after line ~95) to enable deterministic builds:
 ```dockerfile
 COPY renv.lock /opt/settings/renv.lock
 ```
@@ -119,8 +124,8 @@ COPY renv.lock /opt/settings/renv.lock
 ### Running sanity checks
 
 ```bash
-docker run --rm scdock-r-dev:v0.4.1 bash -lc '.devcontainer/scripts/poststart_sanity.sh'
-docker run --rm scdock-r-archr:v0.4.1 bash -lc '.devcontainer/scripts/poststart_sanity.sh'
+docker run --rm scdock-r-dev:v0.5.2 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-archr:v0.5.2 bash -lc 'scripts/poststart_sanity.sh'
 ```
 
 ## Architecture
@@ -129,7 +134,7 @@ docker run --rm scdock-r-archr:v0.4.1 bash -lc '.devcontainer/scripts/poststart_
 
 ```
 ubuntu:22.04
-  └─ scdock-r-dev:v0.5.0 (.devcontainer/Dockerfile)
+  └─ scdock-r-dev:v0.5.0 (docker/base/Dockerfile)
        • R 4.5.0 built from source with Cairo, BLAS, LAPACK
        • ~80 core R packages pre-installed (install_R_core.R)
        • Python base venv: /opt/venvs/base
@@ -179,20 +184,20 @@ The repo supports two devcontainer approaches:
 **Base venv (pre-installed in image):**
 - **/opt/venvs/base**: Core single-cell stack (scanpy, scvi-tools, muon, cellrank, scvelo, radian)
   - Pre-installed during build (~25GB)
-  - Requirements: `.environments/base_requirements.txt`
+  - Requirements: `docker/requirements/base.txt`
 
 **Layered venvs (created at runtime with `--system-site-packages`):**
 - **/opt/venvs/squid**: Spatial transcriptomics (squidpy, spatialdata)
   - Inherits from base, adds only squidpy-specific packages (~3-5GB additional)
-  - Requirements: `.environments/squid_requirements.txt`
+  - Requirements: `docker/requirements/squid.txt`
 
 - **/opt/venvs/atac**: scATAC-seq tools (snapatac2, episcanpy)
   - Inherits from base, adds only ATAC-specific packages (~2-3GB additional)
-  - Requirements: `.environments/atac_requirements.txt`
+  - Requirements: `docker/requirements/atac.txt`
 
 - **/opt/venvs/comms**: Cell communication and GRN (liana, cellphonedb, scglue)
   - Inherits from base, adds only communication tools (~3-4GB additional)
-  - Requirements: `.environments/comms_requirements.txt`
+  - Requirements: `docker/requirements/comms.txt`
 
 **Creating layered venvs:**
 ```bash
@@ -389,7 +394,7 @@ docker run --rm -it \
   -u $(id -u):$(id -g) \
   -v /path/to/project:/workspaces/project \
   --memory=450g --cpus=50 \
-  scdock-r-dev:v0.5.0 bash
+  scdock-r-dev:v0.5.2 bash
 ```
 
 **Run ArchR image manually:**
@@ -422,7 +427,7 @@ docker compose -f .devcontainer/docker-compose.yml down
 - **ArchR**: Use official image instead of custom build
 
 **Python packages:**
-- Pinned versions in `.environments/*.txt` files
+- Pinned versions in `docker/requirements/*.txt` files
 - Base venv fully resolved during image build
 - Layered venvs created on-demand with `--system-site-packages`
 - No conflicting dependencies between venvs
@@ -432,7 +437,7 @@ docker compose -f .devcontainer/docker-compose.yml down
 
 ### UID/GID Handling (Generic + Runtime Remapping)
 
-**New Strategy (v0.5.1+): Generic Images with Runtime UID Remapping**
+**New Strategy (v0.5.2): Generic Images with Runtime UID Remapping**
 
 Images are built with **generic user (devuser:1000)** by default, then mapped to actual user at runtime:
 
@@ -475,7 +480,7 @@ LOCAL_GID=788600513  # Your GID (run: id -g)
 
 **Manual Docker Run:**
 ```bash
-docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.1
+docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.2
 ```
 
 **Active Directory / Special Characters:**
@@ -487,7 +492,7 @@ The Dockerfile still handles AD users with group names containing spaces:
 **Legacy (Personal Build):**
 If you need a personal-only image (not shareable):
 ```bash
-./build-optimized.sh --personal  # Bakes YOUR UID into image
+scripts/build.sh --personal  # Bakes YOUR UID into image
 ```
 
 ### R Profile and Startup
@@ -648,7 +653,7 @@ unset GITHUB_PAT
 
 ## Notes
 
-- Current version: v0.4.1
+- Current version: v0.5.2
 - Default branch for PRs: `main`
 - This repository uses git; current branch is `dev`
 - Heavy annotation packages are excluded by default; enable with `--build-arg INCLUDE_HEAVY_R_DATA=1` or install at runtime

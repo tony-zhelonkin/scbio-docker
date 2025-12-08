@@ -2,8 +2,10 @@
 ### DOCKER SINGLE-CELL IMAGE PLATFORM ###
 ### MULTI-STAGE BUILD (SIZE OPTIMIZED) ###
 #########################################
-# This Dockerfile uses multi-stage builds to eliminate intermediate layer bloat
-# while preserving the ability to install R/Python packages at runtime.
+# Restructured path version: build context at repo root
+# - R installers under docker/base/R/
+# - Python requirements under docker/requirements/
+# - Helper scripts under scripts/
 
 #####################################
 ### STAGE 1: BUILDER (compile everything)
@@ -52,6 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev gfortran \
+    # Additional scientific libraries (for R packages)
+    libhdf5-dev \
+    libgsl-dev \
     # ImageMagick (for magick R package)
     libmagick++-dev \
     # X11 dependencies (required for R)
@@ -82,12 +87,12 @@ RUN mkdir -p /etc/R && \
     printf 'options(repos=c(CRAN="https://cloud.r-project.org"))\n' > /etc/R/Rprofile.site
 
 ####################################################
-### Install R packages
+### Install R packages (via renv or initial core script)
 ####################################################
 WORKDIR /opt/settings
-COPY .devcontainer/install_R_core.R /opt/settings/install_R_packages.R
-COPY .devcontainer/install_renv_project.R /opt/settings/
-COPY .devcontainer/install_httpgd.R /opt/settings/
+COPY docker/base/R/install_core.R /opt/settings/install_R_packages.R
+COPY docker/base/R/install_renv_project.R /opt/settings/
+COPY docker/base/R/install_httpgd.R /opt/settings/
 
 # Install R packages with aggressive cleanup
 # Use --mount=type=secret to keep GITHUB_PAT out of layers
@@ -104,13 +109,7 @@ RUN R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","L
              write.csv(pk, "/opt/settings/R-packages-manifest.csv", row.names = FALSE)'
 
 ####################################################
-### Install Quarto (SKIPPED - not used)
-####################################################
-# Quarto removed to simplify build and reduce size
-# If needed, install at runtime: https://quarto.org/docs/get-started/
-
-####################################################
-### Install TinyTeX
+### Install TinyTeX (lightweight)
 ####################################################
 RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh && \
     /root/.TinyTeX/bin/*/tlmgr install collection-latex collection-fontsrecommended \
@@ -121,12 +120,12 @@ RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh && \
 ####################################################
 ### Build Python virtual environment
 ####################################################
-COPY .environments /opt/environments
+COPY docker/requirements /opt/environments
 
 ENV PIP_NO_CACHE_DIR=1
 RUN python3 -m venv /opt/venvs/base && \
     /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
-    /opt/venvs/base/bin/python -m pip install --no-cache-dir -r /opt/environments/base_requirements.txt && \
+    /opt/venvs/base/bin/python -m pip install --no-cache-dir -r /opt/environments/base.txt && \
     rm -rf ~/.cache/pip /root/.cache/pip /tmp/*
 
 ####################################################
@@ -166,7 +165,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.1"
+LABEL version="v0.5.2"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -209,6 +208,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev \
+    # Additional scientific libraries (for runtime R package compilation)
+    libhdf5-dev \
+    libgsl-dev \
     # ImageMagick (for magick R package)
     libmagick++-dev \
     # X11 dependencies (required for R)
@@ -255,8 +257,6 @@ COPY --from=builder /usr/local/bin/R /usr/local/bin/R
 COPY --from=builder /usr/local/bin/Rscript /usr/local/bin/Rscript
 COPY --from=builder /etc/R /etc/R
 
-# Quarto (SKIPPED - not installed in builder stage)
-
 # TinyTeX
 COPY --from=builder /root/.TinyTeX /root/.TinyTeX
 
@@ -274,10 +274,10 @@ COPY --from=builder /usr/local/include/htslib /usr/local/include/htslib
 COPY --from=builder /opt/settings /opt/settings
 
 # Environment files for layered venvs
-COPY .environments /opt/environments
+COPY docker/requirements /opt/environments
 
 # Layered venv helper script
-COPY .devcontainer/create_layered_venv.sh /usr/local/bin/
+COPY scripts/create_layered_venv.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/create_layered_venv.sh
 
 # Update shared library cache
@@ -287,7 +287,7 @@ RUN ldconfig
 ### User configuration (R profiles, venv wrappers)
 ####################################################
 
-# Copy .Rprofile for both root and user
+# Copy .Rprofile for both root and user (source file currently under .devcontainer)
 COPY .devcontainer/.Rprofile /root/
 RUN set -eux; \
     user_home="$(getent passwd ${USER_ID} | cut -d: -f6)"; \
@@ -318,8 +318,8 @@ RUN printf '%s\n' \
   '      if [ ! -d "/opt/venvs/$1" ]; then ' \
   '        echo "Creating layered venv: $1"; ' \
   '        python3 -m venv --system-site-packages /opt/venvs/$1; ' \
-  '        if [ -f "/opt/environments/${1}_requirements.txt" ]; then ' \
-  '          /opt/venvs/$1/bin/pip install --no-cache-dir -r /opt/environments/${1}_requirements.txt; ' \
+  '        if [ -f "/opt/environments/${1}.txt" ]; then ' \
+  '          /opt/venvs/$1/bin/pip install --no-cache-dir -r /opt/environments/${1}.txt; ' \
   '        fi; ' \
   '      fi; ' \
   '      . /opt/venvs/$1/bin/activate ;;' \
@@ -352,3 +352,4 @@ WORKDIR /workspaces/project
 USER ${USER_ID}:${GROUP_ID}
 
 CMD ["/bin/bash"]
+
