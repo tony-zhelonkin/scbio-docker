@@ -1,0 +1,3 @@
+[submodule "toolkits/SciAgent-toolkit"]
+	path = toolkits/SciAgent-toolkit
+	url = https://github.com/tony-zhelonkin/SciAgent-toolkit
