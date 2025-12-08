@@ -9,7 +9,6 @@
 #   multimodal      - RNA + ATAC or CITE-seq
 #   archr-focused   - ArchR scATAC-seq analysis
 #   example-DMATAC  - Differential chromatin accessibility
-#   claude          - claude code powered project template 
 #
 # Options:
 #   --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)
@@ -57,7 +56,6 @@ usage() {
     echo "  multimodal      - RNA + ATAC or CITE-seq"
     echo "  archr-focused   - ArchR scATAC-seq analysis (uses dev-archr service)"
     echo "  example-DMATAC  - Differential chromatin accessibility"
-    echo "  claude          - Claude Code powered project template"
     echo ""
     echo "Options:"
     echo "  --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)"
