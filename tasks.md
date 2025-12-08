@@ -1,5 +1,10 @@
 # scbio-docker: Development Tasks & Roadmap
 
+**Date:** 2025-11-19
+Need to Updated msigdbr from version 7.5.1 to 25.1.1, which includes
+
+
+
 ## Current Status: v0.5.1 (Released)
 
 **Date:** 2025-01-24

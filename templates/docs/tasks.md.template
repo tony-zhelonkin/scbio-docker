@@ -1,0 +1,323 @@
+# {{PROJECT_NAME}}: Execution Tracker
+
+**Version:** 1.0
+**Last Updated:** {{DATE}}
+**Current Stage:** Planning
+
+---
+
+## 📋 Purpose of This File
+
+`tasks.md` is your **execution checklist** for the project. It contains:
+
+1. **Concrete stages** — Numbered phases of work (S1, S2, S3...)
+2. **Substeps** — Actionable tasks within each stage
+3. **Testing protocols** — How to verify each substep worked
+4. **Status tracking** — Real-time progress markers
+
+**Target length:** ~2000-2500 words (expands as project grows)
+
+**Update frequency:** Real-time during execution (mark ✅ ⏸️ ⛔ 🔄 as you work)
+
+**Read by:** Every work session, especially when resuming after breaks
+
+**Complements:**
+- `plan.md` — Scientific context and strategy (why you're doing this)
+- `handoff.md` — Session-to-session continuity
+- `notes.md` — Research findings and external resources
+
+---
+
+## 🎨 Status Legend
+
+- ⏸️ **Not Started** — Planned but not yet begun
+- 🔄 **In Progress** — Currently working on this
+- ⛔ **Blocked** — Cannot proceed (note reason below)
+- ✅ **Complete** — Finished and tested successfully
+
+**Important:** Only ONE substep should be 🔄 at a time. Complete or block before starting next.
+
+---
+
+## 📂 File Paths Quick Reference
+
+**Input data:**
+- Raw data: `/workspaces/{{PROJECT_NAME}}/00_data/raw/...`
+- References: `/workspaces/{{PROJECT_NAME}}/00_data/references/...`
+
+**Output directories:**
+- Checkpoints: `03_results/checkpoints/`
+- Plots: `03_results/plots/{stage}/`
+- Tables: `03_results/tables/{stage}/`
+- Logs: `logs/`
+
+**Scripts:**
+- Analysis scripts: `02_analysis/`
+- Helper functions: `01_scripts/`
+- Config: `02_analysis/config/`
+
+---
+
+## 📊 Checkpoint System
+
+**Storage:** `03_results/checkpoints/`
+**Naming:** `{stage}_{substep}_{description}.rds` or `.h5ad`
+
+**Examples:**
+- `S1_qc_filtered_cells.rds`
+- `S2_integrated_seurat.rds`
+- `S3_de_results.rds`
+
+**Helper functions** (create in `02_analysis/config/checkpoint_helpers.R`):
+```r
+checkpoint_save <- function(obj, name, dir = "03_results/checkpoints") {
+  path <- file.path(dir, paste0(name, ".rds"))
+  saveRDS(obj, path)
+  message("✓ Checkpoint saved: ", path)
+}
+
+checkpoint_load <- function(name, dir = "03_results/checkpoints") {
+  path <- file.path(dir, paste0(name, ".rds"))
+  if (!file.exists(path)) stop("Checkpoint not found: ", path)
+  message("Loading checkpoint: ", path)
+  readRDS(path)
+}
+
+checkpoint_exists <- function(name, dir = "03_results/checkpoints") {
+  path <- file.path(dir, paste0(name, ".rds"))
+  file.exists(path)
+}
+```
+
+---
+
+## 🧪 Testing Protocol (All Stages)
+
+**After completing each substep:**
+
+1. **Checkpoint integrity:**
+   - [ ] Expected `.rds` or `.h5ad` files created
+   - [ ] File size reasonable (not 0 bytes or suspiciously large)
+   - [ ] Can be loaded without errors
+
+2. **Data consistency:**
+   - [ ] Cell/feature counts match expectations
+   - [ ] Metadata columns present and populated
+   - [ ] No unexpected `NA` values
+
+3. **Visual QC:**
+   - [ ] Generate diagnostic plots
+   - [ ] Plots show expected patterns (biological signal)
+   - [ ] No obvious artifacts or batch effects
+
+4. **Comparison to expected:**
+   - [ ] Metrics within expected ranges
+   - [ ] If replicating published analysis, results similar
+
+5. **Edge cases:**
+   - [ ] Test with subset of data (faster iteration)
+   - [ ] Verify error handling (e.g., missing files)
+
+**Pass criteria:**
+- ✅ All checks pass → Mark substep as ✅
+- ⛔ Checks fail → Mark as ⛔, document issue, fix, retest
+
+---
+
+## 🖥️ Running Long Jobs with tmux
+
+**For scripts >10 minutes, use tmux + logging:**
+
+### Starting a job:
+```bash
+# Create named session
+tmux new -s S1_qc
+
+# Run script with logging
+Rscript 02_analysis/S1_qc.R 2>&1 | tee logs/S1_qc_$(date +%Y%m%d_%H%M%S).log
+
+# Detach: Ctrl+B, then D
+```
+
+### Monitoring progress:
+```bash
+# Check if running
+ps aux | grep "Rscript.*S1_qc"
+
+# Watch log file
+tail -f logs/S1_qc_*.log
+
+# Re-attach to session
+tmux attach -s S1_qc
+```
+
+### Cleanup:
+```bash
+# List all sessions
+tmux ls
+
+# Kill session when done
+tmux kill-session -s S1_qc
+```
+
+---
+
+## ⚡ Stage 1: [Stage Name]
+
+**Status:** ⏸️ Not Started
+**Container:** dev-core / dev-archr
+**Estimated time:** ~X hours
+**Core script:** `02_analysis/S1_[name].R`
+
+### Substeps
+
+#### S1.1: [Substep Name] ⏸️
+**Checkpoint:** `S1.1_[name].rds`
+**Actions:**
+1. Load raw data from `00_data/raw/...`
+2. Perform initial QC (filter cells by nCount, nFeature, etc.)
+3. Save filtered object
+
+**Testing:**
+- [ ] Checkpoint created
+- [ ] Cell count reduced by ~X%
+- [ ] UMAP shows clear structure (if applicable)
+- [ ] QC metrics plots generated
+
+**Blocker (if any):** None
+
+---
+
+#### S1.2: [Substep Name] ⏸️
+**Checkpoint:** `S1.2_[name].rds`
+**Actions:**
+1. ...
+2. ...
+
+**Testing:**
+- [ ] ...
+
+---
+
+### Stage 1 Complete When:
+- [ ] All substeps marked ✅
+- [ ] All checkpoints created
+- [ ] QC plots reviewed and look correct
+- [ ] No errors in logs
+
+---
+
+## ⚡ Stage 2: [Stage Name]
+
+**Status:** ⏸️ Not Started
+**Container:** dev-core / dev-archr
+**Estimated time:** ~X hours
+**Core script:** `02_analysis/S2_[name].R`
+
+### Substeps
+
+#### S2.1: [Substep Name] ⏸️
+**Checkpoint:** `S2.1_[name].rds`
+**Actions:**
+1. ...
+
+**Testing:**
+- [ ] ...
+
+---
+
+### Stage 2 Complete When:
+- [ ] All substeps marked ✅
+- [ ] ...
+
+---
+
+## ⚡ Stage 3: [Stage Name]
+
+_Add more stages as needed..._
+
+---
+
+## 🐛 Known Bugs (Append-Only Log)
+
+**Format:** `[DATE] Stage.Substep — Issue — Status`
+
+**Example:**
+```
+[2025-01-15] S1.2 — Normalization fails on Chr Y — RESOLVED (filtered Chr Y)
+[2025-01-16] S2.1 — Integration memory error — OPEN (trying different parameters)
+```
+
+_No bugs logged yet._
+
+---
+
+## 📦 Handoff Checklist
+
+**Before switching containers or ending session:**
+
+1. [ ] Save all R/Python objects (checkpoints)
+2. [ ] Update this file (mark current substep status)
+3. [ ] Create/update `handoff.md`
+4. [ ] Document file paths (inputs + outputs)
+5. [ ] Commit changes if using git
+
+**See `handoff.md` template for details**
+
+---
+
+## ✅ Progress Summary
+
+**Last Updated:** {{DATE}}
+
+**Stages completed:** 0/X
+**Stages in progress:** 0/X
+**Checkpoints created:** 0/X
+**Time invested:** ~X hours
+
+**Current focus:** [What you're working on right now]
+
+**Next immediate action:** [Specific next substep to execute]
+
+**Blockers:** None / [Description]
+
+---
+
+## 🚀 Getting Started
+
+**First time using this file:**
+
+1. Fill in Stage 1 substeps based on `plan.md`
+2. Estimate time for each stage
+3. Create checkpoint naming scheme
+4. Set up `02_analysis/config/checkpoint_helpers.R`
+5. Mark S1.1 as 🔄 and begin!
+
+**Resuming after break:**
+
+1. Read `handoff.md` (if exists)
+2. Check latest checkpoint status
+3. Review last 🔄 substep, decide:
+   - Continue if incomplete
+   - Mark ✅ if done, move to next
+4. Update this file as you work
+
+---
+
+## 📝 Maintenance Notes
+
+**Update this file when:**
+- Starting a new substep → Mark as 🔄
+- Completing a substep → Mark as ✅
+- Getting blocked → Mark as ⛔, document reason
+- Discovering bugs → Add to "Known Bugs" section
+- Creating checkpoints → Document file names
+
+**Don't update for:**
+- Scientific interpretation → Update `plan.md` instead
+- External research notes → Use `notes.md` instead
+- Session handoffs → Use `handoff.md` instead
+
+---
+
+**End of Tasks**
