@@ -69,6 +69,11 @@ git submodule update --init --recursive
 ```
 This will create a new Docker image tagged `scdock-ai-dev:v0.5.2` with the `SciAgent-toolkit` pre-installed.
 
+To start a project using the AI-enabled image:
+```bash
+./init-project.sh ~/projects/my-analysis basic-rna --ai --interactive
+```
+
 License
 - MIT. See LICENSE.
 
