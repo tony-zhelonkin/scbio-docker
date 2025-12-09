@@ -57,6 +57,7 @@ init-scproject ~/projects/my-analysis basic-rna --interactive
 
 | Option | Description | Example |
 |--------|-------------|---------|
+| `--ai` | Use AI-enabled image (scdock-ai-dev) | `--ai` |
 | `--interactive` | Prompt for all options (recommended) | `--interactive` |
 | `--data-mount KEY:PATH[:ro]` | Add data mount (repeatable) | `--data-mount raw:/scratch/data` |
 | `--git-init` | Initialize git repository | `--git-init` |
@@ -309,4 +310,9 @@ Run the dedicated build script:
 This will create a new Docker image tagged `scdock-ai-dev:v0.5.2` with the `SciAgent-toolkit` pre-installed.
 
 ### 3. Use the AI-Enabled Image
-To use the AI-enabled image, you'll need to update your project's `.devcontainer/devcontainer.json` file to point to the new image. Change the `image` property to `scdock-ai-dev:v0.5.2`.
+The easiest way is to use the `--ai` flag when initializing your project:
+```bash
+./init-project.sh ~/projects/my-analysis basic-rna --ai
+```
+
+Alternatively, for existing projects, edit `.devcontainer/docker-compose.yml` and change the image for `dev-core` to `scdock-ai-dev:v0.5.2`.

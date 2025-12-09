@@ -45,6 +45,7 @@ NC='\033[0m' # No Color
 # Default options
 INTERACTIVE=false
 GIT_INIT=false
+AI_ENABLED=false
 declare -a DATA_MOUNTS=()
 declare -a SUBMODULES=()
 
@@ -58,6 +59,7 @@ usage() {
     echo "  example-DMATAC  - Differential chromatin accessibility"
     echo ""
     echo "Options:"
+    echo "  --ai                           Use AI-enabled image (scdock-ai-dev)"
     echo "  --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)"
     echo "                                 KEY is a label, PATH is host path, :ro for read-only"
     echo "  --interactive                  Prompt for all configuration options"
@@ -86,6 +88,10 @@ shift 2
 # Parse options
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --ai)
+            AI_ENABLED=true
+            shift
+            ;;
         --data-mount)
             DATA_MOUNTS+=("$2")
             shift 2
@@ -125,6 +131,15 @@ PROJECT_NAME=$(basename "$PROJECT_DIR")
 if [ "$INTERACTIVE" = true ]; then
     echo -e "${BLUE}=== Interactive Configuration ===${NC}"
     echo ""
+
+    # AI Enabled
+    if [ "$AI_ENABLED" = false ]; then
+        read -p "Use AI-enabled image? (y/N): " -n 1 -r ai_reply
+        echo
+        if [[ $ai_reply =~ ^[Yy]$ ]]; then
+            AI_ENABLED=true
+        fi
+    fi
 
     # Data mounts
     echo "Configure data mounts (press Enter to skip each):"
@@ -217,7 +232,7 @@ if [ -f "${TEMPLATES_DIR}/docs/README.md.template" ]; then
     sed -i "s|{{PROJECT_PATH}}|${PROJECT_DIR}|g" "${PROJECT_DIR}/README.md"
     sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/README.md"
     sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/README.md"
-    sed -i "s|{{IMAGE_VERSION}}|scdock-r-dev:v0.5.1|g" "${PROJECT_DIR}/README.md"
+    sed -i "s|{{IMAGE_VERSION}}|${IMAGE}|g" "${PROJECT_DIR}/README.md"
     sed -i "s|{{SCBIO_DOCKER_PATH}}|${SCRIPT_DIR}|g" "${PROJECT_DIR}/README.md"
 fi
 
@@ -246,10 +261,13 @@ mkdir -p "${PROJECT_DIR}/.devcontainer/scripts"
 # Determine which service to use
 if [ "$TEMPLATE" == "archr-focused" ]; then
     SERVICE="dev-archr"
-    IMAGE="scdock-r-archr:v0.5.1"
+    IMAGE="scdock-r-archr:v0.5.2"
+elif [ "$AI_ENABLED" = true ]; then
+    SERVICE="dev-core"
+    IMAGE="scdock-ai-dev:v0.5.2"
 else
     SERVICE="dev-core"
-    IMAGE="scdock-r-dev:v0.5.1"
+    IMAGE="scdock-r-dev:v0.5.2"
 fi
 
 # Create devcontainer.json
@@ -312,7 +330,7 @@ fi
 cat > "${PROJECT_DIR}/.devcontainer/docker-compose.yml" <<EOF
 services:
   dev-core:
-    image: scdock-r-dev:v0.5.1
+    image: ${IMAGE}
     user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
     working_dir: /workspaces/${PROJECT_NAME}
     env_file: .env
@@ -335,7 +353,7 @@ ${DATA_MOUNT_LINES}    stdin_open: true
           memory: 8G
 
   dev-archr:
-    image: scdock-r-archr:v0.5.1
+    image: scdock-r-archr:v0.5.2
     user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
     working_dir: /workspaces/${PROJECT_NAME}
     env_file: .env
