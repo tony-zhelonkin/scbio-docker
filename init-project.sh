@@ -14,7 +14,6 @@
 #   --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)
 #   --interactive                  Prompt for all configuration options
 #   --git-init                     Initialize git repository
-#   --submodules LIST              Add submodules to 01_scripts/ (comma-separated)
 #
 # Examples:
 #   ./init-project.sh ~/projects/my-analysis basic-rna --interactive
@@ -45,9 +44,7 @@ NC='\033[0m' # No Color
 # Default options
 INTERACTIVE=false
 GIT_INIT=false
-AI_ENABLED=false
 declare -a DATA_MOUNTS=()
-declare -a SUBMODULES=()
 
 usage() {
     echo "Usage: $0 <project-dir> <template-name> [OPTIONS]"
@@ -59,12 +56,10 @@ usage() {
     echo "  example-DMATAC  - Differential chromatin accessibility"
     echo ""
     echo "Options:"
-    echo "  --ai                           Use AI-enabled image (scdock-ai-dev)"
     echo "  --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)"
     echo "                                 KEY is a label, PATH is host path, :ro for read-only"
     echo "  --interactive                  Prompt for all configuration options"
     echo "  --git-init                     Initialize git repository"
-    echo "  --submodules LIST              Add submodules to 01_scripts/ (comma-separated)"
     echo ""
     echo "Examples:"
     echo "  $0 ~/projects/my-analysis basic-rna --interactive"
@@ -88,10 +83,6 @@ shift 2
 # Parse options
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --ai)
-            AI_ENABLED=true
-            shift
-            ;;
         --data-mount)
             DATA_MOUNTS+=("$2")
             shift 2
@@ -103,10 +94,6 @@ while [[ $# -gt 0 ]]; do
         --git-init)
             GIT_INIT=true
             shift
-            ;;
-        --submodules)
-            IFS=',' read -ra SUBMODULES <<< "$2"
-            shift 2
             ;;
         *)
             echo -e "${RED}Error: Unknown option '$1'${NC}"
@@ -131,15 +118,6 @@ PROJECT_NAME=$(basename "$PROJECT_DIR")
 if [ "$INTERACTIVE" = true ]; then
     echo -e "${BLUE}=== Interactive Configuration ===${NC}"
     echo ""
-
-    # AI Enabled
-    if [ "$AI_ENABLED" = false ]; then
-        read -p "Use AI-enabled image? (y/N): " -n 1 -r ai_reply
-        echo
-        if [[ $ai_reply =~ ^[Yy]$ ]]; then
-            AI_ENABLED=true
-        fi
-    fi
 
     # Data mounts
     echo "Configure data mounts (press Enter to skip each):"
@@ -170,12 +148,6 @@ if [ "$INTERACTIVE" = true ]; then
         fi
     fi
 
-    # Submodules
-    read -p "Add submodules to 01_scripts/? (comma-separated, or Enter to skip): " submodules_input
-    if [ -n "$submodules_input" ]; then
-        IFS=',' read -ra SUBMODULES <<< "$submodules_input"
-    fi
-
     # Resource limits
     read -p "Max CPUs (default: 50): " max_cpus
     MAX_CPUS="${max_cpus:-50}"
@@ -203,6 +175,15 @@ else
 fi
 
 echo -e "${GREEN}Initializing project '${PROJECT_NAME}' from '${TEMPLATE}' template...${NC}"
+
+# Determine which service and image to use (needed for documentation templates)
+if [ "$TEMPLATE" == "archr-focused" ]; then
+    SERVICE="dev-archr"
+    IMAGE="scdock-r-archr:v0.5.2"
+else
+    SERVICE="dev-core"
+    IMAGE="scdock-r-dev:v0.5.2"
+fi
 
 # Copy template structure (if template has files)
 if [ -n "$(ls -A "${TEMPLATE_PATH}" 2>/dev/null)" ]; then
@@ -257,18 +238,6 @@ fi
 echo "Setting up devcontainer configuration..."
 mkdir -p "${PROJECT_DIR}/.devcontainer"
 mkdir -p "${PROJECT_DIR}/.devcontainer/scripts"
-
-# Determine which service to use
-if [ "$TEMPLATE" == "archr-focused" ]; then
-    SERVICE="dev-archr"
-    IMAGE="scdock-r-archr:v0.5.2"
-elif [ "$AI_ENABLED" = true ]; then
-    SERVICE="dev-core"
-    IMAGE="scdock-ai-dev:v0.5.2"
-else
-    SERVICE="dev-core"
-    IMAGE="scdock-r-dev:v0.5.2"
-fi
 
 # Create devcontainer.json
 cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
@@ -353,6 +322,7 @@ ${DATA_MOUNT_LINES}    stdin_open: true
           memory: 8G
 
   dev-archr:
+    profiles: ["archr"]  # Only started with: docker compose --profile archr up
     image: scdock-r-archr:v0.5.2
     user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
     working_dir: /workspaces/${PROJECT_NAME}
@@ -408,12 +378,22 @@ LOCAL_UID=$(id -u)
 LOCAL_GID=$(id -g)
 WORKSPACE_FOLDER=..
 
-# MCP Server API Keys (optional)
+# MCP Server API Keys (optional - only if using Claude Code)
+
+# Context7 - Up-to-date library docs (optional - works without key)
+# Get key for higher rate limits: https://context7.com/dashboard
 CONTEXT7_API_KEY=
 
+# PAL MCP Server - Multi-model AI collaboration
+# Requires at least one key to function. Get keys from:
+#   - Gemini: https://aistudio.google.com/apikey
+#   - OpenAI: https://platform.openai.com/api-keys
+GEMINI_API_KEY=
+OPENAI_API_KEY=
+
 # Resource Limits (adjust based on your system)
-MAX_CPUS=50
-MAX_MEMORY=450G
+MAX_CPUS=${MAX_CPUS}
+MAX_MEMORY=${MAX_MEMORY}
 EOF
 fi
 
@@ -487,24 +467,6 @@ touch "${PROJECT_DIR}/03_results/checkpoints/.gitkeep"
 touch "${PROJECT_DIR}/03_results/plots/.gitkeep"
 touch "${PROJECT_DIR}/03_results/tables/.gitkeep"
 touch "${PROJECT_DIR}/logs/.gitkeep"
-
-# Add submodules if requested
-if [ ${#SUBMODULES[@]} -gt 0 ]; then
-    echo "Adding submodules to 01_scripts/..."
-    cd "${PROJECT_DIR}/01_scripts"
-    for submodule in "${SUBMODULES[@]}"; do
-        # Trim whitespace
-        submodule=$(echo "$submodule" | xargs)
-        if [ -n "$submodule" ]; then
-            echo "  - ${submodule}"
-            # You may need to customize URLs based on your organization
-            # This is a placeholder - adjust based on your needs
-            git submodule add "https://github.com/YOUR_ORG/${submodule}.git" "${submodule}" 2>/dev/null || \
-                echo "    (Note: Update submodule URL in git config manually)"
-        fi
-    done
-    cd - > /dev/null
-fi
 
 # Git initialization
 if [ "$GIT_INIT" = true ]; then

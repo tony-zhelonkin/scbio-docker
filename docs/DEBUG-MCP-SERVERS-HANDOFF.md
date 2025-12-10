@@ -1,373 +1,209 @@
-# MCP Servers Not Detected by Claude Code - Debug Handoff
+# MCP Server Setup Guide
 
-**Date:** 2025-12-10
-**Status:** UNRESOLVED
-**Environment:** VS Code Dev Container with scbio-docker base image
-
----
-
-## Problem Summary
-
-After running `setup_mcp_infrastructure.sh`, Claude Code reports "No MCP servers configured" even though:
-- `.mcp.json` file exists in project root
-- MCP servers (sequential-thinking, tooluniverse) are installed and working
-- Claude Code CLI is installed and functional
+**Last Updated:** 2025-12-10
+**Status:** ✅ ALL ISSUES RESOLVED
 
 ---
 
-## Environment Details
+## Quick Start
 
-- **Container:** scbio-docker v0.5.2 Dev Container
-- **Project path:** `/workspaces/12868-EH`
-- **SciAgent-toolkit path:** `/workspaces/12868-EH/01_scripts/SciAgent-toolkit` (submodule)
-- **Claude Code version:** Latest (installed via `curl -fsSL https://claude.ai/install.sh`)
-- **Node.js:** Available via nvm at `/opt/nvm/`
-
----
-
-## Issues Discovered and Fixed
-
-### Issue 1: npm EACCES Permission Denied
-
-**Symptom:**
-```
-npm error code EACCES
-npm error syscall mkdir
-npm error path /opt/nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai
-```
-
-**Root Cause:** Container's `/opt/nvm/` is read-only. npm trying to install global packages there.
-
-**Fix Applied:** Added `configure_npm_prefix()` to `scripts/common.sh`:
-```bash
-configure_npm_prefix() {
-    local npm_prefix="$HOME/.npm-global"
-    mkdir -p "$npm_prefix/bin" "$npm_prefix/lib"
-    npm config set prefix "$npm_prefix"
-    export PATH="$npm_prefix/bin:$PATH"
-}
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/common.sh` (lines 103-136)
-
----
-
-### Issue 2: Claude Code Installation Hanging
-
-**Symptom:** Installation hangs indefinitely at "Installing Claude Code native build latest..."
-
-**Root Cause:** Network issues or large download with no timeout.
-
-**Fix Applied:** Added timeout wrapper in `scripts/install_claude.sh`:
-```bash
-INSTALL_TIMEOUT=300
-timeout $INSTALL_TIMEOUT bash -c 'curl -fsSL https://claude.ai/install.sh | bash -s latest'
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/install_claude.sh` (lines 50-56)
-
----
-
-### Issue 3: `claude doctor` Hanging
-
-**Symptom:** After successful install, `claude doctor` hangs indefinitely in container environment.
-
-**Root Cause:** `claude doctor` performs checks that may hang in non-interactive/container environments.
-
-**Fix Applied:** Removed `claude doctor` call entirely:
-```bash
-# Skip diagnostics - claude doctor can hang in container environments
-log_ok "Skipping diagnostics (run 'claude doctor' manually if needed)"
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/install_claude.sh` (lines 75-77)
-
----
-
-### Issue 4: PATH Not Propagating from Subshells
-
-**Symptom:** `claude` command not found after installation, even though install_claude.sh exports PATH.
-
-**Root Cause:** Child bash scripts export PATH but it doesn't propagate to parent process.
-
-**Fix Applied:** Added explicit PATH exports in orchestrator after each install:
-```bash
-# After Claude install:
-export PATH="$HOME/.local/bin:$PATH"
-
-# After Codex/Gemini install:
-export PATH="$HOME/.npm-global/bin:$PATH"
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/setup_mcp_infrastructure.sh` (lines 159-160, 179-180, 199-200)
-
----
-
-### Issue 5: `.mcp.json` Created in Wrong Directory
-
-**Symptom:** `.mcp.json` created in SciAgent-toolkit directory instead of user's project root.
-
-**Root Cause:** `PROJECT_DIR` was set to `${SCRIPT_DIR}/..` instead of `${PWD}`.
-
-**Fix Applied:** Changed PROJECT_DIR to use PWD:
-```bash
-# Use PWD as project root - the directory where user invoked the script
-PROJECT_DIR="${PWD}"
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/setup_mcp_infrastructure.sh` (lines 37-39)
-
----
-
-### Issue 6: Invalid JSON in `.mcp.json`
-
-**Symptom:** Claude Code can't parse `.mcp.json` - invalid JSON syntax.
-
-**Example of invalid JSON found:**
-```json
-    }
-,
-    "tooluniverse": {
-```
-
-**Root Cause:** Bash heredoc JSON generation put commas on separate lines.
-
-**Fix Applied:** Rewrote `configure_mcp_servers.sh` to use `claude mcp add` CLI instead of manual JSON generation. Falls back to Python-based JSON generation.
-
-**File:** `toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh` (complete rewrite)
-
----
-
-### Issue 7: Configure Script Skipping Due to Existing File
-
-**Symptom:** Script exits early when `.mcp.json` exists, even if it's invalid.
-
-**Root Cause:** Script checks for file existence but not validity.
-
-**Fix Applied:**
-1. Added `--force` mode to delete and regenerate config
-2. Orchestrator now passes `--force` by default
-
-**Files:**
-- `toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh` (lines 70-80)
-- `toolkits/SciAgent-toolkit/scripts/setup_mcp_infrastructure.sh` (line 306)
-
----
-
-### Issue 8: Missing `.claude/settings.json`
-
-**Symptom:** Even with valid `.mcp.json`, Claude Code doesn't enable the servers.
-
-**Root Cause:** Claude Code discovers servers from `.mcp.json` but requires explicit enablement via `enabledMcpjsonServers` in `.claude/settings.json`.
-
-**Fix Applied:** Script now creates `.claude/settings.json`:
-```json
-{
-  "enabledMcpjsonServers": ["sequential-thinking", "tooluniverse"]
-}
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh` (lines 287-321)
-
----
-
-### Issue 9: Missing `type` Field in Server Config
-
-**Symptom:** Claude Code may not recognize servers without explicit `type` field.
-
-**Root Cause:** Some Claude Code versions require `"type": "stdio"` in server config.
-
-**Fix Applied:** Python fallback now includes type field:
-```python
-servers["sequential-thinking"] = {
-    "type": "stdio",
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-}
-```
-
-**File:** `toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh` (Python fallback section)
-
----
-
-## Current State of Code
-
-### Latest Commits
-
-**SciAgent-toolkit** (commit `b7eece7`):
-- `configure_mcp_servers.sh` - Uses `claude mcp add` CLI as primary approach
-- `setup_mcp_infrastructure.sh` - Passes `--force` flag
-
-**scbio-docker** (commit `0db2311`):
-- Updated submodule reference
-
-### Files Modified
-
-1. `toolkits/SciAgent-toolkit/scripts/common.sh`
-   - Added `configure_npm_prefix()` function
-
-2. `toolkits/SciAgent-toolkit/scripts/install_claude.sh`
-   - Added 5-minute timeout
-   - Removed `claude doctor` call
-
-3. `toolkits/SciAgent-toolkit/scripts/setup_mcp_infrastructure.sh`
-   - Changed `PROJECT_DIR` to `${PWD}`
-   - Added PATH propagation after CLI installs
-   - Passes `--force` to configure script
-
-4. `toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh`
-   - Complete rewrite to use `claude mcp add` CLI
-   - Falls back to Python JSON generation
-   - Creates `.claude/settings.json` for server enablement
-
----
-
-## What Has Been Tested
-
-1. **Syntax validation:** All scripts pass `bash -n` validation
-2. **Submodule commits:** Successfully pushed to GitHub
-3. **Container testing:** User reports issue still present after pulling latest
-
----
-
-## What Has NOT Been Tested
-
-1. **Fresh container with no prior config:** Need to test in clean environment
-2. **`claude mcp add` command behavior:** May have different flags/behavior than expected
-3. **`claude mcp list` output:** Need to verify servers appear after configuration
-4. **Interactive `/mcp` command:** Need to verify servers show in Claude Code UI
-
----
-
-## Remaining Investigation Areas
-
-### 1. Verify `claude mcp add` CLI syntax
-
-The script uses:
-```bash
-claude mcp add --transport stdio --scope project sequential-thinking -- \
-    npx -y @modelcontextprotocol/server-sequential-thinking
-```
-
-**Need to verify:**
-- Is `--transport stdio` correct? (vs `--type stdio`)
-- Is `--scope project` correct? (vs `--scope local` or `-s project`)
-- Does `--` separator work correctly?
-
-### 2. Check if `claude mcp add` requires authentication
-
-The CLI may require being logged in before adding servers. Script doesn't handle this.
-
-### 3. Verify `.mcp.json` location expectations
-
-Claude Code may look for `.mcp.json` in:
-- Current working directory
-- Project root (defined how?)
-- `~/.claude/` global config
-
-### 4. Check Claude Code settings file location
-
-The script creates `.claude/settings.json` but Claude Code may expect:
-- `.claude/settings.local.json`
-- Different structure for `enabledMcpjsonServers`
-
-### 5. MCP server initialization timing
-
-Servers may need to be running before Claude Code can detect them.
-
----
-
-## Suggested Next Steps
-
-### Step 1: Manual Testing in Container
+### Inside a Dev Container
 
 ```bash
-# 1. Clean slate
-rm -f /workspaces/12868-EH/.mcp.json
-rm -rf /workspaces/12868-EH/.claude
+# 1. Run AI setup (installs Claude CLI, configures MCP servers)
+./toolkits/SciAgent-toolkit/scripts/setup-ai.sh
 
-# 2. Test claude mcp add manually
-cd /workspaces/12868-EH
-claude mcp add --help  # Check exact syntax
-
-# 3. Try adding one server manually
-claude mcp add sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking
-
-# 4. Check result
+# 2. Verify MCP servers
 claude mcp list
-cat .mcp.json
-ls -la .claude/
+
+# Expected output (without API keys):
+# ✓ sequential-thinking: Connected
+# ✓ context7: Connected
+# ✓ tooluniverse: Connected
+# ✓ serena: Connected
+# ✗ pal: Failed (needs API keys)
 ```
 
-### Step 2: Check Claude Code Documentation
+### Configuring PAL at Runtime
 
-- Verify exact syntax for `claude mcp add`
-- Verify `.mcp.json` schema requirements
-- Verify settings file structure for enabling servers
-
-### Step 3: Debug Script Execution
+PAL requires at least one AI provider API key. To enable it:
 
 ```bash
-# Run with verbose output
-bash -x /workspaces/12868-EH/01_scripts/SciAgent-toolkit/scripts/configure_mcp_servers.sh --force 2>&1 | tee /tmp/mcp-config-debug.log
+# 1. Edit your .env file
+nano .devcontainer/.env
+
+# 2. Add at least ONE of these keys:
+GEMINI_API_KEY=your-key-here     # Get from: https://aistudio.google.com/apikey
+OPENAI_API_KEY=your-key-here     # Get from: https://platform.openai.com/api-keys
+# XAI_API_KEY=your-key-here      # Get from: https://console.x.ai/
+
+# 3. Re-run configuration
+./toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh --force
+
+# 4. Verify PAL is now connected
+claude mcp list
 ```
 
-### Step 4: Check Claude Code Logs
+---
+
+## How MCP Setup Works
+
+### Script Hierarchy
+
+```
+setup-ai.sh                          # Entry point (runs everything)
+  └── setup_mcp_infrastructure.sh    # Installs Claude CLI, MCP servers
+       ├── install_claude.sh         # Installs ~/.local/bin/claude
+       ├── setup_tooluniverse.sh     # Creates tooluniverse-env/
+       ├── setup_serena.sh           # Installs via uvx
+       ├── setup_sequential_thinking.sh
+       └── configure_mcp_servers.sh  # Generates .mcp.json (can run standalone)
+```
+
+### When to Use Each Script
+
+| Script | Use Case |
+|--------|----------|
+| `setup-ai.sh` | First-time setup in new container |
+| `configure_mcp_servers.sh --force` | After changing API keys or fixing issues |
+| `debug_tooluniverse.sh` | Diagnosing ToolUniverse connection problems |
+
+### Files Created
+
+```
+project/
+├── .mcp.json                    # MCP server configuration (gitignored)
+├── .claude/
+│   ├── settings.json            # Enabled servers list
+│   └── settings.local.json      # Local overrides
+├── tooluniverse-env/            # ToolUniverse Python venv (gitignored)
+└── .devcontainer/
+    └── .env                     # API keys (gitignored)
+```
+
+---
+
+## MCP Servers Reference
+
+| Server | Purpose | Requirements |
+|--------|---------|--------------|
+| **sequential-thinking** | Structured reasoning for complex decisions | npx (Node.js) |
+| **context7** | Up-to-date library documentation | npx; API key optional |
+| **tooluniverse** | 600+ scientific tools (ChEMBL, UniProt, PubMed, etc.) | uv, Python 3.10+ |
+| **serena** | Code intelligence and semantic search | uvx |
+| **pal** | Multi-model AI collaboration (Gemini, GPT, Grok) | uvx + API key required |
+
+### Context7 (No API Key Required)
+
+Context7 works without an API key for basic usage. Add a key only for:
+- Higher rate limits
+- Private repository access
 
 ```bash
-# Claude Code may have debug logs
-ls -la ~/.claude/
-cat ~/.claude/*.log 2>/dev/null
+# Get optional key from: https://context7.com/dashboard
+CONTEXT7_API_KEY=your-key-here
+```
+
+### PAL Multi-Model Collaboration
+
+PAL enables Claude to consult other AI models for second opinions. Requires at least one key:
+
+```bash
+# Choose one or more:
+GEMINI_API_KEY=xxx    # Google's Gemini models
+OPENAI_API_KEY=xxx    # GPT-4, etc.
+XAI_API_KEY=xxx       # Grok
+OPENROUTER_API_KEY=xxx # Access to many models
 ```
 
 ---
 
-## Reference: Expected Final State
+## Troubleshooting
 
-### `.mcp.json` (project root)
+### ToolUniverse shows "connecting..." or "Failed"
 
-```json
-{
-  "mcpServers": {
-    "sequential-thinking": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    },
-    "tooluniverse": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["--directory", "/workspaces/12868-EH/01_scripts/SciAgent-toolkit/scripts/tooluniverse-env", "run", "tooluniverse-mcp", "--exclude-tool-types", "PackageTool"]
-    }
-  }
-}
+```bash
+# Run debug script
+./toolkits/SciAgent-toolkit/scripts/debug_tooluniverse.sh --verbose
+
+# Common fixes:
+# 1. Reinstall
+rm -rf tooluniverse-env
+./toolkits/SciAgent-toolkit/scripts/mcp_servers/setup_tooluniverse.sh
+./toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh --force
+
+# 2. Check the command being used (should be tooluniverse-smcp-stdio)
+cat .mcp.json | grep tooluniverse
 ```
 
-### `.claude/settings.json` (project root)
+### PAL shows "Failed to connect"
 
-```json
-{
-  "enabledMcpjsonServers": ["sequential-thinking", "tooluniverse"]
-}
+This is **expected** if no API keys are set. See "Configuring PAL at Runtime" above.
+
+### npm/nvm Prefix Warning
+
+```
+nvm is not compatible with the npm config "prefix" option
+```
+
+This is a **cosmetic warning** - MCP servers still work. To fix:
+```bash
+nvm use --delete-prefix $(node --version)
+```
+
+### Configuration Not Taking Effect
+
+```bash
+# 1. Force regenerate
+./toolkits/SciAgent-toolkit/scripts/configure_mcp_servers.sh --force
+
+# 2. Restart Claude Code
+exit  # or Ctrl+D
+claude
+
+# 3. Verify
+claude mcp list
 ```
 
 ---
 
-## Git Log of Fixes
+## Technical Details
 
-```
-b7eece7 fix: Use claude mcp add CLI for robust MCP configuration
-dd050bb Fix: Update SciAgent-toolkit submodule for improved npm installations and MCP timeouts
-... (earlier commits with partial fixes)
-```
+### ToolUniverse Transport Modes
+
+ToolUniverse 1.0.14+ has two commands:
+- `tooluniverse-mcp` → HTTP mode (default, NOT compatible with Claude Code)
+- `tooluniverse-smcp-stdio` → stdio mode (required for Claude Code)
+
+The configuration script automatically prefers `tooluniverse-smcp-stdio`.
+
+### API Key Detection
+
+The script sources `.env` files in this order:
+1. `${PROJECT_DIR}/.env`
+2. `${PROJECT_DIR}/.devcontainer/.env`
+
+Keys must be exported or the script uses `set -a` to auto-export.
+
+### Version Compatibility Notes
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| ToolUniverse | 1.0.14+ | `--exclude-tool-types` removed; use `--compact-mode` |
+| Claude CLI | 2.0.64+ | Required for `claude mcp add` |
+| Node.js | 18+ | Required for npx-based servers |
+| Python | 3.10+ | Required for ToolUniverse |
 
 ---
 
-## Contact / Repository Links
+## Resolution History
 
-- **scbio-docker:** https://github.com/tony-zhelonkin/scbio-docker (branch: dev)
-- **SciAgent-toolkit:** https://github.com/tony-zhelonkin/SciAgent-toolkit (branch: main)
+**2025-12-10:** All issues resolved
 
----
-
-*This handoff document was created to facilitate debugging by the next agent or developer.*
+| Issue | Root Cause | Fix |
+|-------|------------|-----|
+| PAL missing from `/mcp` | Script skipped if no API keys | Always configure, show helpful warnings |
+| Context7 not configured | API key required but optional | Removed requirement |
+| ToolUniverse "connecting..." | Wrong command (`tooluniverse-mcp` uses HTTP) | Prefer `tooluniverse-smcp-stdio` |
+| ToolUniverse CLI error | `--exclude-tool-types` removed in 1.0.14+ | Removed flag from all scripts |
+| Empty env vars in config | PAL env included empty strings | Only include non-empty values |
