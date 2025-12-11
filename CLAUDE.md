@@ -245,6 +245,35 @@ if (!require("PACKAGE")) BiocManager::install("PACKAGE")
 - Core packages cover 95% of workflows, specialized packages installed on-demand
 - User library is writable for runtime installs (no sudo needed)
 
+### AI Tools Integration (Runtime Setup)
+
+AI tools (Claude Code, MCP servers) are installed **at runtime** inside the container, not during image build. This provides per-project configuration with correct absolute paths.
+
+**Why runtime instead of build-time:**
+1. `.mcp.json` requires absolute paths - must be generated with actual project path at runtime
+2. ToolUniverse creates `tooluniverse-env/` per-project for isolation
+3. Avoids maintaining separate AI-enabled image
+4. Users control when to spend time on Serena compilation (5-15 min)
+
+**Setup workflow:**
+1. `init-project.sh --ai` copies `setup-ai.sh` to project
+2. Inside container: `.devcontainer/scripts/setup-ai.sh`
+3. Creates: `.mcp.json`, `tooluniverse-env/`, installs claude CLI
+
+**Configuration files created:**
+- `.mcp.json` - Claude Code MCP server configuration (project-local, gitignored)
+- `tooluniverse-env/` - ToolUniverse Python environment (project-local, gitignored)
+
+**First-run timing:**
+- Full setup: 5-15 minutes (Serena Rust compilation)
+- Minimal setup (`--minimal`): 2-3 minutes
+- Subsequent runs: <1 minute (checks if already installed)
+
+**Available MCP servers:**
+- **Sequential Thinking**: Structured reasoning for complex decisions
+- **ToolUniverse**: 600+ scientific tools (ChEMBL, UniProt, PubMed, ClinicalTrials.gov, etc.)
+- **Serena**: Code intelligence and semantic search (optional, requires compilation)
+
 ## Common Commands
 
 ### Python Environment Switching

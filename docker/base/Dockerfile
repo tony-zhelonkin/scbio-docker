@@ -280,6 +280,12 @@ COPY docker/requirements /opt/environments
 COPY scripts/create_layered_venv.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/create_layered_venv.sh
 
+# SciAgent-toolkit scripts (read-only, AI setup runs at runtime)
+# Only copy scripts and agents directories (~100KB), not full toolkit
+COPY toolkits/SciAgent-toolkit/scripts /opt/SciAgent-toolkit/scripts
+COPY toolkits/SciAgent-toolkit/agents /opt/SciAgent-toolkit/agents
+RUN chmod +x /opt/SciAgent-toolkit/scripts/*.sh 2>/dev/null || true
+
 # Update shared library cache
 RUN ldconfig
 
