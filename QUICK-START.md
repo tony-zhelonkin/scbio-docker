@@ -23,7 +23,7 @@ init-scproject ~/projects/my-analysis basic-rna
 ### Recommended usage (interactive)
 ```bash
 ./init-project.sh ~/projects/my-analysis basic-rna --interactive
-# Follow prompts for data mounts, git init, submodules
+# Follow prompts for data mounts, git init, resource limits
 ```
 
 Or:
@@ -36,8 +36,7 @@ init-scproject ~/projects/my-analysis basic-rna --interactive
 ./init-project.sh ~/projects/atac-study archr-focused \
   --data-mount atac:/scratch/data/DT-1234 \
   --data-mount rna:/scratch/data/DT-5678:ro \
-  --git-init \
-  --submodules R_GSEA_visualisations
+  --git-init
 ```
 
 ---
@@ -57,11 +56,9 @@ init-scproject ~/projects/my-analysis basic-rna --interactive
 
 | Option | Description | Example |
 |--------|-------------|---------|
-| `--ai` | Use AI-enabled image (scdock-ai-dev) | `--ai` |
 | `--interactive` | Prompt for all options (recommended) | `--interactive` |
 | `--data-mount KEY:PATH[:ro]` | Add data mount (repeatable) | `--data-mount raw:/scratch/data` |
 | `--git-init` | Initialize git repository | `--git-init` |
-| `--submodules LIST` | Add submodules (comma-separated) | `--submodules scIBD,R_GSEA` |
 
 **Data mount format:**
 - `KEY` = Label for the mount (e.g., `atac`, `rna`, `refs`)
@@ -188,8 +185,7 @@ adata.write_h5ad("03_results/checkpoints/S1_preprocessed.h5ad")
 ./init-project.sh ~/projects/multiome-study multimodal \
   --data-mount rna:/scratch/data/DT-1579 \
   --data-mount atac:/scratch/data/DT-1634 \
-  --git-init \
-  --submodules R_GSEA_visualisations
+  --git-init
 ```
 
 ### Example 3: ArchR-Focused ATAC Project
@@ -292,27 +288,37 @@ tmux new-session -s my-analysis radian
 
 ---
 
-## Building the AI-Enabled Image
+## Adding Submodules (Manual Setup)
 
-This project can be integrated with the `SciAgent-toolkit` to provide AI-powered assistance for your analysis.
+Submodules (like RNAseq-toolkit, SciAgent-toolkit) are added **manually** after project creation. This allows per-project branching and customization.
 
-### 1. Initialize the Submodule
-If you haven't already, initialize the `SciAgent-toolkit` submodule:
+### After Creating Project
 ```bash
-git submodule update --init --recursive
+# 1. Initialize project
+./init-project.sh ~/projects/my-analysis basic-rna --git-init
+
+# 2. Test in VS Code container (verify it works)
+
+# 3. Exit container, SSH to repo, add submodules
+cd ~/projects/my-analysis
+git submodule add git@github.com:tony-zhelonkin/RNAseq-toolkit.git 01_scripts/RNAseq-toolkit
+
+# 4. Set per-project branch
+git config -f .gitmodules submodule.01_scripts/RNAseq-toolkit.branch dev-myproject
+git submodule update --remote
+
+# 5. Commit and reopen container
+git add .gitmodules 01_scripts/RNAseq-toolkit
+git commit -m "Add RNAseq-toolkit submodule"
 ```
 
-### 2. Build the AI-Enabled Image
-Run the dedicated build script:
+### For AI Tools (SciAgent-toolkit)
 ```bash
-./build-ai-enabled.sh
-```
-This will create a new Docker image tagged `scdock-ai-dev:v0.5.2` with the `SciAgent-toolkit` pre-installed.
+# Add SciAgent-toolkit submodule
+git submodule add git@github.com:tony-zhelonkin/SciAgent-toolkit.git 01_scripts/SciAgent-toolkit
 
-### 3. Use the AI-Enabled Image
-The easiest way is to use the `--ai` flag when initializing your project:
-```bash
-./init-project.sh ~/projects/my-analysis basic-rna --ai
+# Inside container, run setup
+./01_scripts/SciAgent-toolkit/scripts/setup_mcp_infrastructure.sh
 ```
 
-Alternatively, for existing projects, edit `.devcontainer/docker-compose.yml` and change the image for `dev-core` to `scdock-ai-dev:v0.5.2`.
+This separation keeps `init-project.sh` minimal and stable while allowing flexible per-project customization.

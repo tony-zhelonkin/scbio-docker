@@ -56,23 +56,29 @@ Documentation
 - Changelog: docs/changelog.md
 
 AI integration (CLI agents)
-- This repository can be integrated with the `SciAgent-toolkit` to provide AI-powered assistance for your analysis.
-- The `SciAgent-toolkit` is included as a Git submodule and can be installed into a dedicated Docker image.
 
-To build the AI-enabled image, run the following command:
+This repository integrates with the `SciAgent-toolkit` for AI-powered assistance (Claude Code, MCP servers with 600+ scientific tools).
+
+**Setup (Runtime - inside container):**
 ```bash
-# Initialize the submodule (only needs to be done once)
-git submodule update --init --recursive
-
-# Build the AI-enabled image
-./build-ai-enabled.sh
-```
-This will create a new Docker image tagged `scdock-ai-dev:v0.5.2` with the `SciAgent-toolkit` pre-installed.
-
-To start a project using the AI-enabled image:
-```bash
+# 1. Initialize project with AI setup script
 ./init-project.sh ~/projects/my-analysis basic-rna --ai --interactive
+
+# 2. Open in VS Code, Reopen in Container
+
+# 3. Inside container, run setup (first time only)
+.devcontainer/scripts/setup-ai.sh           # Full setup (5-15 min)
+.devcontainer/scripts/setup-ai.sh --minimal # Fast setup (2-3 min)
+
+# 4. Verify
+claude
+/mcp  # Shows: sequential-thinking, tooluniverse, serena
 ```
+
+**What gets installed:**
+- Claude Code CLI (`~/.local/bin/claude`)
+- MCP servers: Sequential Thinking, ToolUniverse (600+ tools), Serena (code intelligence)
+- Project-specific `.mcp.json` configuration
 
 License
 - MIT. See LICENSE.
