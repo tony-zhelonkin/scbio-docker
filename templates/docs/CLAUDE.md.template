@@ -1,0 +1,197 @@
+# CLAUDE.md - AI Assistant Context for {{PROJECT_NAME}}
+
+## Project Overview
+
+**Project ID:** {{PROJECT_NAME}}
+**Template:** {{TEMPLATE_TYPE}}
+**Species:** {{SPECIES}}
+**Genome Build:** {{GENOME_BUILD}}
+**Created:** {{DATE}}
+
+---
+
+## Core Philosophy
+
+This project follows the **scbio-docker RNA-seq Analysis Guidelines**. Key principles:
+
+### 1. Normalize Once, Visualize Many
+All data processing happens in Phase 1. Visualization scripts only read pre-computed results.
+
+### 2. Single Source of Truth
+- Configuration: `02_analysis/config/pipeline.yaml`
+- Colors: `02_analysis/config/color_config.R`
+- Checkpoints: `03_results/checkpoints/`
+- Master Tables: `03_results/tables/`
+
+### 3. Checkpoint Everything Expensive
+Any computation taking >1 minute must be cached using `load_or_compute()`:
+```r
+result <- load_or_compute(
+  checkpoint_file = "1.x_result.rds",
+  description = "Human-readable description",
+  compute_fn = function() { expensive_computation() }
+)
+```
+First run: 30-60 min. Subsequent runs: 5-10 min.
+
+### 4. Master Tables as Bridges
+CSV exports connect R computation to Python visualization:
+- `master_gsea_table.csv` - All GSEA results
+- `master_de_table.csv` - All DE results
+
+### 5. Separation of Concerns
+
+| Layer | Location | Does | Does NOT |
+|-------|----------|------|----------|
+| Config | `config/` | Define parameters | Contain logic |
+| Processing | `1.x.*.R` | Compute results | Generate plots |
+| R Viz | `2.x.*.R` | Create plots | Recompute results |
+| Python Viz | `3.x.*.py` | Interactive dashboards | Read RDS files |
+
+---
+
+## Directory Structure
+
+```
+{{PROJECT_NAME}}/
+|-- 00_data/
+|   |-- processed/              # Count matrices (input)
+|   +-- references/             # Pathway databases
+|
+|-- 01_scripts/                 # Shared tools
+|
+|-- 02_analysis/
+|   |-- config/                 # Configuration files
+|   |   |-- config.R            # R configuration
+|   |   |-- pipeline.yaml       # Single source of truth
+|   |   +-- color_config.R      # Color definitions
+|   |-- 1.x.*.R                 # Phase 1-2: Core pipeline
+|   |-- 2.x.*.R                 # Phase 3: R visualizations
+|   +-- 3.x.*.py                # Phase 4-5: Python visualizations
+|
+|-- 03_results/
+|   |-- checkpoints/            # Cached RDS objects
+|   |-- tables/                 # Master CSV exports
+|   +-- plots/                  # Organized by theme
+|
+|-- docs/
+|   +-- guidelines/             # Full analysis guidelines
+|
+|-- plan.md                     # Strategic analysis plan
+|-- tasks.md                    # Execution tracker
++-- notes.md                    # Research findings
+```
+
+---
+
+## Phase-Based Workflow
+
+```
+Phase 1: Core Analysis (cacheable, 30-60 min)
+|-- DE analysis (limma-voom)
+|-- Multi-database GSEA (MSigDB: H, C2, C5, etc.)
++-- Output: checkpoints/*.rds
+
+Phase 2: Master Tables (5-20 min)
+|-- Per-contrast DE statistics
+|-- master_gsea_table.csv
++-- master_de_table.csv (with annotations)
+
+Phase 3: R Visualizations (parallel)
+Phase 4: Python Visualizations
+Phase 5: Interactive Explorers
+```
+
+---
+
+## Script Naming Convention
+
+```
+{phase}.{order}.{description}.{ext}
+
+Examples:
+1.1.core_pipeline.R          # Phase 1, first script
+1.5.create_master_tables.R   # Phase 1, fifth script
+2.1.visualizations.R         # Phase 3, first R viz
+3.1.pathway_explorer.py      # Phase 4, first Python viz
+```
+
+---
+
+## Checkpoint Naming Convention
+
+```
+{phase}.{step}_{description}.rds
+
+Examples:
+1.1_dge_raw.rds              # Initial DGEList
+1.1_dge_normalized.rds       # After TMM normalization
+1.1_fit_object.rds           # limma fit
+1.1_de_results.rds           # topTable output
+1.1_gsea_H_C2.rds            # GSEA for Hallmark + C2
+```
+
+---
+
+## Quick Reference
+
+### Common Commands
+
+```bash
+# Run core pipeline
+Rscript 02_analysis/1.1.core_pipeline.R
+
+# Run all visualizations
+for script in 02_analysis/2.*.R; do Rscript "$script"; done
+
+# Check checkpoint status
+ls -la 03_results/checkpoints/
+```
+
+### Key R Functions
+
+```r
+# Source configuration (ALWAYS FIRST in any script)
+source("02_analysis/config/config.R")
+load_packages()
+
+# Load or compute with caching
+result <- load_or_compute(
+  checkpoint_file = "checkpoint_name.rds",
+  description = "What this computes",
+  compute_fn = function() { ... }
+)
+
+# Force recompute during development
+result <- load_or_compute(..., force_recompute = TRUE)
+```
+
+---
+
+## Current Progress
+
+<!-- Update this section as you complete analysis stages -->
+
+| Stage | Status | Key Outputs |
+|-------|--------|-------------|
+| S1: Core DE/GSEA | [ ] Pending | `checkpoints/1.1_*.rds` |
+| S2: Master Tables | [ ] Pending | `tables/master_*.csv` |
+| S3: R Visualizations | [ ] Pending | `plots/QC/`, `plots/GSEA/` |
+| S4: Python Viz | [ ] Pending | `interactive/` |
+
+---
+
+## Guidelines Reference
+
+For detailed analysis guidelines, see:
+- `docs/guidelines/rnaseq-analysis-guidelines.md` (in this project)
+
+---
+
+## Notes
+
+<!-- Add project-specific notes here -->
+
+- **Experimental design:** [Describe your comparison groups]
+- **Primary focus:** [What biological question are you answering?]
+- **Key genes/pathways of interest:** [List any a priori hypotheses]

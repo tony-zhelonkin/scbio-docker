@@ -154,12 +154,55 @@ if [ "$INTERACTIVE" = true ]; then
     read -p "Max Memory (default: 450G): " max_memory
     MAX_MEMORY="${max_memory:-450G}"
 
+    # Species configuration
+    echo ""
+    echo "Species configuration:"
+    read -p "Species (default: Mus musculus): " species_input
+    SPECIES="${species_input:-Mus musculus}"
+
+    # Auto-derive SPECIES_DB and GENOME_BUILD based on common species
+    case "$SPECIES" in
+        "Mus musculus"|"mouse"|"Mouse")
+            SPECIES="Mus musculus"
+            SPECIES_DB="MM"
+            GENOME_BUILD="${GENOME_BUILD:-mm10}"
+            ;;
+        "Homo sapiens"|"human"|"Human")
+            SPECIES="Homo sapiens"
+            SPECIES_DB="HS"
+            GENOME_BUILD="${GENOME_BUILD:-hg38}"
+            ;;
+        *)
+            read -p "Species DB code (e.g., MM for mouse, HS for human): " SPECIES_DB
+            read -p "Genome build (e.g., mm10, hg38): " GENOME_BUILD
+            ;;
+    esac
+
     echo ""
 fi
 
 # Non-interactive defaults (if not set by interactive mode)
 : ${MAX_CPUS:=50}
 : ${MAX_MEMORY:=450G}
+
+# Species defaults based on template (can be overridden by interactive mode)
+case "$TEMPLATE" in
+    basic-rna|multimodal)
+        : ${SPECIES:="Mus musculus"}
+        : ${SPECIES_DB:="MM"}
+        : ${GENOME_BUILD:="mm10"}
+        ;;
+    archr-focused|example-DMATAC)
+        : ${SPECIES:="Mus musculus"}
+        : ${SPECIES_DB:="MM"}
+        : ${GENOME_BUILD:="mm10"}
+        ;;
+    *)
+        : ${SPECIES:="Mus musculus"}
+        : ${SPECIES_DB:="MM"}
+        : ${GENOME_BUILD:="mm10"}
+        ;;
+esac
 
 # Check if project directory exists
 if [ -d "$PROJECT_DIR" ]; then
@@ -232,6 +275,64 @@ fi
 # Copy .env.example
 if [ -f "${TEMPLATES_DIR}/docs/.env.example" ]; then
     cp "${TEMPLATES_DIR}/docs/.env.example" "${PROJECT_DIR}/.env.example"
+fi
+
+# Copy CLAUDE.md template (AI assistant context)
+if [ -f "${TEMPLATES_DIR}/docs/CLAUDE.md.template" ]; then
+    echo "Creating CLAUDE.md..."
+    cp "${TEMPLATES_DIR}/docs/CLAUDE.md.template" "${PROJECT_DIR}/CLAUDE.md"
+    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/CLAUDE.md"
+    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/CLAUDE.md"
+    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/CLAUDE.md"
+    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/CLAUDE.md"
+    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/CLAUDE.md"
+    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/CLAUDE.md"
+fi
+
+# Copy notes.md template (research findings tracker)
+if [ -f "${TEMPLATES_DIR}/docs/notes.md.template" ]; then
+    echo "Creating notes.md..."
+    cp "${TEMPLATES_DIR}/docs/notes.md.template" "${PROJECT_DIR}/notes.md"
+    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/notes.md"
+    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/notes.md"
+    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/notes.md"
+    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/notes.md"
+    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/notes.md"
+    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/notes.md"
+fi
+
+# Copy configuration templates
+echo "Creating configuration files..."
+if [ -f "${TEMPLATES_DIR}/config/config.R.template" ]; then
+    cp "${TEMPLATES_DIR}/config/config.R.template" "${PROJECT_DIR}/02_analysis/config/config.R"
+    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+fi
+
+if [ -f "${TEMPLATES_DIR}/config/pipeline.yaml.template" ]; then
+    cp "${TEMPLATES_DIR}/config/pipeline.yaml.template" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+fi
+
+if [ -f "${TEMPLATES_DIR}/config/color_config.R.template" ]; then
+    cp "${TEMPLATES_DIR}/config/color_config.R.template" "${PROJECT_DIR}/02_analysis/config/color_config.R"
+    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/color_config.R"
+fi
+
+# Copy guidelines to project (from canonical source in docs/)
+echo "Copying analysis guidelines..."
+mkdir -p "${PROJECT_DIR}/docs/guidelines"
+if [ -f "${SCRIPT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md" ]; then
+    cp "${SCRIPT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md" \
+       "${PROJECT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md"
 fi
 
 # Copy devcontainer configuration
@@ -495,6 +596,7 @@ echo -e "${BLUE}Project Summary:${NC}"
 echo "  Name: ${PROJECT_NAME}"
 echo "  Location: ${PROJECT_DIR}"
 echo "  Template: ${TEMPLATE}"
+echo "  Species: ${SPECIES} (${SPECIES_DB}, ${GENOME_BUILD})"
 echo "  Container service: ${SERVICE}"
 if [ ${#DATA_MOUNTS[@]} -gt 0 ]; then
     echo "  Data mounts configured: ${#DATA_MOUNTS[@]}"
@@ -509,12 +611,16 @@ if [ ${#DATA_MOUNTS[@]} -eq 0 ]; then
     echo "  2. Edit .devcontainer/docker-compose.yml to add data mounts"
     echo "  3. Open in VS Code: code ${PROJECT_DIR}"
     echo "  4. Reopen in container: Ctrl+Shift+P → 'Dev Containers: Reopen in Container'"
+    echo "  5. Review and fill in plan.md with your scientific question"
+    echo "  6. Customize CLAUDE.md with project-specific context"
+    echo "  7. Edit 02_analysis/config/pipeline.yaml for your experiment"
 else
     echo "  2. Open in VS Code: code ${PROJECT_DIR}"
     echo "  3. Reopen in container: Ctrl+Shift+P → 'Dev Containers: Reopen in Container'"
+    echo "  4. Review and fill in plan.md with your scientific question"
+    echo "  5. Customize CLAUDE.md with project-specific context"
+    echo "  6. Edit 02_analysis/config/pipeline.yaml for your experiment"
 fi
-echo "  $(( ${#DATA_MOUNTS[@]} > 0 ? 5 : 5 )). Review and fill in plan.md with your scientific question"
-echo "  $(( ${#DATA_MOUNTS[@]} > 0 ? 6 : 6 )). Create detailed tasks in tasks.md"
 echo ""
 if [ "$TEMPLATE" == "archr-focused" ]; then
     echo -e "${YELLOW}Note: This project uses the ArchR image (R 4.4).${NC}"
@@ -523,8 +629,14 @@ fi
 echo ""
 echo -e "${BLUE}Documentation:${NC}"
 echo "  - Project workflow: ${PROJECT_DIR}/README.md"
+echo "  - AI context: ${PROJECT_DIR}/CLAUDE.md"
 echo "  - Analysis plan: ${PROJECT_DIR}/plan.md"
 echo "  - Task tracker: ${PROJECT_DIR}/tasks.md"
+echo "  - Research notes: ${PROJECT_DIR}/notes.md"
+echo "  - Analysis guidelines: ${PROJECT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md"
+echo "  - Config: ${PROJECT_DIR}/02_analysis/config/"
+echo ""
+echo -e "${BLUE}scbio-docker references:${NC}"
 echo "  - Image build guide: ${SCRIPT_DIR}/DEVOPS.md"
 echo "  - Architecture: ${SCRIPT_DIR}/CLAUDE.md"
 echo ""
