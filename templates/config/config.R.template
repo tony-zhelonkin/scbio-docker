@@ -1,0 +1,311 @@
+# config.R - Configuration for {{PROJECT_NAME}}
+# Species: {{SPECIES}}
+# Template: {{TEMPLATE_TYPE}}
+# Created: {{DATE}}
+
+# ============================================================================
+# LOAD SHARED YAML CONFIG (Single Source of Truth)
+# ============================================================================
+
+# Null coalesce operator (if not already defined)
+if (!exists("%||%")) {
+  `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
+}
+
+# Try to load shared config from pipeline.yaml
+.load_yaml_config <- function() {
+  # Try multiple paths to find the YAML
+  possible_paths <- c(
+    "02_analysis/config/pipeline.yaml",
+    file.path(getwd(), "02_analysis/config/pipeline.yaml")
+  )
+
+  # Also try relative to this script if sourced
+  if (exists("sys.frame") && !is.null(sys.frame(1)$ofile)) {
+    script_dir <- dirname(sys.frame(1)$ofile)
+    possible_paths <- c(file.path(script_dir, "pipeline.yaml"), possible_paths)
+  }
+
+  for (path in possible_paths) {
+    if (file.exists(path)) {
+      if (requireNamespace("yaml", quietly = TRUE)) {
+        config <- yaml::read_yaml(path)
+        message("Loaded shared config from: ", path)
+        return(config)
+      } else {
+        message("Note: yaml package not installed. Using hardcoded defaults.")
+        return(NULL)
+      }
+    }
+  }
+  message("Note: pipeline.yaml not found. Using hardcoded defaults.")
+  return(NULL)
+}
+
+YAML_CONFIG <- tryCatch(.load_yaml_config(), error = function(e) NULL)
+
+# ============================================================================
+# PROJECT METADATA
+# ============================================================================
+
+PROJECT_ID <- YAML_CONFIG$project$id %||% "{{PROJECT_NAME}}"
+PROJECT_TITLE <- YAML_CONFIG$project$title %||% "{{PROJECT_NAME}} Analysis"
+SPECIES <- YAML_CONFIG$project$species %||% "{{SPECIES}}"
+SPECIES_DB <- YAML_CONFIG$project$species_db %||% "{{SPECIES_DB}}"
+GENOME_BUILD <- YAML_CONFIG$project$genome_build %||% "{{GENOME_BUILD}}"
+
+# ============================================================================
+# DIRECTORY STRUCTURE (Relative to project root)
+# ============================================================================
+
+# Get project root (two levels up from config/)
+# Try multiple methods to get the script path
+if (exists("rstudioapi") && rstudioapi::isAvailable()) {
+  # RStudio environment
+  PROJECT_ROOT <- normalizePath(file.path(dirname(dirname(rstudioapi::getSourceEditorContext()$path)), ".."))
+} else if (!is.null(sys.frames()[[1]]$ofile)) {
+  # Rscript execution
+  PROJECT_ROOT <- normalizePath(file.path(dirname(dirname(sys.frame(1)$ofile)), ".."))
+} else {
+  # Fallback: use working directory
+  PROJECT_ROOT <- normalizePath(getwd())
+}
+
+# Verify project root exists and looks correct
+if (!file.exists(file.path(PROJECT_ROOT, "CLAUDE.md"))) {
+  # Try parent directory
+  if (file.exists(file.path(dirname(PROJECT_ROOT), "CLAUDE.md"))) {
+    PROJECT_ROOT <- dirname(PROJECT_ROOT)
+  } else {
+    warning("Could not auto-detect PROJECT_ROOT. Using working directory.")
+    PROJECT_ROOT <- normalizePath(getwd())
+  }
+}
+
+# Input directories
+DIR_DATA_PROCESSED <- file.path(PROJECT_ROOT, "00_data/processed")
+DIR_DATA_REFERENCES <- file.path(PROJECT_ROOT, "00_data/references")
+
+# Scripts and tools
+DIR_SCRIPTS <- file.path(PROJECT_ROOT, "01_scripts")
+DIR_TOOLKIT <- file.path(DIR_SCRIPTS, "RNAseq-toolkit/scripts")
+
+# Analysis scripts
+DIR_ANALYSIS <- file.path(PROJECT_ROOT, "02_analysis")
+DIR_CONFIG <- file.path(DIR_ANALYSIS, "config")
+
+# Output directories
+DIR_RESULTS <- file.path(PROJECT_ROOT, "03_results")
+DIR_CHECKPOINTS <- file.path(DIR_RESULTS, "checkpoints")
+DIR_TABLES <- file.path(DIR_RESULTS, "tables")
+DIR_PLOTS <- file.path(DIR_RESULTS, "plots")
+
+# Create output directories if they don't exist
+for (dir in c(DIR_CHECKPOINTS, DIR_TABLES, DIR_PLOTS)) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)
+    message("Created directory: ", dir)
+  }
+}
+
+# ============================================================================
+# INPUT FILES (customize for your project)
+# ============================================================================
+
+# Primary count matrix - CUSTOMIZE THIS PATH
+# FILE_COUNTS <- file.path(DIR_DATA_PROCESSED, "counts.txt")
+
+# ============================================================================
+# EXPERIMENTAL DESIGN (customize for your project)
+# ============================================================================
+
+# Sample groups - CUSTOMIZE THIS
+# SAMPLE_GROUPS <- list(
+#   Control = c("sample1", "sample2", "sample3"),
+#   Treatment = c("sample4", "sample5", "sample6")
+# )
+
+# Contrasts - CUSTOMIZE THIS
+# CONTRASTS <- list(
+#   Treatment_vs_Control = c("Treatment", "Control")
+# )
+
+# Group colors - CUSTOMIZE THIS
+# GROUP_COLORS <- c(
+#   Control = "#1f77b4",     # Blue
+#   Treatment = "#ff7f0e"    # Orange
+# )
+
+# ============================================================================
+# ANALYSIS PARAMETERS
+# ============================================================================
+
+# Filtering thresholds
+MIN_COUNT <- YAML_CONFIG$analysis$min_count %||% 10
+MIN_SAMPLES <- YAML_CONFIG$analysis$min_samples %||% 3
+
+# Differential expression
+DE_FDR_CUTOFF <- YAML_CONFIG$analysis$de_fdr_cutoff %||% 0.05
+DE_LOGFC_CUTOFF <- YAML_CONFIG$analysis$de_logfc_cutoff %||% 2.0
+
+# GSEA parameters
+GSEA_PVALUE_CUTOFF <- 1.0
+GSEA_PADJ_METHOD <- "fdr"
+GSEA_NPERM <- YAML_CONFIG$analysis$gsea_nperm %||% 100000
+GSEA_SEED <- YAML_CONFIG$analysis$gsea_seed %||% 123
+GSEA_FDR_CUTOFF <- 0.05
+GSEA_MIN_SIZE <- YAML_CONFIG$analysis$gsea_min_size %||% 15
+GSEA_MAX_SIZE <- YAML_CONFIG$analysis$gsea_max_size %||% 500
+
+# Rank metric for GSEA
+RANK_METRIC <- "t"  # t-statistic from limma
+
+# ============================================================================
+# MSIGDB DATABASES TO ANALYZE
+# ============================================================================
+
+# Define MSigDB collections and subcollections
+# Format: list(name = c(category, subcategory))
+MSIGDB_DATABASES <- list(
+  H = c("H", ""),                           # Hallmark gene sets
+  C2_KEGG = c("C2", "CP:KEGG"),            # KEGG pathways
+  C2_REACTOME = c("C2", "CP:REACTOME"),    # Reactome pathways
+  C2_WIKIPATHWAYS = c("C2", "CP:WIKIPATHWAYS"), # WikiPathways
+  C5_BP = c("C5", "GO:BP"),                # GO Biological Process
+  C5_MF = c("C5", "GO:MF"),                # GO Molecular Function
+  C5_CC = c("C5", "GO:CC")                 # GO Cellular Component
+)
+
+# ============================================================================
+# VISUALIZATION PARAMETERS
+# ============================================================================
+
+# Plot dimensions
+PLOT_WIDTH <- YAML_CONFIG$visualization$plot_width %||% 10
+PLOT_HEIGHT <- YAML_CONFIG$visualization$plot_height %||% 8
+PLOT_DPI <- YAML_CONFIG$visualization$plot_dpi %||% 300
+
+# Number of top pathways to show in plots
+N_TOP_PATHWAYS <- YAML_CONFIG$visualization$n_top_pathways %||% 20
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+#' Load or compute a result with checkpoint caching
+#'
+#' @param checkpoint_file File path for checkpoint (relative to DIR_CHECKPOINTS or absolute)
+#' @param compute_fn Function that computes the result if checkpoint doesn't exist
+#' @param force_recompute Logical, force recomputation even if checkpoint exists
+#' @param description Character, description of what is being computed
+#'
+#' @return The result, either loaded from checkpoint or computed fresh
+load_or_compute <- function(checkpoint_file,
+                            compute_fn,
+                            force_recompute = FALSE,
+                            description = "Result") {
+
+  # If checkpoint_file is not absolute, assume it's relative to DIR_CHECKPOINTS
+  if (!grepl("^/", checkpoint_file) && !grepl("^[A-Z]:", checkpoint_file)) {
+    checkpoint_path <- file.path(DIR_CHECKPOINTS, checkpoint_file)
+  } else {
+    checkpoint_path <- checkpoint_file
+  }
+
+  # Check if checkpoint exists and we're not forcing recompute
+  if (file.exists(checkpoint_path) && !force_recompute) {
+    message(sprintf("[CACHE] Loading %s from: %s", description, checkpoint_file))
+    result <- readRDS(checkpoint_path)
+    return(result)
+  }
+
+  # Compute the result
+  message(sprintf("[COMPUTE] Computing %s...", description))
+  start_time <- Sys.time()
+  result <- compute_fn()
+  end_time <- Sys.time()
+  elapsed <- round(difftime(end_time, start_time, units = "mins"), 2)
+
+  # Save checkpoint
+  message(sprintf("[SAVE] Saving %s to: %s (took %.2f min)",
+                  description, checkpoint_file, elapsed))
+  saveRDS(result, checkpoint_path)
+
+  return(result)
+}
+
+#' Source toolkit helper scripts (if available)
+#'
+#' @param verbose Logical, print messages about sourced files
+source_toolkit <- function(verbose = TRUE) {
+  if (!dir.exists(DIR_TOOLKIT)) {
+    if (verbose) message("Note: RNAseq-toolkit not found at ", DIR_TOOLKIT)
+    return(invisible(NULL))
+  }
+
+  # Add toolkit files to source here as needed
+  toolkit_files <- c(
+    # "GSEA/GSEA_processing/run_gsea.R",
+    # "DE/plot_standard_volcano.R"
+  )
+
+  for (file in toolkit_files) {
+    file_path <- file.path(DIR_TOOLKIT, file)
+    if (file.exists(file_path)) {
+      if (verbose) message("Sourcing: ", file)
+      source(file_path)
+    }
+  }
+
+  if (verbose && length(toolkit_files) > 0) {
+    message("Toolkit scripts sourced successfully")
+  }
+}
+
+# ============================================================================
+# LOAD REQUIRED PACKAGES
+# ============================================================================
+
+#' Load all required packages for the analysis
+load_packages <- function() {
+  required_packages <- c(
+    # Data manipulation
+    "tidyverse", "readr", "dplyr", "tidyr",
+
+    # Differential expression
+    "limma", "edgeR",
+
+    # GSEA
+    "clusterProfiler", "msigdbr", "fgsea", "enrichplot",
+
+    # Annotation (customize based on species)
+    # "org.Mm.eg.db",  # Mouse
+    # "org.Hs.eg.db",  # Human
+    "AnnotationDbi",
+
+    # Visualization
+    "ggplot2", "pheatmap", "ggrepel"
+  )
+
+  for (pkg in required_packages) {
+    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+      message("Installing package: ", pkg)
+      if (!requireNamespace("BiocManager", quietly = TRUE)) {
+        install.packages("BiocManager")
+      }
+      BiocManager::install(pkg, update = FALSE, ask = FALSE)
+      library(pkg, character.only = TRUE)
+    }
+  }
+
+  message("All required packages loaded")
+}
+
+# ============================================================================
+# CONFIGURATION COMPLETE
+# ============================================================================
+
+message("Configuration loaded for project: ", PROJECT_ID)
+message("Species: ", SPECIES, " (", SPECIES_DB, ")")
+message("Project root: ", PROJECT_ROOT)
+message("Results directory: ", DIR_RESULTS)
