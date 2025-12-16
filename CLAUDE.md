@@ -259,10 +259,12 @@ AI tools (Claude Code, MCP servers) are installed **at runtime** via **SciAgent-
 4. Avoids maintaining separate AI-enabled image
 
 **Setup workflow:**
-1. Run `init-project.sh` to create project structure with SciAgent-toolkit submodule
+1. Run `init-project.sh --with-submodules` to create project structure with SciAgent-toolkit submodule
 2. Open project in VS Code Dev Container
 3. Run: `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`
 4. Fill in `context.md` with your scientific question
+
+**Note:** SciAgent-toolkit is maintained at `toolkits/SciAgent-toolkit/` in the scbio-docker repo and added as a submodule to `01_modules/SciAgent-toolkit/` in new projects.
 
 **Configuration files created:**
 - `.mcp.json` - MCP server configuration (project-local, gitignored)
@@ -648,8 +650,7 @@ my-project/
 │   ├── processed/             # Processed objects
 │   └── references/            # Reference files
 ├── 01_modules/                # Reusable toolkits (submodules)
-│   ├── RNAseq-toolkit/        # R analysis functions
-│   └── SciAgent-toolkit/      # AI infrastructure
+│   └── RNAseq-toolkit/        # R analysis functions (optional)
 ├── 02_analysis/
 │   ├── config/                # Configuration files
 │   │   ├── config.R
