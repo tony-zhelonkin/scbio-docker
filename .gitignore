@@ -5,6 +5,7 @@
 plan.md
 tasks.md
 reproduction_test/
+.gemini/*
 .env
 *.env
 
