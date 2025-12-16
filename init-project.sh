@@ -2,18 +2,16 @@
 # init-project.sh - Initialize a new scbio-dock project directory from templates
 #
 # Usage:
-#   ./init-project.sh <project-dir> <template-name> [OPTIONS]
+#   ./init-project.sh <project-dir> [template-name] [OPTIONS]
 #
 # Templates:
-#   basic-rna       - Standard RNA-seq analysis
-#   multimodal      - RNA + ATAC or CITE-seq
-#   archr-focused   - ArchR scATAC-seq analysis
-#   example-DMATAC  - Differential chromatin accessibility
+#   base            - Standard bioinformatics project (default)
 #
 # Options:
 #   --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)
 #   --interactive                  Prompt for all configuration options
 #   --git-init                     Initialize git repository
+#   --with-submodules              Add RNAseq-toolkit and SciAgent-toolkit as git submodules
 #
 # Examples:
 #   ./init-project.sh ~/projects/my-analysis basic-rna --interactive
@@ -44,41 +42,53 @@ NC='\033[0m' # No Color
 # Default options
 INTERACTIVE=false
 GIT_INIT=false
+WITH_SUBMODULES=false
 declare -a DATA_MOUNTS=()
 
+# Submodule URLs (SSH - gh CLI handles authentication)
+RNASEQ_TOOLKIT_URL="git@github.com:tony-zhelonkin/RNAseq-toolkit.git"
+RNASEQ_TOOLKIT_BRANCH="dev"
+SCIAGENT_TOOLKIT_URL="git@github.com:tony-zhelonkin/SciAgent-toolkit.git"
+SCIAGENT_TOOLKIT_BRANCH="main"
+
 usage() {
-    echo "Usage: $0 <project-dir> <template-name> [OPTIONS]"
+    echo "Usage: $0 <project-dir> [template-name] [OPTIONS]"
     echo ""
     echo "Available templates:"
-    echo "  basic-rna       - Standard RNA-seq analysis"
-    echo "  multimodal      - RNA + ATAC or CITE-seq"
-    echo "  archr-focused   - ArchR scATAC-seq analysis (uses dev-archr service)"
-    echo "  example-DMATAC  - Differential chromatin accessibility"
+    echo "  base            - Standard bioinformatics project (default)"
     echo ""
     echo "Options:"
     echo "  --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)"
     echo "                                 KEY is a label, PATH is host path, :ro for read-only"
     echo "  --interactive                  Prompt for all configuration options"
     echo "  --git-init                     Initialize git repository"
+    echo "  --with-submodules              Add RNAseq-toolkit and SciAgent-toolkit as git submodules"
+    echo "                                 (implies --git-init, requires SSH key setup for GitHub)"
     echo ""
     echo "Examples:"
-    echo "  $0 ~/projects/my-analysis basic-rna --interactive"
-    echo ""
-    echo "  $0 ~/projects/atac-study archr-focused \\"
+    echo "  $0 ~/projects/my-analysis"
+    echo "  $0 ~/projects/my-analysis base --interactive"
+    echo "  $0 ~/projects/atac-study base \\"
     echo "      --data-mount atac:/scratch/data/DT-1234 \\"
     echo "      --data-mount rna:/scratch/data/DT-5678:ro \\"
-    echo "      --git-init"
+    echo "      --git-init --with-submodules"
     exit 1
 }
 
 # Parse command line arguments
-if [ $# -lt 2 ]; then
+if [ $# -lt 1 ]; then
     usage
 fi
 
 PROJECT_DIR="$1"
-TEMPLATE="$2"
-shift 2
+shift
+
+# Template is optional, default to "base"
+TEMPLATE="base"
+if [ $# -gt 0 ] && [[ ! "$1" =~ ^-- ]]; then
+    TEMPLATE="$1"
+    shift
+fi
 
 # Parse options
 while [[ $# -gt 0 ]]; do
@@ -93,6 +103,11 @@ while [[ $# -gt 0 ]]; do
             ;;
         --git-init)
             GIT_INIT=true
+            shift
+            ;;
+        --with-submodules)
+            WITH_SUBMODULES=true
+            GIT_INIT=true  # Submodules require git
             shift
             ;;
         *)
@@ -148,6 +163,15 @@ if [ "$INTERACTIVE" = true ]; then
         fi
     fi
 
+    # Submodules (only ask if git will be initialized)
+    if [ "$GIT_INIT" = true ] && [ "$WITH_SUBMODULES" = false ]; then
+        read -p "Add analysis toolkits as git submodules? (Y/n): " -n 1 -r submod_reply
+        echo
+        if [[ ! $submod_reply =~ ^[Nn]$ ]]; then
+            WITH_SUBMODULES=true
+        fi
+    fi
+
     # Resource limits
     read -p "Max CPUs (default: 50): " max_cpus
     MAX_CPUS="${max_cpus:-50}"
@@ -185,24 +209,10 @@ fi
 : ${MAX_CPUS:=50}
 : ${MAX_MEMORY:=450G}
 
-# Species defaults based on template (can be overridden by interactive mode)
-case "$TEMPLATE" in
-    basic-rna|multimodal)
-        : ${SPECIES:="Mus musculus"}
-        : ${SPECIES_DB:="MM"}
-        : ${GENOME_BUILD:="mm10"}
-        ;;
-    archr-focused|example-DMATAC)
-        : ${SPECIES:="Mus musculus"}
-        : ${SPECIES_DB:="MM"}
-        : ${GENOME_BUILD:="mm10"}
-        ;;
-    *)
-        : ${SPECIES:="Mus musculus"}
-        : ${SPECIES_DB:="MM"}
-        : ${GENOME_BUILD:="mm10"}
-        ;;
-esac
+# Species defaults (can be overridden by interactive mode)
+: ${SPECIES:="Mus musculus"}
+: ${SPECIES_DB:="MM"}
+: ${GENOME_BUILD:="mm10"}
 
 # Check if project directory exists
 if [ -d "$PROJECT_DIR" ]; then
@@ -219,14 +229,9 @@ fi
 
 echo -e "${GREEN}Initializing project '${PROJECT_NAME}' from '${TEMPLATE}' template...${NC}"
 
-# Determine which service and image to use (needed for documentation templates)
-if [ "$TEMPLATE" == "archr-focused" ]; then
-    SERVICE="dev-archr"
-    IMAGE="scdock-r-archr:v0.5.2"
-else
-    SERVICE="dev-core"
-    IMAGE="scdock-r-dev:v0.5.2"
-fi
+# Service and image defaults (ArchR is available via docker-compose profile)
+SERVICE="dev-core"
+IMAGE="scdock-r-dev:v0.5.2"
 
 # Copy template structure (if template has files)
 if [ -n "$(ls -A "${TEMPLATE_PATH}" 2>/dev/null)" ]; then
@@ -242,8 +247,8 @@ cp "${TEMPLATES_DIR}/.vscode/settings.json" "${PROJECT_DIR}/.vscode/settings.jso
 # Create standard directories with new structure
 echo "Creating project structure..."
 for dir in 00_data/raw 00_data/processed 00_data/references \
-           01_scripts 02_analysis/config 03_results/checkpoints \
-           03_results/plots 03_results/tables logs; do
+           01_modules 02_analysis/config 02_analysis/helpers \
+           03_results/checkpoints 03_results/plots 03_results/tables logs; do
     mkdir -p "${PROJECT_DIR}/${dir}"
 done
 
@@ -260,11 +265,8 @@ if [ -f "${TEMPLATES_DIR}/docs/README.md.template" ]; then
     sed -i "s|{{SCBIO_DOCKER_PATH}}|${SCRIPT_DIR}|g" "${PROJECT_DIR}/README.md"
 fi
 
-if [ -f "${TEMPLATES_DIR}/docs/plan.md.template" ]; then
-    cp "${TEMPLATES_DIR}/docs/plan.md.template" "${PROJECT_DIR}/plan.md"
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/plan.md"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/plan.md"
-fi
+# Note: plan.md has been replaced by context.md, which is created by
+# SciAgent-toolkit/scripts/setup-ai.sh along with other AI context files
 
 if [ -f "${TEMPLATES_DIR}/docs/tasks.md.template" ]; then
     cp "${TEMPLATES_DIR}/docs/tasks.md.template" "${PROJECT_DIR}/tasks.md"
@@ -277,17 +279,8 @@ if [ -f "${TEMPLATES_DIR}/docs/.env.example" ]; then
     cp "${TEMPLATES_DIR}/docs/.env.example" "${PROJECT_DIR}/.env.example"
 fi
 
-# Copy CLAUDE.md template (AI assistant context)
-if [ -f "${TEMPLATES_DIR}/docs/CLAUDE.md.template" ]; then
-    echo "Creating CLAUDE.md..."
-    cp "${TEMPLATES_DIR}/docs/CLAUDE.md.template" "${PROJECT_DIR}/CLAUDE.md"
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/CLAUDE.md"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/CLAUDE.md"
-    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/CLAUDE.md"
-    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/CLAUDE.md"
-    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/CLAUDE.md"
-    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/CLAUDE.md"
-fi
+# Note: CLAUDE.md is now created by SciAgent-toolkit/scripts/setup-ai.sh
+# This ensures AI context files are created when AI tools are set up, not at project init
 
 # Copy notes.md template (research findings tracker)
 if [ -f "${TEMPLATES_DIR}/docs/notes.md.template" ]; then
@@ -327,13 +320,9 @@ if [ -f "${TEMPLATES_DIR}/config/color_config.R.template" ]; then
     sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/color_config.R"
 fi
 
-# Copy guidelines to project (from canonical source in docs/)
-echo "Copying analysis guidelines..."
-mkdir -p "${PROJECT_DIR}/docs/guidelines"
-if [ -f "${SCRIPT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md" ]; then
-    cp "${SCRIPT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md" \
-       "${PROJECT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md"
-fi
+# Note: Analysis guidelines are now in SciAgent-toolkit/docs/guidelines/
+# They are not copied to each project - reference them directly from the submodule
+# This ensures single source of truth and easier updates
 
 # Copy devcontainer configuration
 echo "Setting up devcontainer configuration..."
@@ -589,6 +578,58 @@ Date: $(date +%Y-%m-%d)
     cd - > /dev/null
 fi
 
+# Add git submodules (requires git to be initialized)
+if [ "$WITH_SUBMODULES" = true ] && [ -d "${PROJECT_DIR}/.git" ]; then
+    echo "Adding analysis toolkits as git submodules..."
+    cd "${PROJECT_DIR}"
+
+    SUBMODULES_ADDED=false
+
+    # Add RNAseq-toolkit submodule (dev branch)
+    echo "  Adding RNAseq-toolkit (branch: ${RNASEQ_TOOLKIT_BRANCH})..."
+    if [ -d "01_modules/RNAseq-toolkit" ]; then
+        echo -e "  ${YELLOW}⚠ RNAseq-toolkit directory already exists, skipping${NC}"
+    else
+        if git submodule add -b "${RNASEQ_TOOLKIT_BRANCH}" "${RNASEQ_TOOLKIT_URL}" "01_modules/RNAseq-toolkit"; then
+            echo -e "  ${GREEN}✓ RNAseq-toolkit added${NC}"
+            SUBMODULES_ADDED=true
+        else
+            echo -e "  ${RED}✗ Failed to add RNAseq-toolkit${NC}"
+        fi
+    fi
+
+    # Add SciAgent-toolkit submodule
+    echo "  Adding SciAgent-toolkit (branch: ${SCIAGENT_TOOLKIT_BRANCH})..."
+    if [ -d "01_modules/SciAgent-toolkit" ]; then
+        echo -e "  ${YELLOW}⚠ SciAgent-toolkit directory already exists, skipping${NC}"
+    else
+        if git submodule add -b "${SCIAGENT_TOOLKIT_BRANCH}" "${SCIAGENT_TOOLKIT_URL}" "01_modules/SciAgent-toolkit"; then
+            echo -e "  ${GREEN}✓ SciAgent-toolkit added${NC}"
+            SUBMODULES_ADDED=true
+        else
+            echo -e "  ${RED}✗ Failed to add SciAgent-toolkit${NC}"
+        fi
+    fi
+
+    # Initialize and update submodules (if any were added)
+    if [ "$SUBMODULES_ADDED" = true ]; then
+        git submodule update --init --recursive
+
+        # Commit submodule additions
+        if [ -f ".gitmodules" ]; then
+            git add .gitmodules 01_modules/
+            git commit -m "Add analysis toolkits as git submodules
+
+- RNAseq-toolkit (${RNASEQ_TOOLKIT_BRANCH} branch): Reusable RNA-seq analysis functions
+- SciAgent-toolkit: AI infrastructure and MCP server setup
+"
+            echo -e "${GREEN}✓ Submodules committed${NC}"
+        fi
+    fi
+
+    cd - > /dev/null
+fi
+
 echo ""
 echo -e "${GREEN}✓ Project initialized successfully!${NC}"
 echo ""
@@ -604,6 +645,9 @@ fi
 if [ "$GIT_INIT" = true ]; then
     echo "  Git: initialized"
 fi
+if [ "$WITH_SUBMODULES" = true ]; then
+    echo "  Submodules: RNAseq-toolkit (${RNASEQ_TOOLKIT_BRANCH}), SciAgent-toolkit"
+fi
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. cd ${PROJECT_DIR}"
@@ -611,30 +655,27 @@ if [ ${#DATA_MOUNTS[@]} -eq 0 ]; then
     echo "  2. Edit .devcontainer/docker-compose.yml to add data mounts"
     echo "  3. Open in VS Code: code ${PROJECT_DIR}"
     echo "  4. Reopen in container: Ctrl+Shift+P → 'Dev Containers: Reopen in Container'"
-    echo "  5. Review and fill in plan.md with your scientific question"
-    echo "  6. Customize CLAUDE.md with project-specific context"
+    echo "  5. Run AI setup: ./01_modules/SciAgent-toolkit/scripts/setup-ai.sh"
+    echo "  6. Fill in context.md with your scientific question"
     echo "  7. Edit 02_analysis/config/pipeline.yaml for your experiment"
 else
     echo "  2. Open in VS Code: code ${PROJECT_DIR}"
     echo "  3. Reopen in container: Ctrl+Shift+P → 'Dev Containers: Reopen in Container'"
-    echo "  4. Review and fill in plan.md with your scientific question"
-    echo "  5. Customize CLAUDE.md with project-specific context"
+    echo "  4. Run AI setup: ./01_modules/SciAgent-toolkit/scripts/setup-ai.sh"
+    echo "  5. Fill in context.md with your scientific question"
     echo "  6. Edit 02_analysis/config/pipeline.yaml for your experiment"
-fi
-echo ""
-if [ "$TEMPLATE" == "archr-focused" ]; then
-    echo -e "${YELLOW}Note: This project uses the ArchR image (R 4.4).${NC}"
-    echo "      To switch between dev-core and dev-archr, edit .devcontainer/devcontainer.json"
 fi
 echo ""
 echo -e "${BLUE}Documentation:${NC}"
 echo "  - Project workflow: ${PROJECT_DIR}/README.md"
-echo "  - AI context: ${PROJECT_DIR}/CLAUDE.md"
-echo "  - Analysis plan: ${PROJECT_DIR}/plan.md"
 echo "  - Task tracker: ${PROJECT_DIR}/tasks.md"
 echo "  - Research notes: ${PROJECT_DIR}/notes.md"
-echo "  - Analysis guidelines: ${PROJECT_DIR}/docs/guidelines/rnaseq-analysis-guidelines.md"
 echo "  - Config: ${PROJECT_DIR}/02_analysis/config/"
+echo ""
+echo -e "${BLUE}After running setup-ai.sh:${NC}"
+echo "  - AI context: CLAUDE.md, GEMINI.md, AGENTS.md"
+echo "  - Scientific context: context.md"
+echo "  - Methodology: 01_modules/SciAgent-toolkit/docs/guidelines/"
 echo ""
 echo -e "${BLUE}scbio-docker references:${NC}"
 echo "  - Image build guide: ${SCRIPT_DIR}/DEVOPS.md"

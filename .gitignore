@@ -3,4 +3,8 @@
 
 # Personal planning files
 plan.md
-tasks.mdreproduction_test/
+tasks.md
+reproduction_test/
+.env
+*.env
+
