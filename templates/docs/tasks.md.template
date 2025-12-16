@@ -22,9 +22,9 @@
 **Read by:** Every work session, especially when resuming after breaks
 
 **Complements:**
-- `plan.md` — Scientific context and strategy (why you're doing this)
-- `handoff.md` — Session-to-session continuity
+- `context.md` — Scientific context and strategy (why you're doing this)
 - `notes.md` — Research findings and external resources
+- `AGENTS.md` — Universal AI rules and conventions
 
 ---
 
@@ -53,7 +53,8 @@
 
 **Scripts:**
 - Analysis scripts: `02_analysis/`
-- Helper functions: `01_scripts/`
+- Helper functions: `02_analysis/helpers/`
+- Toolkit modules: `01_modules/`
 - Config: `02_analysis/config/`
 
 ---
@@ -252,17 +253,15 @@ _No bugs logged yet._
 
 ---
 
-## 📦 Handoff Checklist
+## 📦 Session Handoff Checklist
 
 **Before switching containers or ending session:**
 
 1. [ ] Save all R/Python objects (checkpoints)
 2. [ ] Update this file (mark current substep status)
-3. [ ] Create/update `handoff.md`
+3. [ ] Update `context.md` if scientific direction changed
 4. [ ] Document file paths (inputs + outputs)
 5. [ ] Commit changes if using git
-
-**See `handoff.md` template for details**
 
 ---
 
@@ -287,7 +286,7 @@ _No bugs logged yet._
 
 **First time using this file:**
 
-1. Fill in Stage 1 substeps based on `plan.md`
+1. Fill in Stage 1 substeps based on `context.md`
 2. Estimate time for each stage
 3. Create checkpoint naming scheme
 4. Set up `02_analysis/config/checkpoint_helpers.R`
@@ -295,7 +294,7 @@ _No bugs logged yet._
 
 **Resuming after break:**
 
-1. Read `handoff.md` (if exists)
+1. Review `context.md` to recall the scientific context
 2. Check latest checkpoint status
 3. Review last 🔄 substep, decide:
    - Continue if incomplete
@@ -314,9 +313,9 @@ _No bugs logged yet._
 - Creating checkpoints → Document file names
 
 **Don't update for:**
-- Scientific interpretation → Update `plan.md` instead
+- Scientific interpretation → Update `context.md` instead
 - External research notes → Use `notes.md` instead
-- Session handoffs → Use `handoff.md` instead
+- Methodology questions → Consult `01_modules/SciAgent-toolkit/docs/guidelines/`
 
 ---
 

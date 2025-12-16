@@ -14,10 +14,12 @@
 │   ├── raw/              # Raw input data (read-only mounts recommended)
 │   ├── processed/        # Processed/intermediate data
 │   └── references/       # Reference genomes, annotations
-├── 01_scripts/           # Analysis scripts and external tools
-│   └── README.md         # Instructions for adding submodules
+├── 01_modules/           # Reusable toolkits (submodules)
+│   ├── RNAseq-toolkit/   # R analysis functions
+│   └── SciAgent-toolkit/ # AI infrastructure & methodology
 ├── 02_analysis/          # Analysis workflows
-│   └── config/           # Pipeline configuration files
+│   ├── config/           # Pipeline configuration files
+│   └── helpers/          # Project-specific scripts
 ├── 03_results/           # Analysis outputs
 │   ├── checkpoints/      # Intermediate R/Python objects
 │   ├── plots/            # Figures and visualizations
@@ -25,7 +27,9 @@
 ├── logs/                 # Log files (tmux, job outputs)
 ├── .devcontainer/        # Container configuration
 ├── .vscode/              # VS Code settings
-└── plan.md, tasks.md     # Project planning documents
+├── context.md            # Scientific context (created by setup-ai.sh)
+├── tasks.md              # Execution tracker
+└── notes.md              # Research notes
 ```
 
 ---
@@ -85,7 +89,7 @@ Bioinformatics projects are complex. Before writing code, establish context:
 
 #### 1. Plan Before You Code
 
-Create `plan.md` with:
+Fill in `context.md` (created by setup-ai.sh) with:
 - Scientific question and hypotheses
 - Known issues and proposed solutions
 - Data inventory and file paths
@@ -189,14 +193,16 @@ radian           # Standard R with base libraries
 
 ---
 
-## Analysis Templates
+## Methodology Guidelines
 
-Depending on your template type (`{{TEMPLATE_TYPE}}`), see:
+Analysis methodology is maintained in `01_modules/SciAgent-toolkit/docs/guidelines/`:
 
-- **basic-rna**: Standard scRNA-seq (QC → Clustering → DE → GSEA)
-- **multimodal**: RNA + ATAC or CITE-seq (Integration → Joint embedding)
-- **archr-focused**: ArchR scATAC-seq (Peak calling → Motif → DA)
-- **example-DMATAC**: Differential accessibility (From DC_Dictionary project)
+- **core_architecture.md** - Data structures and variable naming
+- **data_processing.md** - QC, normalization, filtering
+- **gsea_analysis.md** - Gene set enrichment analysis
+- **checkpoint_caching.md** - Saving/loading intermediate results
+- **visualization.md** - Plot generation and styling
+- **code_style.md** - R/Python coding conventions
 
 ---
 
@@ -212,10 +218,10 @@ Depending on your template type (`{{TEMPLATE_TYPE}}`), see:
 
 ### For Manual Coding
 
-1. **Read plan.md first** - Understand the big picture
+1. **Read context.md first** - Understand the big picture
 2. **Follow tasks.md** - Execute stages in order
 3. **Test after each substep** - Don't accumulate untested code
-4. **Update documentation** - Keep plan.md/tasks.md synchronized with reality
+4. **Update documentation** - Keep context.md/tasks.md synchronized with reality
 5. **Use checkpoints** - Save intermediate results frequently
 
 ---

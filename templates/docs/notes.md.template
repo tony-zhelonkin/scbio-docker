@@ -24,7 +24,7 @@
 
 ### {{DATE}} - Project Initialization
 - Project created using {{TEMPLATE_TYPE}} template
-- Analysis guidelines: `docs/guidelines/rnaseq-analysis-guidelines.md`
+- Analysis guidelines: `01_modules/SciAgent-toolkit/docs/guidelines/`
 
 ---
 

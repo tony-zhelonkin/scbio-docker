@@ -247,32 +247,46 @@ if (!require("PACKAGE")) BiocManager::install("PACKAGE")
 
 ### AI Tools Integration (Runtime Setup)
 
-AI tools (Claude Code, MCP servers) are installed **at runtime** inside the container, not during image build. This provides per-project configuration with correct absolute paths.
+AI tools (Claude Code, MCP servers) are installed **at runtime** via **SciAgent-toolkit**, not during image build. This provides:
+- Per-project configuration with correct absolute paths
+- Clean separation between container infrastructure and AI tooling
+- User control over when to spend time on optional installations
 
 **Why runtime instead of build-time:**
-1. `.mcp.json` requires absolute paths - must be generated with actual project path at runtime
-2. ToolUniverse creates `tooluniverse-env/` per-project for isolation
-3. Avoids maintaining separate AI-enabled image
-4. Users control when to spend time on Serena compilation (5-15 min)
+1. `.mcp.json` requires absolute paths - must be generated with actual project path
+2. AI context files (CLAUDE.md, etc.) are project-specific
+3. ToolUniverse creates `tooluniverse-env/` per-project for isolation
+4. Avoids maintaining separate AI-enabled image
 
 **Setup workflow:**
-1. `init-project.sh --ai` copies `setup-ai.sh` to project
-2. Inside container: `.devcontainer/scripts/setup-ai.sh`
-3. Creates: `.mcp.json`, `tooluniverse-env/`, installs claude CLI
+1. Run `init-project.sh` to create project structure with SciAgent-toolkit submodule
+2. Open project in VS Code Dev Container
+3. Run: `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`
+4. Fill in `context.md` with your scientific question
 
 **Configuration files created:**
-- `.mcp.json` - Claude Code MCP server configuration (project-local, gitignored)
-- `tooluniverse-env/` - ToolUniverse Python environment (project-local, gitignored)
+- `.mcp.json` - MCP server configuration (project-local, gitignored)
+- `.claude/agents/` - Symlinks to active agents from SciAgent-toolkit
+- `.claude/skills/` - Symlinks to active skills from SciAgent-toolkit
+- `CLAUDE.md`, `GEMINI.md`, `AGENTS.md` - AI context files
+- `context.md` - Scientific context (user fills in)
+- `02_analysis/config/analysis_config.yaml` - Project parameters
 
 **First-run timing:**
-- Full setup: 5-15 minutes (Serena Rust compilation)
+- Full setup: 5-15 minutes (optional Serena Rust compilation)
 - Minimal setup (`--minimal`): 2-3 minutes
 - Subsequent runs: <1 minute (checks if already installed)
 
 **Available MCP servers:**
 - **Sequential Thinking**: Structured reasoning for complex decisions
-- **ToolUniverse**: 600+ scientific tools (ChEMBL, UniProt, PubMed, ClinicalTrials.gov, etc.)
-- **Serena**: Code intelligence and semantic search (optional, requires compilation)
+- **PAL**: Multi-model AI collaboration
+- **Context7**: Up-to-date library documentation
+- **ToolUniverse**: 600+ scientific tools (ChEMBL, UniProt, PubMed, etc.)
+- **Serena**: Code intelligence (optional, requires compilation)
+
+**Methodology Guidelines:**
+Analysis guidelines are maintained in `SciAgent-toolkit/docs/guidelines/` (single source of truth).
+These are referenced from AI context files, not copied to each project.
 
 ## Common Commands
 
@@ -598,39 +612,80 @@ If `scenicplus` is not preinstalled:
 pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
 ```
 
-## Project Setup Pattern (v0.5.0)
+## Project Setup Pattern
 
-### Quick Start with Templates
+### Separation of Concerns
+
+This repository follows a strict separation between **container infrastructure** and **AI tooling**:
+
+| Repository | Responsibility |
+|------------|----------------|
+| **scbio-docker** | Docker images, container setup, project directory structure |
+| **SciAgent-toolkit** | AI tools installation, MCP servers, agents/skills, methodology guidelines |
+
+### Quick Start
 
 ```bash
 # From scbio-docker repository
-./init-project.sh ~/projects/my-analysis basic-rna
-
-# Templates available:
-# - basic-rna       : Standard RNA-seq analysis
-# - multimodal      : RNA + ATAC or CITE-seq
-# - archr-focused   : ArchR scATAC-seq (uses dev-archr service)
-# - example-DMATAC  : Differential chromatin accessibility
+./init-project.sh ~/projects/my-analysis              # Uses "base" template (default)
+./init-project.sh ~/projects/my-analysis base --git-init --with-submodules
 ```
 
 **What init-project.sh creates:**
 ```
 my-project/
 ├── .devcontainer/
-│   ├── devcontainer.json      # Pre-configured for chosen template
+│   ├── devcontainer.json      # Pre-configured VS Code container setup
 │   ├── docker-compose.yml     # Multi-service setup (dev-core + dev-archr)
-│   └── post-start.sh          # Sanity checks
+│   ├── .env                   # LOCAL_UID, LOCAL_GID, API keys
+│   └── scripts/
+│       └── poststart_sanity.sh
 ├── .vscode/
 │   └── settings.json          # Universal Python + R configuration
 ├── .gitignore                 # Excludes data/, results/, caches
-├── .env                       # LOCAL_UID, LOCAL_GID, WORKSPACE_FOLDER
-├── data/
+├── 00_data/
 │   ├── raw/                   # Raw data (add mount in docker-compose.yml)
-│   └── processed/             # Processed objects
-├── scripts/                   # Analysis scripts
-├── notebooks/                 # Jupyter/Quarto notebooks
-├── results/                   # Figures, tables, reports
-└── README.md                  # Template-specific instructions
+│   ├── processed/             # Processed objects
+│   └── references/            # Reference files
+├── 01_modules/                # Reusable toolkits (submodules)
+│   ├── RNAseq-toolkit/        # R analysis functions
+│   └── SciAgent-toolkit/      # AI infrastructure
+├── 02_analysis/
+│   ├── config/                # Configuration files
+│   │   ├── config.R
+│   │   ├── pipeline.yaml
+│   │   └── color_config.R
+│   └── helpers/               # Project-specific scripts
+├── 03_results/
+│   ├── checkpoints/           # Cached intermediate objects
+│   ├── plots/                 # Generated figures
+│   └── tables/                # Output tables
+├── logs/
+├── README.md                  # Project instructions
+├── tasks.md                   # Task tracker
+└── notes.md                   # Research notes
+```
+
+### After Container Setup (AI Tooling)
+
+Run inside the container to set up AI tools:
+```bash
+./01_modules/SciAgent-toolkit/scripts/setup-ai.sh
+```
+
+**What setup-ai.sh creates:**
+```
+my-project/
+├── .claude/                   # Claude Code configuration
+│   ├── agents/                # Symlinks to active agents
+│   └── skills/                # Symlinks to active skills
+├── .mcp.json                  # MCP server configuration
+├── CLAUDE.md                  # AI context for Claude
+├── GEMINI.md                  # AI context for Gemini
+├── AGENTS.md                  # Universal AI rules
+├── context.md                 # Scientific context (user fills in)
+└── 02_analysis/config/
+    └── analysis_config.yaml   # Project parameters
 ```
 
 ### Manual Setup (Without Templates)
