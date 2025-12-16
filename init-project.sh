@@ -395,8 +395,9 @@ services:
     env_file: .env
     environment:
       - CONTEXT7_API_KEY=\${CONTEXT7_API_KEY}
-    ports:
-      - "8787:8787"  # httpgd graphics server
+    # Uncomment to expose httpgd graphics server (may conflict if port already in use)
+    # ports:
+    #   - "8787:8787"
     volumes:
       - \${WORKSPACE_FOLDER:-.}:/workspaces/${PROJECT_NAME}
 ${DATA_MOUNT_LINES}    stdin_open: true
@@ -419,8 +420,9 @@ ${DATA_MOUNT_LINES}    stdin_open: true
     env_file: .env
     environment:
       - CONTEXT7_API_KEY=\${CONTEXT7_API_KEY}
-    ports:
-      - "8787:8787"  # httpgd graphics server
+    # Uncomment to expose httpgd graphics server (may conflict if port already in use)
+    # ports:
+    #   - "8787:8787"
     volumes:
       - \${WORKSPACE_FOLDER:-.}:/workspaces/${PROJECT_NAME}
 ${DATA_MOUNT_LINES}    stdin_open: true
@@ -585,37 +587,66 @@ if [ "$WITH_SUBMODULES" = true ] && [ -d "${PROJECT_DIR}/.git" ]; then
 
     SUBMODULES_ADDED=false
 
+    # Helper function to add submodule with gh fallback
+    add_submodule_with_fallback() {
+        local repo_owner="tony-zhelonkin"
+        local repo_name="$1"
+        local branch="$2"
+        local target_path="$3"
+        local ssh_url="git@github.com:${repo_owner}/${repo_name}.git"
+        local https_url="https://github.com/${repo_owner}/${repo_name}.git"
+
+        if [ -d "$target_path" ]; then
+            echo -e "  ${YELLOW}⚠ ${repo_name} directory already exists, skipping${NC}"
+            return 1
+        fi
+
+        # Try direct git submodule add first (uses SSH)
+        if git submodule add -b "$branch" "$ssh_url" "$target_path" 2>/dev/null; then
+            echo -e "  ${GREEN}✓ ${repo_name} added via git (SSH)${NC}"
+            return 0
+        fi
+
+        # Fallback: use gh CLI with HTTPS (for agents without SSH access)
+        echo "  SSH failed, trying gh CLI fallback (HTTPS)..."
+        if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+            # Clone using gh with explicit HTTPS protocol
+            if GIT_CONFIG_COUNT=1 \
+               GIT_CONFIG_KEY_0="url.https://github.com/.insteadOf" \
+               GIT_CONFIG_VALUE_0="git@github.com:" \
+               gh repo clone "${repo_owner}/${repo_name}" "$target_path" -- -b "$branch" 2>/dev/null; then
+                # Manually create .gitmodules entry (keep SSH URL for future clones by user)
+                git config -f .gitmodules "submodule.${target_path}.path" "$target_path"
+                git config -f .gitmodules "submodule.${target_path}.url" "$ssh_url"
+                git config -f .gitmodules "submodule.${target_path}.branch" "$branch"
+                # Register in .git/config
+                git config "submodule.${target_path}.url" "$ssh_url"
+                git config "submodule.${target_path}.active" "true"
+                # Stage the submodule
+                git add "$target_path"
+                echo -e "  ${GREEN}✓ ${repo_name} added via gh CLI (HTTPS)${NC}"
+                return 0
+            fi
+        fi
+
+        echo -e "  ${RED}✗ Failed to add ${repo_name}${NC}"
+        return 1
+    }
+
     # Add RNAseq-toolkit submodule (dev branch)
     echo "  Adding RNAseq-toolkit (branch: ${RNASEQ_TOOLKIT_BRANCH})..."
-    if [ -d "01_modules/RNAseq-toolkit" ]; then
-        echo -e "  ${YELLOW}⚠ RNAseq-toolkit directory already exists, skipping${NC}"
-    else
-        if git submodule add -b "${RNASEQ_TOOLKIT_BRANCH}" "${RNASEQ_TOOLKIT_URL}" "01_modules/RNAseq-toolkit"; then
-            echo -e "  ${GREEN}✓ RNAseq-toolkit added${NC}"
-            SUBMODULES_ADDED=true
-        else
-            echo -e "  ${RED}✗ Failed to add RNAseq-toolkit${NC}"
-        fi
+    if add_submodule_with_fallback "RNAseq-toolkit" "${RNASEQ_TOOLKIT_BRANCH}" "01_modules/RNAseq-toolkit"; then
+        SUBMODULES_ADDED=true
     fi
 
     # Add SciAgent-toolkit submodule
     echo "  Adding SciAgent-toolkit (branch: ${SCIAGENT_TOOLKIT_BRANCH})..."
-    if [ -d "01_modules/SciAgent-toolkit" ]; then
-        echo -e "  ${YELLOW}⚠ SciAgent-toolkit directory already exists, skipping${NC}"
-    else
-        if git submodule add -b "${SCIAGENT_TOOLKIT_BRANCH}" "${SCIAGENT_TOOLKIT_URL}" "01_modules/SciAgent-toolkit"; then
-            echo -e "  ${GREEN}✓ SciAgent-toolkit added${NC}"
-            SUBMODULES_ADDED=true
-        else
-            echo -e "  ${RED}✗ Failed to add SciAgent-toolkit${NC}"
-        fi
+    if add_submodule_with_fallback "SciAgent-toolkit" "${SCIAGENT_TOOLKIT_BRANCH}" "01_modules/SciAgent-toolkit"; then
+        SUBMODULES_ADDED=true
     fi
 
-    # Initialize and update submodules (if any were added)
+    # Commit submodule additions
     if [ "$SUBMODULES_ADDED" = true ]; then
-        git submodule update --init --recursive
-
-        # Commit submodule additions
         if [ -f ".gitmodules" ]; then
             git add .gitmodules 01_modules/
             git commit -m "Add analysis toolkits as git submodules
