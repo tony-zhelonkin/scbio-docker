@@ -271,6 +271,6 @@ BiocManager::install("PACKAGE")
 
 ## Notes
 
-- This project uses the [scbio-docker](https://github.com/YOUR_USERNAME/scbio-docker) development environment
+- This project uses the [scbio-docker](https://github.com/tony-zhelonkin/scbio-docker) development environment
 - Docker image version: `{{IMAGE_VERSION}}`
 - For issues or improvements, see project repository

@@ -1,6 +1,9 @@
 # interface
 radian==0.6.13
 
+# Configuration parsing (for SciAgent-toolkit Codex config)
+toml
+
 # Core Scientific Computing
 numpy==1.26.4
 scipy>=1.12
