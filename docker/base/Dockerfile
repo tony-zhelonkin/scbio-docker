@@ -165,7 +165,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.2"
+LABEL version="v0.5.3"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -224,6 +224,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
+
+####################################################
+### Install Node.js (for MCP servers: npx required)
+####################################################
+# Node.js LTS from NodeSource (includes npm and npx)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/* && \
+    node --version && npm --version && npx --version
+
+####################################################
+### Install uv (fast Python package manager for MCP servers)
+####################################################
+# uv is required for ToolUniverse, PAL, and Serena MCP servers
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /usr/local/bin/ && \
+    mv /root/.local/bin/uvx /usr/local/bin/ && \
+    uv --version
 
 # Create user with proper permissions
 RUN set -eux; \

@@ -6,17 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Docker-based development environment for single-cell RNA-seq and epigenomics analyses, integrated with VS Code Remote Containers. The repository provides optimized Docker images with a focus on reproducibility and size efficiency.
 
-**Current Version:** v0.5.2 (Enhanced Package Set)
+**Current Version:** v0.5.3 (AI Tools Ready)
 
 **Image Variants:**
-- **scdock-r-dev:v0.5.2** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
+- **scdock-r-dev:v0.5.3** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
 - **greenleaflab/archr:1.0.3-base-r4.4** (official ArchR): R 4.4 + ArchR 1.0.3, maintained by ArchR developers
 
-**Key Changes in v0.5.2:**
+**Key Changes in v0.5.3:**
+- **AI Tools Ready**: Pre-installed dependencies for SciAgent-toolkit MCP servers
+  - Node.js 20 LTS (npm, npx) for Sequential Thinking, Context7 MCP servers
+  - uv/uvx for ToolUniverse, PAL, Serena MCP servers
+  - `toml` Python package for Codex CLI configuration
+- No more permission errors or installation hangs during `setup-ai.sh`
+- Maintains ~20GB target size (Node.js and uv add ~100MB)
+
+**v0.5.2 Changes (carried forward):**
 - **Additional R packages pre-installed**: chromVAR, motifmatchr, TFBSTools, JASPAR2022, SingleR, celldex, AnnotationHub, EnsDb.Mmusculus.v79, crescendo (GitHub)
 - **Ubuntu libraries added**: libhdf5-dev, libgsl-dev (enables hdf5r, DirichletMultinomial compilation)
 - **Bug fix**: safe_install() now handles meta-packages correctly (tidyverse installs properly)
-- Maintains ~20GB target size with multi-stage build approach
 
 **v0.5.1 Changes (carried forward):**
 - **Multi-stage build** - completely discards build artifacts, no layer bloat
@@ -35,7 +42,7 @@ Build: prefer `scripts/build.sh` or `docker build -f docker/base/Dockerfile`
 
 ## Build Commands
 
-### Building the base image (v0.5.2 - Multi-Stage)
+### Building the base image (v0.5.3 - Multi-Stage)
 
 **IMPORTANT: Build Strategy (Shareable vs Personal)**
 
@@ -65,7 +72,7 @@ scripts/build.sh --personal --github-pat ghp_...
 docker build . \
   -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
-  -t scdock-r-dev:v0.5.2
+  -t scdock-r-dev:v0.5.3
 # Note: USER_ID defaults to 1000 (no need to specify)
 ```
 
@@ -78,7 +85,7 @@ docker build . \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg USER=$USER \
   --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.5.2-personal
+  -t scdock-r-dev:v0.5.3-personal
 ```
 
 ### Building ArchR Wrapper Image
@@ -108,7 +115,7 @@ The ArchR wrapper provides UID-compatible layer over official ArchR image:
 After the first successful build (when renv snapshots the packages):
 
 ```bash
-CID=$(docker create scdock-r-dev:v0.5.2)
+CID=$(docker create scdock-r-dev:v0.5.3)
 docker cp $CID:/opt/settings/renv.lock ./renv.lock
 docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
 docker rm $CID
@@ -124,8 +131,8 @@ COPY renv.lock /opt/settings/renv.lock
 ### Running sanity checks
 
 ```bash
-docker run --rm scdock-r-dev:v0.5.2 bash -lc 'scripts/poststart_sanity.sh'
-docker run --rm scdock-r-archr:v0.5.2 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-dev:v0.5.3 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-archr:v0.5.3 bash -lc 'scripts/poststart_sanity.sh'
 ```
 
 ## Architecture
@@ -439,7 +446,7 @@ docker run --rm -it \
   -u $(id -u):$(id -g) \
   -v /path/to/project:/workspaces/project \
   --memory=450g --cpus=50 \
-  scdock-r-dev:v0.5.2 bash
+  scdock-r-dev:v0.5.3 bash
 ```
 
 **Run ArchR image manually:**
@@ -482,7 +489,7 @@ docker compose -f .devcontainer/docker-compose.yml down
 
 ### UID/GID Handling (Generic + Runtime Remapping)
 
-**New Strategy (v0.5.2): Generic Images with Runtime UID Remapping**
+**New Strategy (v0.5.3): Generic Images with Runtime UID Remapping**
 
 Images are built with **generic user (devuser:1000)** by default, then mapped to actual user at runtime:
 
@@ -525,7 +532,7 @@ LOCAL_GID=788600513  # Your GID (run: id -g)
 
 **Manual Docker Run:**
 ```bash
-docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.2
+docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.3
 ```
 
 **Active Directory / Special Characters:**
@@ -738,7 +745,7 @@ unset GITHUB_PAT
 
 ## Notes
 
-- Current version: v0.5.2
+- Current version: v0.5.3
 - Default branch for PRs: `main`
 - This repository uses git; current branch is `dev`
 - Heavy annotation packages are excluded by default; enable with `--build-arg INCLUDE_HEAVY_R_DATA=1` or install at runtime
