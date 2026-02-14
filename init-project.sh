@@ -438,18 +438,25 @@ ${DATA_MOUNT_LINES}    stdin_open: true
           memory: 8G
 EOF
 
-# Copy poststart sanity script from scbio-docker repo
-if [ -f "${SCRIPT_DIR}/scripts/poststart_sanity.sh" ]; then
-    cp "${SCRIPT_DIR}/scripts/poststart_sanity.sh" \
-       "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
-    chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
-elif [ -f "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
-    cp "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" \
-       "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
-    chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
-else
-    # Create basic sanity check if original doesn't exist
-    cat > "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh" <<'SANITY_EOF'
+# Copy devcontainer scripts from templates
+if [ -d "${TEMPLATES_DIR}/devcontainer/scripts" ]; then
+    cp -r "${TEMPLATES_DIR}/devcontainer/scripts"/* "${PROJECT_DIR}/.devcontainer/scripts/" 2>/dev/null || true
+    chmod +x "${PROJECT_DIR}/.devcontainer/scripts"/*.sh 2>/dev/null || true
+fi
+
+# Copy poststart sanity script from scbio-docker repo (fallback if not in templates)
+if [ ! -f "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
+    if [ -f "${SCRIPT_DIR}/scripts/poststart_sanity.sh" ]; then
+        cp "${SCRIPT_DIR}/scripts/poststart_sanity.sh" \
+           "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+        chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+    elif [ -f "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
+        cp "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" \
+           "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+        chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+    else
+        # Create basic sanity check if original doesn't exist
+        cat > "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh" <<'SANITY_EOF'
 #!/bin/bash
 echo "=== Container Environment Check ==="
 echo "R version: $(R --version | head -n1)"
@@ -458,13 +465,35 @@ echo "Working directory: $(pwd)"
 echo "User: $(whoami) (UID=$(id -u), GID=$(id -g))"
 echo "==================================="
 SANITY_EOF
-    chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+        chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
+    fi
 fi
 
-# Create .env file in .devcontainer/
-if [ ! -f "${PROJECT_DIR}/.devcontainer/.env" ]; then
+# Copy MCP documentation from templates
+if [ -f "${TEMPLATES_DIR}/devcontainer/MCP_AUTH_SETUP.md" ]; then
+    cp "${TEMPLATES_DIR}/devcontainer/MCP_AUTH_SETUP.md" "${PROJECT_DIR}/.devcontainer/"
+fi
+if [ -f "${TEMPLATES_DIR}/devcontainer/PYTHON_VENV_GUIDE.md" ]; then
+    cp "${TEMPLATES_DIR}/devcontainer/PYTHON_VENV_GUIDE.md" "${PROJECT_DIR}/.devcontainer/"
+fi
+
+# Create/update .env file in .devcontainer/
+# Always regenerate to ensure correct WORKSPACE_FOLDER, but preserve API keys
+ENV_FILE="${PROJECT_DIR}/.devcontainer/.env"
+if [ -f "$ENV_FILE" ]; then
+    echo "Updating existing .env file (preserving API keys)..."
+    # Extract API keys from existing file
+    CONTEXT7_KEY=$(grep "^CONTEXT7_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
+    GEMINI_KEY=$(grep "^GEMINI_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
+    OPENAI_KEY=$(grep "^OPENAI_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
+else
     echo "Creating .env file..."
-    cat > "${PROJECT_DIR}/.devcontainer/.env" <<EOF
+    CONTEXT7_KEY=""
+    GEMINI_KEY=""
+    OPENAI_KEY=""
+fi
+
+cat > "$ENV_FILE" <<EOF
 # Docker Compose environment variables
 LOCAL_UID=$(id -u)
 LOCAL_GID=$(id -g)
@@ -474,20 +503,19 @@ WORKSPACE_FOLDER=..
 
 # Context7 - Up-to-date library docs (optional - works without key)
 # Get key for higher rate limits: https://context7.com/dashboard
-CONTEXT7_API_KEY=
+CONTEXT7_API_KEY=${CONTEXT7_KEY}
 
 # PAL MCP Server - Multi-model AI collaboration
 # Requires at least one key to function. Get keys from:
 #   - Gemini: https://aistudio.google.com/apikey
 #   - OpenAI: https://platform.openai.com/api-keys
-GEMINI_API_KEY=
-OPENAI_API_KEY=
+GEMINI_API_KEY=${GEMINI_KEY}
+OPENAI_API_KEY=${OPENAI_KEY}
 
 # Resource Limits (adjust based on your system)
 MAX_CPUS=${MAX_CPUS}
 MAX_MEMORY=${MAX_MEMORY}
 EOF
-fi
 
 # Create/update .gitignore
 if [ ! -f "${PROJECT_DIR}/.gitignore" ]; then
