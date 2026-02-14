@@ -211,7 +211,7 @@ Analysis methodology is maintained in `01_modules/SciAgent-toolkit/docs/guidelin
 ### For AI-Assisted Coding (Claude Code, Cursor, etc.)
 
 1. **Start fresh frequently** - Clear chat every 1-2 stages to remove stale context
-2. **Write context down** - Never rely on message history; use `plan.md`/`notes.md`
+2. **Write context down** - Never rely on message history; use `context.md`/`notes.md`
 3. **Work phase-by-phase** - One stage at a time, test before moving on
 4. **Mark completion in tasks.md** - Track progress explicitly
 5. **Use double ESC** - Go back in chat to rephrase misunderstood requests
