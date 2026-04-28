@@ -1,4 +1,5 @@
 *.log
+build-*.log
 .claude/
 
 # Personal planning files
@@ -7,5 +8,9 @@ tasks.md
 reproduction_test/
 .gemini/*
 .env
+.env.local
 *.env
+
+# Generated per-project, not committed
+.mcp.json
 
