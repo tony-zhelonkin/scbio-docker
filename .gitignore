@@ -14,3 +14,6 @@ reproduction_test/
 # Generated per-project, not committed
 .mcp.json
 
+# Local reference clones (read-only inspiration repos)
+.ref/
+
