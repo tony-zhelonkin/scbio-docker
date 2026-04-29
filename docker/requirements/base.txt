@@ -21,7 +21,7 @@ htseq
 PySam
 SWIG
 Cython==0.29.32
-pybedtools==0.10.0
+pybedtools==0.12.0
 pyBigWig==0.3.23
 
 # Visualization Libraries
