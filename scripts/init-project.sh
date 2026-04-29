@@ -5,32 +5,31 @@
 #   ./init-project.sh <project-dir> [template-name] [OPTIONS]
 #
 # Templates:
-#   base            - Standard bioinformatics project (default)
+#   base            - Standard bioinformatics project (default, only one supported)
 #
 # Options:
 #   --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)
 #   --interactive                  Prompt for all configuration options
 #   --git-init                     Initialize git repository
 #   --with-submodules              Add RNAseq-toolkit and SciAgent-toolkit as git submodules
-#
-# Examples:
-#   ./init-project.sh ~/projects/my-analysis basic-rna --interactive
-#   ./init-project.sh ~/projects/atac-study archr-focused \
-#       --data-mount atac:/scratch/data/DT-1234 \
-#       --data-mount rna:/scratch/data/DT-5678:ro \
-#       --git-init
 
 set -euo pipefail
 
 # Resolve symlinks to get actual script location
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 while [ -L "$SCRIPT_PATH" ]; do
-    SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+    SCRIPT_DIR_TMP="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
     SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
-    [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH"
+    [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$SCRIPT_DIR_TMP/$SCRIPT_PATH"
 done
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-TEMPLATES_DIR="${SCRIPT_DIR}/templates"
+
+# Repo root is one level up from scripts/
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TEMPLATES_DIR="${REPO_ROOT}/templates"
+
+# Read version from VERSION file (single source of truth)
+IMAGE_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
 
 # Color output
 RED='\033[0;31m'
@@ -90,6 +89,12 @@ if [ $# -gt 0 ] && [[ ! "$1" =~ ^-- ]]; then
     shift
 fi
 
+# Only "base" is supported; reject anything else cleanly
+if [ "$TEMPLATE" != "base" ]; then
+    echo "Only 'base' template is currently supported." >&2
+    exit 1
+fi
+
 # Parse options
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -119,11 +124,10 @@ done
 
 TEMPLATE_PATH="${TEMPLATES_DIR}/${TEMPLATE}"
 
-# Validate template
+# Validate template exists on disk
 if [ ! -d "$TEMPLATE_PATH" ]; then
-    echo -e "${RED}Error: Template '${TEMPLATE}' not found${NC}"
-    echo ""
-    usage
+    echo -e "${RED}Error: Template directory '${TEMPLATE_PATH}' not found${NC}"
+    exit 1
 fi
 
 # Extract project name from path
@@ -227,144 +231,106 @@ else
     mkdir -p "$PROJECT_DIR"
 fi
 
-echo -e "${GREEN}Initializing project '${PROJECT_NAME}' from '${TEMPLATE}' template...${NC}"
+echo -e "${GREEN}Initializing project '${PROJECT_NAME}' from '${TEMPLATE}' template (image ${IMAGE_VERSION})...${NC}"
 
-# Service and image defaults (ArchR is available via docker-compose profile)
+# Service default (ArchR is available via docker-compose profile)
 SERVICE="dev-core"
-IMAGE="scdock-r-dev:v0.5.2"
 
-# Copy template structure (if template has files)
-if [ -n "$(ls -A "${TEMPLATE_PATH}" 2>/dev/null)" ]; then
-    echo "Copying template files..."
-    cp -r "${TEMPLATE_PATH}"/* "$PROJECT_DIR/" 2>/dev/null || true
-fi
+# Create standard directories matching the new universal template tree
+echo "Creating project structure..."
+for dir in 00_data/raw 00_data/processed 00_data/references \
+           01_modules/.ref \
+           02_analysis/config 02_analysis/helpers 02_analysis/scripts 02_analysis/notebooks \
+           03_results/checkpoints 03_results/plots 03_results/tables \
+           docs/raw docs/ai-generated/vignettes docs/ai-generated/research \
+           docs/plan/phase-1 \
+           logs; do
+    mkdir -p "${PROJECT_DIR}/${dir}"
+done
 
 # Copy universal .vscode settings
 echo "Configuring VS Code settings..."
 mkdir -p "${PROJECT_DIR}/.vscode"
-cp "${TEMPLATES_DIR}/.vscode/settings.json" "${PROJECT_DIR}/.vscode/settings.json"
+cp "${TEMPLATE_PATH}/.vscode/settings.json" "${PROJECT_DIR}/.vscode/settings.json"
 
-# Create standard directories with new structure
-echo "Creating project structure..."
-for dir in 00_data/raw 00_data/processed 00_data/references \
-           01_modules 02_analysis/config 02_analysis/helpers \
-           03_results/checkpoints 03_results/plots 03_results/tables logs; do
-    mkdir -p "${PROJECT_DIR}/${dir}"
-done
+# Copy project .gitignore from template
+echo "Creating .gitignore..."
+cp "${TEMPLATE_PATH}/.gitignore" "${PROJECT_DIR}/.gitignore"
 
-# Copy documentation templates
+# Generate project docs from templates
 echo "Creating documentation..."
-if [ -f "${TEMPLATES_DIR}/docs/README.md.template" ]; then
-    cp "${TEMPLATES_DIR}/docs/README.md.template" "${PROJECT_DIR}/README.md"
-    # Replace placeholders
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/README.md"
-    sed -i "s|{{PROJECT_PATH}}|${PROJECT_DIR}|g" "${PROJECT_DIR}/README.md"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/README.md"
-    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/README.md"
-    sed -i "s|{{IMAGE_VERSION}}|${IMAGE}|g" "${PROJECT_DIR}/README.md"
-    sed -i "s|{{SCBIO_DOCKER_PATH}}|${SCRIPT_DIR}|g" "${PROJECT_DIR}/README.md"
+sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+    -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+    "${TEMPLATE_PATH}/docs/README.md.template" > "${PROJECT_DIR}/docs/README.md"
+
+sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+    -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+    "${TEMPLATE_PATH}/docs/plan/README.md.template" > "${PROJECT_DIR}/docs/plan/README.md"
+
+# Top-level project README (from templates/base/README.md if present)
+if [ -f "${TEMPLATE_PATH}/README.md" ]; then
+    sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+        -e "s|{{PROJECT_PATH}}|${PROJECT_DIR}|g" \
+        -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+        -e "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" \
+        -e "s|{{IMAGE_VERSION}}|scdock-r-dev:${IMAGE_VERSION}|g" \
+        -e "s|{{SCBIO_DOCKER_PATH}}|${REPO_ROOT}|g" \
+        "${TEMPLATE_PATH}/README.md" > "${PROJECT_DIR}/README.md"
 fi
 
-# Note: plan.md has been replaced by context.md, which is created by
-# SciAgent-toolkit/scripts/setup-ai.sh along with other AI context files
-
-if [ -f "${TEMPLATES_DIR}/docs/tasks.md.template" ]; then
-    cp "${TEMPLATES_DIR}/docs/tasks.md.template" "${PROJECT_DIR}/tasks.md"
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/tasks.md"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/tasks.md"
-fi
-
-# Copy .env.example
-if [ -f "${TEMPLATES_DIR}/docs/.env.example" ]; then
-    cp "${TEMPLATES_DIR}/docs/.env.example" "${PROJECT_DIR}/.env.example"
-fi
-
-# Note: CLAUDE.md is now created by SciAgent-toolkit/scripts/setup-ai.sh
-# This ensures AI context files are created when AI tools are set up, not at project init
-
-# Copy notes.md template (research findings tracker)
-if [ -f "${TEMPLATES_DIR}/docs/notes.md.template" ]; then
+# Optional notes.md (research findings tracker)
+if [ -f "${TEMPLATE_PATH}/docs/notes.md.template" ]; then
     echo "Creating notes.md..."
-    cp "${TEMPLATES_DIR}/docs/notes.md.template" "${PROJECT_DIR}/notes.md"
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/notes.md"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/notes.md"
-    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/notes.md"
-    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/notes.md"
-    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/notes.md"
-    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/notes.md"
+    sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+        -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+        -e "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" \
+        -e "s|{{SPECIES}}|${SPECIES}|g" \
+        -e "s|{{SPECIES_DB}}|${SPECIES_DB}|g" \
+        -e "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" \
+        "${TEMPLATE_PATH}/docs/notes.md.template" > "${PROJECT_DIR}/notes.md"
 fi
 
-# Copy configuration templates
+# Copy configuration templates from new flat template tree
 echo "Creating configuration files..."
-if [ -f "${TEMPLATES_DIR}/config/config.R.template" ]; then
-    cp "${TEMPLATES_DIR}/config/config.R.template" "${PROJECT_DIR}/02_analysis/config/config.R"
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/config.R"
-    sed -i "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
-    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
-    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
-    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/02_analysis/config/config.R"
+CFG_SRC="${TEMPLATE_PATH}/02_analysis/config"
+CFG_DST="${PROJECT_DIR}/02_analysis/config"
+
+if [ -f "${CFG_SRC}/config.R.template" ]; then
+    sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+        -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+        -e "s|{{TEMPLATE_TYPE}}|${TEMPLATE}|g" \
+        -e "s|{{SPECIES}}|${SPECIES}|g" \
+        -e "s|{{SPECIES_DB}}|${SPECIES_DB}|g" \
+        -e "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" \
+        "${CFG_SRC}/config.R.template" > "${CFG_DST}/config.R"
 fi
 
-if [ -f "${TEMPLATES_DIR}/config/pipeline.yaml.template" ]; then
-    cp "${TEMPLATES_DIR}/config/pipeline.yaml.template" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
-    sed -i "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
-    sed -i "s|{{SPECIES}}|${SPECIES}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
-    sed -i "s|{{SPECIES_DB}}|${SPECIES_DB}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
-    sed -i "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" "${PROJECT_DIR}/02_analysis/config/pipeline.yaml"
+if [ -f "${CFG_SRC}/pipeline.yaml.template" ]; then
+    sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+        -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+        -e "s|{{SPECIES}}|${SPECIES}|g" \
+        -e "s|{{SPECIES_DB}}|${SPECIES_DB}|g" \
+        -e "s|{{GENOME_BUILD}}|${GENOME_BUILD}|g" \
+        "${CFG_SRC}/pipeline.yaml.template" > "${CFG_DST}/pipeline.yaml"
 fi
 
-if [ -f "${TEMPLATES_DIR}/config/color_config.R.template" ]; then
-    cp "${TEMPLATES_DIR}/config/color_config.R.template" "${PROJECT_DIR}/02_analysis/config/color_config.R"
-    sed -i "s|{{DATE}}|$(date +%Y-%m-%d)|g" "${PROJECT_DIR}/02_analysis/config/color_config.R"
+if [ -f "${CFG_SRC}/color_config.R.template" ]; then
+    sed -e "s|{{DATE}}|$(date +%Y-%m-%d)|g" \
+        "${CFG_SRC}/color_config.R.template" > "${CFG_DST}/color_config.R"
 fi
 
-# Note: Analysis guidelines are now in SciAgent-toolkit/docs/guidelines/
-# They are not copied to each project - reference them directly from the submodule
-# This ensures single source of truth and easier updates
-
-# Copy devcontainer configuration
+# Set up devcontainer configuration
 echo "Setting up devcontainer configuration..."
 mkdir -p "${PROJECT_DIR}/.devcontainer"
 mkdir -p "${PROJECT_DIR}/.devcontainer/scripts"
 
-# Create devcontainer.json
-cat > "${PROJECT_DIR}/.devcontainer/devcontainer.json" <<EOF
-{
-  "name": "${PROJECT_NAME}",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "${SERVICE}",
-  "workspaceFolder": "/workspaces/${PROJECT_NAME}",
-  "remoteUser": "devuser",
-  "updateRemoteUserUID": true,
-  "shutdownAction": "stopCompose",
-  "settings": {
-    "files.associations": {
-      "*.Rmd": "rmd"
-    }
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "rdebugger.r-debugger",
-        "reditorsupport.r",
-        "quarto.quarto",
-        "purocean.drawio-preview",
-        "redhat.vscode-yaml",
-        "yzhang.markdown-all-in-one",
-        "ms-azuretools.vscode-docker",
-        "ms-vscode-remote.remote-containers",
-        "ms-python.python",
-        "ms-toolsai.jupyter"
-      ]
-    }
-  },
-  "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh'"
-}
-EOF
+# Render devcontainer.json from template
+sed -e "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+    -e "s|{{SERVICE}}|${SERVICE}|g" \
+    "${TEMPLATE_PATH}/.devcontainer/devcontainer.json.template" \
+    > "${PROJECT_DIR}/.devcontainer/devcontainer.json"
 
-# Generate data mount volume lines
+# Build the dynamic data-mount block for compose YAML
 DATA_MOUNT_LINES=""
 if [ ${#DATA_MOUNTS[@]} -gt 0 ]; then
     DATA_MOUNT_LINES+="      # Data mounts"$'\n'
@@ -385,77 +351,41 @@ else
     DATA_MOUNT_LINES+="      # - /path/to/data:/workspaces/${PROJECT_NAME}/00_data/raw:ro"$'\n'
 fi
 
-# Create docker-compose.yml with dynamic mounts
-cat > "${PROJECT_DIR}/.devcontainer/docker-compose.yml" <<EOF
-services:
-  dev-core:
-    image: ${IMAGE}
-    user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
-    working_dir: /workspaces/${PROJECT_NAME}
-    env_file: .env
-    environment:
-      - CONTEXT7_API_KEY=\${CONTEXT7_API_KEY}
-    # Uncomment to expose httpgd graphics server (may conflict if port already in use)
-    # ports:
-    #   - "8787:8787"
-    volumes:
-      - \${WORKSPACE_FOLDER:-.}:/workspaces/${PROJECT_NAME}
-${DATA_MOUNT_LINES}    stdin_open: true
-    tty: true
-    command: /bin/bash
-    deploy:
-      resources:
-        limits:
-          cpus: '\${MAX_CPUS:-${MAX_CPUS}}'
-          memory: \${MAX_MEMORY:-${MAX_MEMORY}}
-        reservations:
-          cpus: '2'
-          memory: 8G
+# Render docker-compose.yml from template
+# Use python for the {{DATA_MOUNTS}} substitution (multi-line, sed-hostile).
+# All other tokens are simple single-line replacements.
+python3 - "$TEMPLATE_PATH" "$PROJECT_DIR" "$IMAGE_VERSION" "$PROJECT_NAME" \
+    "$MAX_CPUS" "$MAX_MEMORY" "$DATA_MOUNT_LINES" <<'PYEOF'
+import sys, pathlib
+template_root, project_dir, image_version, project_name, max_cpus, max_memory, data_mounts = sys.argv[1:8]
+src = pathlib.Path(template_root) / ".devcontainer" / "docker-compose.yml.template"
+dst = pathlib.Path(project_dir) / ".devcontainer" / "docker-compose.yml"
+content = src.read_text()
+content = content.replace("{{IMAGE_VERSION}}", image_version)
+content = content.replace("{{PROJECT_NAME}}", project_name)
+content = content.replace("{{MAX_CPUS}}", max_cpus)
+content = content.replace("{{MAX_MEMORY}}", max_memory)
+content = content.replace("{{DATA_MOUNTS}}", data_mounts)
+dst.write_text(content)
+PYEOF
 
-  dev-archr:
-    profiles: ["archr"]  # Only started with: docker compose --profile archr up
-    image: scdock-r-archr:v0.5.2
-    user: "\${LOCAL_UID:-1000}:\${LOCAL_GID:-1000}"
-    working_dir: /workspaces/${PROJECT_NAME}
-    env_file: .env
-    environment:
-      - CONTEXT7_API_KEY=\${CONTEXT7_API_KEY}
-    # Uncomment to expose httpgd graphics server (may conflict if port already in use)
-    # ports:
-    #   - "8787:8787"
-    volumes:
-      - \${WORKSPACE_FOLDER:-.}:/workspaces/${PROJECT_NAME}
-${DATA_MOUNT_LINES}    stdin_open: true
-    tty: true
-    command: /bin/bash
-    deploy:
-      resources:
-        limits:
-          cpus: '\${MAX_CPUS:-${MAX_CPUS}}'
-          memory: \${MAX_MEMORY:-${MAX_MEMORY}}
-        reservations:
-          cpus: '2'
-          memory: 8G
-EOF
-
-# Copy devcontainer scripts from templates
-if [ -d "${TEMPLATES_DIR}/devcontainer/scripts" ]; then
-    cp -r "${TEMPLATES_DIR}/devcontainer/scripts"/* "${PROJECT_DIR}/.devcontainer/scripts/" 2>/dev/null || true
+# Copy devcontainer scripts from template
+if [ -d "${TEMPLATE_PATH}/.devcontainer/scripts" ]; then
+    cp -r "${TEMPLATE_PATH}/.devcontainer/scripts"/. "${PROJECT_DIR}/.devcontainer/scripts/" 2>/dev/null || true
     chmod +x "${PROJECT_DIR}/.devcontainer/scripts"/*.sh 2>/dev/null || true
 fi
 
-# Copy poststart sanity script from scbio-docker repo (fallback if not in templates)
+# Copy poststart sanity script (fallback to repo-level scripts/ if not in template)
 if [ ! -f "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
-    if [ -f "${SCRIPT_DIR}/scripts/poststart_sanity.sh" ]; then
-        cp "${SCRIPT_DIR}/scripts/poststart_sanity.sh" \
+    if [ -f "${REPO_ROOT}/scripts/poststart_sanity.sh" ]; then
+        cp "${REPO_ROOT}/scripts/poststart_sanity.sh" \
            "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
         chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
-    elif [ -f "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" ]; then
-        cp "${SCRIPT_DIR}/.devcontainer/scripts/poststart_sanity.sh" \
+    elif [ -f "${REPO_ROOT}/.devcontainer/scripts/poststart_sanity.sh" ]; then
+        cp "${REPO_ROOT}/.devcontainer/scripts/poststart_sanity.sh" \
            "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
         chmod +x "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh"
     else
-        # Create basic sanity check if original doesn't exist
         cat > "${PROJECT_DIR}/.devcontainer/scripts/poststart_sanity.sh" <<'SANITY_EOF'
 #!/bin/bash
 echo "=== Container Environment Check ==="
@@ -469,20 +399,17 @@ SANITY_EOF
     fi
 fi
 
-# Copy MCP documentation from templates
-if [ -f "${TEMPLATES_DIR}/devcontainer/MCP_AUTH_SETUP.md" ]; then
-    cp "${TEMPLATES_DIR}/devcontainer/MCP_AUTH_SETUP.md" "${PROJECT_DIR}/.devcontainer/"
-fi
-if [ -f "${TEMPLATES_DIR}/devcontainer/PYTHON_VENV_GUIDE.md" ]; then
-    cp "${TEMPLATES_DIR}/devcontainer/PYTHON_VENV_GUIDE.md" "${PROJECT_DIR}/.devcontainer/"
-fi
+# Copy any documentation that lives next to the template's devcontainer
+for doc in MCP_AUTH_SETUP.md PYTHON_VENV_GUIDE.md; do
+    if [ -f "${TEMPLATE_PATH}/.devcontainer/${doc}" ]; then
+        cp "${TEMPLATE_PATH}/.devcontainer/${doc}" "${PROJECT_DIR}/.devcontainer/"
+    fi
+done
 
-# Create/update .env file in .devcontainer/
-# Always regenerate to ensure correct WORKSPACE_FOLDER, but preserve API keys
+# Create/update .env file in .devcontainer/ (preserve existing API keys if any)
 ENV_FILE="${PROJECT_DIR}/.devcontainer/.env"
 if [ -f "$ENV_FILE" ]; then
     echo "Updating existing .env file (preserving API keys)..."
-    # Extract API keys from existing file
     CONTEXT7_KEY=$(grep "^CONTEXT7_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
     GEMINI_KEY=$(grep "^GEMINI_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
     OPENAI_KEY=$(grep "^OPENAI_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- || echo "")
@@ -517,76 +444,17 @@ MAX_CPUS=${MAX_CPUS}
 MAX_MEMORY=${MAX_MEMORY}
 EOF
 
-# Create/update .gitignore
-if [ ! -f "${PROJECT_DIR}/.gitignore" ]; then
-    echo "Creating .gitignore..."
-    cat > "${PROJECT_DIR}/.gitignore" <<'EOF'
-# R
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
-renv/library/
-renv/local/
-renv/cellar/
-renv/lock/
-renv/python/
-renv/staging/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
-venv/
-*.egg-info/
-
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb_checkpoints
-
-# Data (do not commit large files)
-00_data/raw/*
-00_data/processed/*
-!00_data/raw/.gitkeep
-!00_data/processed/.gitkeep
-
-# Results
-03_results/checkpoints/*
-03_results/plots/*
-03_results/tables/*
-!03_results/checkpoints/.gitkeep
-!03_results/plots/.gitkeep
-!03_results/tables/.gitkeep
-
-# Logs
-logs/*
-!logs/.gitkeep
-
-# IDE
-.vscode/*
-!.vscode/settings.json
-!.vscode/extensions.json
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment
-.devcontainer/.env
-.devcontainer/.env.local
-EOF
-fi
-
-# Create .gitkeep files
-touch "${PROJECT_DIR}/00_data/raw/.gitkeep"
-touch "${PROJECT_DIR}/00_data/processed/.gitkeep"
-touch "${PROJECT_DIR}/00_data/references/.gitkeep"
-touch "${PROJECT_DIR}/03_results/checkpoints/.gitkeep"
-touch "${PROJECT_DIR}/03_results/plots/.gitkeep"
-touch "${PROJECT_DIR}/03_results/tables/.gitkeep"
-touch "${PROJECT_DIR}/logs/.gitkeep"
+# Create .gitkeep files (the template already provides these via copy patterns,
+# but ensure presence for any directories we created above that the user didn't ship)
+for keep in 00_data/raw 00_data/processed 00_data/references \
+            01_modules/.ref \
+            02_analysis/scripts 02_analysis/notebooks 02_analysis/helpers \
+            03_results/checkpoints 03_results/plots 03_results/tables \
+            docs/raw docs/ai-generated/vignettes docs/ai-generated/research \
+            docs/plan/phase-1 \
+            logs; do
+    [ -e "${PROJECT_DIR}/${keep}/.gitkeep" ] || touch "${PROJECT_DIR}/${keep}/.gitkeep"
+done
 
 # Git initialization
 if [ "$GIT_INIT" = true ]; then
@@ -599,9 +467,10 @@ if [ "$GIT_INIT" = true ]; then
 
 Created with scbio-docker init-project.sh
 Template: ${TEMPLATE}
+Image: scdock-r-dev:${IMAGE_VERSION}
 Date: $(date +%Y-%m-%d)
 "
-        echo -e "${GREEN}✓ Git repository initialized${NC}"
+        echo -e "${GREEN}Git repository initialized${NC}"
     else
         echo -e "${YELLOW}Git repository already exists${NC}"
     fi
@@ -615,65 +484,54 @@ if [ "$WITH_SUBMODULES" = true ] && [ -d "${PROJECT_DIR}/.git" ]; then
 
     SUBMODULES_ADDED=false
 
-    # Helper function to add submodule with gh fallback
     add_submodule_with_fallback() {
         local repo_owner="tony-zhelonkin"
         local repo_name="$1"
         local branch="$2"
         local target_path="$3"
         local ssh_url="git@github.com:${repo_owner}/${repo_name}.git"
-        local https_url="https://github.com/${repo_owner}/${repo_name}.git"
 
         if [ -d "$target_path" ]; then
-            echo -e "  ${YELLOW}⚠ ${repo_name} directory already exists, skipping${NC}"
+            echo -e "  ${YELLOW}${repo_name} directory already exists, skipping${NC}"
             return 1
         fi
 
-        # Try direct git submodule add first (uses SSH)
         if git submodule add -b "$branch" "$ssh_url" "$target_path" 2>/dev/null; then
-            echo -e "  ${GREEN}✓ ${repo_name} added via git (SSH)${NC}"
+            echo -e "  ${GREEN}${repo_name} added via git (SSH)${NC}"
             return 0
         fi
 
-        # Fallback: use gh CLI with HTTPS (for agents without SSH access)
         echo "  SSH failed, trying gh CLI fallback (HTTPS)..."
         if command -v gh &> /dev/null && gh auth status &> /dev/null; then
-            # Clone using gh with explicit HTTPS protocol
             if GIT_CONFIG_COUNT=1 \
                GIT_CONFIG_KEY_0="url.https://github.com/.insteadOf" \
                GIT_CONFIG_VALUE_0="git@github.com:" \
                gh repo clone "${repo_owner}/${repo_name}" "$target_path" -- -b "$branch" 2>/dev/null; then
-                # Manually create .gitmodules entry (keep SSH URL for future clones by user)
                 git config -f .gitmodules "submodule.${target_path}.path" "$target_path"
                 git config -f .gitmodules "submodule.${target_path}.url" "$ssh_url"
                 git config -f .gitmodules "submodule.${target_path}.branch" "$branch"
-                # Register in .git/config
                 git config "submodule.${target_path}.url" "$ssh_url"
                 git config "submodule.${target_path}.active" "true"
-                # Stage the submodule
                 git add "$target_path"
-                echo -e "  ${GREEN}✓ ${repo_name} added via gh CLI (HTTPS)${NC}"
+                echo -e "  ${GREEN}${repo_name} added via gh CLI (HTTPS)${NC}"
                 return 0
             fi
         fi
 
-        echo -e "  ${RED}✗ Failed to add ${repo_name}${NC}"
+        echo -e "  ${RED}Failed to add ${repo_name}${NC}"
         return 1
     }
 
-    # Add RNAseq-toolkit submodule (dev branch)
     echo "  Adding RNAseq-toolkit (branch: ${RNASEQ_TOOLKIT_BRANCH})..."
     if add_submodule_with_fallback "RNAseq-toolkit" "${RNASEQ_TOOLKIT_BRANCH}" "01_modules/RNAseq-toolkit"; then
         SUBMODULES_ADDED=true
     fi
 
-    # Add SciAgent-toolkit submodule
     echo "  Adding SciAgent-toolkit (branch: ${SCIAGENT_TOOLKIT_BRANCH})..."
     if add_submodule_with_fallback "SciAgent-toolkit" "${SCIAGENT_TOOLKIT_BRANCH}" "01_modules/SciAgent-toolkit"; then
         SUBMODULES_ADDED=true
     fi
 
-    # Commit submodule additions
     if [ "$SUBMODULES_ADDED" = true ]; then
         if [ -f ".gitmodules" ]; then
             git add .gitmodules 01_modules/
@@ -682,7 +540,7 @@ if [ "$WITH_SUBMODULES" = true ] && [ -d "${PROJECT_DIR}/.git" ]; then
 - RNAseq-toolkit (${RNASEQ_TOOLKIT_BRANCH} branch): Reusable RNA-seq analysis functions
 - SciAgent-toolkit: AI infrastructure and MCP server setup
 "
-            echo -e "${GREEN}✓ Submodules committed${NC}"
+            echo -e "${GREEN}Submodules committed${NC}"
         fi
     fi
 
@@ -690,12 +548,13 @@ if [ "$WITH_SUBMODULES" = true ] && [ -d "${PROJECT_DIR}/.git" ]; then
 fi
 
 echo ""
-echo -e "${GREEN}✓ Project initialized successfully!${NC}"
+echo -e "${GREEN}Project initialized successfully${NC}"
 echo ""
 echo -e "${BLUE}Project Summary:${NC}"
 echo "  Name: ${PROJECT_NAME}"
 echo "  Location: ${PROJECT_DIR}"
 echo "  Template: ${TEMPLATE}"
+echo "  Image: scdock-r-dev:${IMAGE_VERSION}"
 echo "  Species: ${SPECIES} (${SPECIES_DB}, ${GENOME_BUILD})"
 echo "  Container service: ${SERVICE}"
 if [ ${#DATA_MOUNTS[@]} -gt 0 ]; then
@@ -713,30 +572,25 @@ echo "  1. cd ${PROJECT_DIR}"
 if [ ${#DATA_MOUNTS[@]} -eq 0 ]; then
     echo "  2. Edit .devcontainer/docker-compose.yml to add data mounts"
     echo "  3. Open in VS Code: code ${PROJECT_DIR}"
-    echo "  4. Reopen in container: Ctrl+Shift+P → 'Dev Containers: Reopen in Container'"
+    echo "  4. Reopen in container: Ctrl+Shift+P -> 'Dev Containers: Reopen in Container'"
     echo "  5. Run AI setup: ./01_modules/SciAgent-toolkit/scripts/setup-ai.sh"
     echo "  6. Fill in context.md with your scientific question"
     echo "  7. Edit 02_analysis/config/pipeline.yaml for your experiment"
 else
     echo "  2. Open in VS Code: code ${PROJECT_DIR}"
-    echo "  3. Reopen in container: Ctrl+Shift+P → 'Dev Containers: Reopen in Container'"
+    echo "  3. Reopen in container: Ctrl+Shift+P -> 'Dev Containers: Reopen in Container'"
     echo "  4. Run AI setup: ./01_modules/SciAgent-toolkit/scripts/setup-ai.sh"
     echo "  5. Fill in context.md with your scientific question"
     echo "  6. Edit 02_analysis/config/pipeline.yaml for your experiment"
 fi
 echo ""
 echo -e "${BLUE}Documentation:${NC}"
-echo "  - Project workflow: ${PROJECT_DIR}/README.md"
-echo "  - Task tracker: ${PROJECT_DIR}/tasks.md"
-echo "  - Research notes: ${PROJECT_DIR}/notes.md"
+echo "  - Project README: ${PROJECT_DIR}/README.md"
+echo "  - Docs hub: ${PROJECT_DIR}/docs/README.md"
+echo "  - Research plan: ${PROJECT_DIR}/docs/plan/README.md"
 echo "  - Config: ${PROJECT_DIR}/02_analysis/config/"
 echo ""
-echo -e "${BLUE}After running setup-ai.sh:${NC}"
-echo "  - AI context: CLAUDE.md, GEMINI.md, AGENTS.md"
-echo "  - Scientific context: context.md"
-echo "  - Methodology: 01_modules/SciAgent-toolkit/docs/guidelines/"
-echo ""
 echo -e "${BLUE}scbio-docker references:${NC}"
-echo "  - Image build guide: ${SCRIPT_DIR}/DEVOPS.md"
-echo "  - Architecture: ${SCRIPT_DIR}/CLAUDE.md"
+echo "  - Repo root: ${REPO_ROOT}"
+echo "  - Architecture: ${REPO_ROOT}/CLAUDE.md"
 echo ""
