@@ -112,8 +112,6 @@ The ArchR wrapper provides UID-compatible layer over official ArchR image:
 - Seamless switching between dev-core and dev-archr services
 - VS Code UID remapping works consistently
 
-**Note:** Custom ArchR Dockerfile (`.devcontainer/Dockerfile.archr`) is deprecated. Use wrapper instead.
-
 ### Extracting renv lockfile after first build
 
 After the first successful build (when renv snapshots the packages):
@@ -185,10 +183,6 @@ The repo supports two devcontainer approaches:
 **Runtime:**
 - `.devcontainer/scripts/poststart_sanity.sh`: Validates container environment on startup
 - `init-project.sh`: Project scaffolding script (creates from templates)
-
-**Deprecated:**
-- `.devcontainer/install_R_archr.R`: ArchR installer (use official image instead)
-- `.devcontainer/Dockerfile.archr`: Custom ArchR build (use official image instead)
 
 ### Python Virtual Environments (v0.5.0: Layered Approach)
 
