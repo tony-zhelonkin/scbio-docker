@@ -24,6 +24,7 @@ GROUP_ID=1000
 USER_NAME=devuser
 GROUP_NAME=devgroup
 BUILD_MODE="generic"
+ASSUME_YES=0
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -34,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --user) USER_NAME="$2"; shift 2;;
     --group) GROUP_NAME="$2"; shift 2;;
     --personal) USER_ID=$(id -u); GROUP_ID=$(id -g); USER_NAME=$USER; GROUP_NAME=$(id -gn); BUILD_MODE="personal"; shift;;
+    -y|--yes) ASSUME_YES=1; shift;;
     --help)
       cat <<EOF
 Usage: $0 [OPTIONS]
@@ -46,6 +48,7 @@ Options:
   --group-id GID       Custom group ID (default: 1000)
   --user NAME          Custom username (default: devuser)
   --group NAME         Custom group name (default: devgroup)
+  -y, --yes            Skip confirmation prompt (for unattended/agentic builds)
 EOF
       exit 0;;
     *) echo -e "${RED}Unknown option: $1${NC}"; exit 1;;
@@ -69,9 +72,13 @@ else
   echo -e "  GitHub PAT: ${YELLOW}✗ Not set (may hit rate limits)${NC}"
 fi
 
-read -p "Continue with build? (y/N): " -n 1 -r; echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  echo "Build cancelled."; exit 0
+if [ "$ASSUME_YES" -eq 1 ]; then
+  echo -e "${GREEN}--yes flag set, proceeding without prompt.${NC}"
+else
+  read -p "Continue with build? (y/N): " -n 1 -r; echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Build cancelled."; exit 0
+  fi
 fi
 
 START_TIME=$(date +%s)
