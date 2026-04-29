@@ -395,13 +395,13 @@ volumes:
 ### Route C: Modify Base Image (Advanced)
 
 **What it does**:
-- Rebuild `scdock-r-dev:v0.5.1` image with Claude Code baked in
+- Rebuild the `scdock-r-dev` image with Claude Code baked in (note: scbio-docker v0.5.4+ deliberately keeps the image AI-tool-free; bake-in is *opt-in* and not recommended for shared images — prefer per-project install via SciAgent-toolkit)
 - Create `Dockerfile` extending base image
 
 **Implementation**:
 ```dockerfile
 # .devcontainer/Dockerfile
-FROM scdock-r-dev:v0.5.1
+FROM scdock-r-dev:v0.5.4
 
 # Install Claude Code dependencies
 RUN apt-get update && apt-get install -y curl gnupg && \

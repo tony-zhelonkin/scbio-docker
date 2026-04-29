@@ -1,7 +1,7 @@
 # Python Virtual Environment Guide for DC Dictionary Project
 
 ## Overview
-The `scdock-r-dev:v0.5.1` Docker image uses a **layered virtual environment** approach to manage Python packages efficiently. Many usefull packages are already pre-installed. 
+The `scdock-r-dev` Docker image uses a **layered virtual environment** approach to manage Python packages efficiently. Many usefull packages are already pre-installed. 
 
 ## Pre-installed Python Environments
 
