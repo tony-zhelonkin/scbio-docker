@@ -124,8 +124,8 @@ COPY docker/requirements /opt/environments
 
 ENV PIP_NO_CACHE_DIR=1
 RUN python3 -m venv /opt/venvs/base && \
-    /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
-    /opt/venvs/base/bin/python -m pip install --no-cache-dir -r /opt/environments/base.txt && \
+    /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel Cython && \
+    /opt/venvs/base/bin/python -m pip install --no-cache-dir --no-build-isolation -r /opt/environments/base.txt && \
     rm -rf ~/.cache/pip /root/.cache/pip /tmp/*
 
 ####################################################
