@@ -148,8 +148,11 @@ RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.31.1/bedtools-2
     cd / && rm -rf /build/*
 
 # scIBD (Python-based, install to base venv)
+# Upstream requirements.txt lists 'umap>=0.1.1' which doesn't exist on PyPI
+# (the real package is 'umap-learn', already installed via base.txt). Filter it out.
 RUN git clone https://github.com/Ying-Lab/scIBD && cd scIBD && \
-    /opt/venvs/base/bin/pip install --no-cache-dir -r requirements.txt && \
+    grep -v '^umap[<>=]' requirements.txt > requirements_filtered.txt && \
+    /opt/venvs/base/bin/pip install --no-cache-dir -r requirements_filtered.txt && \
     /opt/venvs/base/bin/python setup.py install && \
     cd / && rm -rf /build/scIBD /root/.cache/pip /tmp/*
 
