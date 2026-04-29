@@ -33,10 +33,15 @@ GROUP_ID=1000          # Generic default
 USER_NAME=devuser      # Generic username
 GROUP_NAME=devgroup    # Generic group
 BUILD_MODE="generic"   # Track build mode for display
+ASSUME_YES=0
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -y|--yes)
+            ASSUME_YES=1
+            shift
+            ;;
         --tag)
             TAG="$2"
             shift 2
@@ -77,6 +82,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --group-id GID       Custom group ID (default: 1000)"
             echo "  --user NAME          Custom username (default: devuser)"
             echo "  --group NAME         Custom group name (default: devgroup)"
+            echo "  -y, --yes            Skip confirmation prompt (for unattended/agentic builds)"
             echo ""
             echo "Build Modes:"
             echo "  GENERIC (default):   Builds devuser:1000 - shareable with team/registry"
@@ -117,11 +123,15 @@ fi
 echo ""
 
 # Confirm before building
-read -p "Continue with build? (y/N): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Build cancelled."
-    exit 0
+if [ "$ASSUME_YES" -eq 1 ]; then
+    echo -e "${GREEN}--yes flag set, proceeding without prompt.${NC}"
+else
+    read -p "Continue with build? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Build cancelled."
+        exit 0
+    fi
 fi
 
 # Build start time
