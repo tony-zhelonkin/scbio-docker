@@ -165,7 +165,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.3"
+LABEL version="v0.5.4"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -226,18 +226,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 ####################################################
-### Install Node.js (for MCP servers: npx required)
+### AI prerequisites (Node.js + uv)
 ####################################################
-# Node.js LTS from NodeSource (includes npm and npx)
+# These are infrastructure prerequisites only. The image carries NO AI tooling
+# itself (no Claude/Gemini CLI, no MCP servers, no ToolUniverse/Serena/PAL).
+# All AI tooling is installed at runtime per-project by:
+#   01_modules/SciAgent-toolkit/scripts/setup-ai.sh
+# which depends on `node`/`npm`/`npx` and `uv`/`uvx` being available.
+
+# Node.js 20 LTS from NodeSource (provides node, npm, npx)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/* && \
     node --version && npm --version && npx --version
 
-####################################################
-### Install uv (fast Python package manager for MCP servers)
-####################################################
-# uv is required for ToolUniverse, PAL, and Serena MCP servers
+# uv / uvx (Astral) — fast Python package/runtime manager
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     mv /root/.local/bin/uv /usr/local/bin/ && \
     mv /root/.local/bin/uvx /usr/local/bin/ && \
@@ -298,11 +301,9 @@ COPY docker/requirements /opt/environments
 COPY scripts/create_layered_venv.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/create_layered_venv.sh
 
-# SciAgent-toolkit scripts (read-only, AI setup runs at runtime)
-# Only copy scripts and agents directories (~100KB), not full toolkit
-COPY toolkits/SciAgent-toolkit/scripts /opt/SciAgent-toolkit/scripts
-COPY toolkits/SciAgent-toolkit/agents /opt/SciAgent-toolkit/agents
-RUN chmod +x /opt/SciAgent-toolkit/scripts/*.sh 2>/dev/null || true
+# NOTE: SciAgent-toolkit is intentionally NOT copied into the image.
+# It is added per-project as a git submodule under 01_modules/SciAgent-toolkit/
+# and its setup-ai.sh runs inside the container at project-init time.
 
 # Update shared library cache
 RUN ldconfig

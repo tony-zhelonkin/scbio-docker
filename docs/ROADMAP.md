@@ -46,9 +46,16 @@ Project flow:
 
 ## Current Status
 
-**Released:** v0.5.3 (AI-prereqs ready: Node 20, npm/npx, uv/uvx, Python `toml`).
+**In progress:** v0.5.4 — repo cleanup, AI strip from image, template consolidation, isolation hardening (see Roadmap below).
 
-**In flight:** v0.5.4 — repo cleanup, AI strip from image, template consolidation, isolation hardening (see Roadmap below).
+### v0.5.4 changes (Phase 4 landed)
+
+- Stripped AI tooling from the image — image is now containerization-only. No Claude/Gemini CLI, no MCP servers, no ToolUniverse/Serena/PAL baked in. The `COPY toolkits/SciAgent-toolkit/{scripts,agents}` step is removed; the toolkit is attached per-project as a submodule and `setup-ai.sh` runs at runtime.
+- Kept AI prerequisites (Node 20 LTS, `uv`/`uvx`, Python `toml`) so `SciAgent-toolkit/scripts/setup-ai.sh` can run cleanly inside the container.
+- `docker/requirements/*.txt` audited and confirmed AI-clean (no `anthropic`, `openai`, `mcp-*`, `claude-*`, etc.). Only `toml` remains in `base.txt` as a deliberate AI prerequisite — it is small and broadly useful.
+- `LABEL version="v0.5.4"` set on the runtime stage. `CLAUDE.md` and `README.md` updated to describe the runtime-install model.
+
+**Previously released:** v0.5.3 (AI-prereqs added: Node 20, npm/npx, uv/uvx, Python `toml`).
 
 ### Achievements through v0.5.3
 

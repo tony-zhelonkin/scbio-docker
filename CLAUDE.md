@@ -6,19 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Docker-based development environment for single-cell RNA-seq and epigenomics analyses, integrated with VS Code Remote Containers. The repository provides optimized Docker images with a focus on reproducibility and size efficiency.
 
-**Current Version:** v0.5.3 (AI Tools Ready)
+**Current Version:** v0.5.4 (Containerization-only image)
 
 **Image Variants:**
-- **scdock-r-dev:v0.5.3** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
+- **scdock-r-dev:v0.5.4** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
 - **greenleaflab/archr:1.0.3-base-r4.4** (official ArchR): R 4.4 + ArchR 1.0.3, maintained by ArchR developers
 
-**Key Changes in v0.5.3:**
-- **AI Tools Ready**: Pre-installed dependencies for SciAgent-toolkit MCP servers
-  - Node.js 20 LTS (npm, npx) for Sequential Thinking, Context7 MCP servers
-  - uv/uvx for ToolUniverse, PAL, Serena MCP servers
-  - `toml` Python package for Codex CLI configuration
-- No more permission errors or installation hangs during `setup-ai.sh`
-- Maintains ~20GB target size (Node.js and uv add ~100MB)
+**Key Changes in v0.5.4:**
+- **Stripped AI tooling from the image** — image is containerization-only. No Claude/Gemini CLI, no MCP servers, no ToolUniverse/Serena/PAL baked in.
+- **Kept AI prerequisites** so SciAgent-toolkit's `setup-ai.sh` can run cleanly:
+  - Node.js 20 LTS (`node`, `npm`, `npx`)
+  - `uv` / `uvx` (Astral)
+  - Python `toml` package (Codex CLI config generation)
+- **Filesystem isolation patterns** for the compose template documented in `docs/ISOLATION.md` (tmpfs `/tmp`, `pids_limit`, optional read-only root, secrets pattern).
+- **Repo tidied**: shell scripts under `scripts/`, meta-docs under `docs/`, single universal `templates/base/` scaffold.
+
+**v0.5.3 Changes (carried forward):**
+- Added Node 20, uv/uvx, Python `toml` as AI prerequisites (kept in v0.5.4).
 
 **v0.5.2 Changes (carried forward):**
 - **Additional R packages pre-installed**: chromVAR, motifmatchr, TFBSTools, JASPAR2022, SingleR, celldex, AnnotationHub, EnsDb.Mmusculus.v79, crescendo (GitHub)
@@ -42,7 +46,7 @@ Build: prefer `scripts/build.sh` or `docker build -f docker/base/Dockerfile`
 
 ## Build Commands
 
-### Building the base image (v0.5.3 - Multi-Stage)
+### Building the base image (v0.5.4 - Multi-Stage)
 
 **IMPORTANT: Build Strategy (Shareable vs Personal)**
 
@@ -72,7 +76,7 @@ scripts/build.sh --personal --github-pat ghp_...
 docker build . \
   -f docker/base/Dockerfile \
   --build-arg GITHUB_PAT=$GITHUB_PAT \
-  -t scdock-r-dev:v0.5.3
+  -t scdock-r-dev:v0.5.4
 # Note: USER_ID defaults to 1000 (no need to specify)
 ```
 
@@ -85,7 +89,7 @@ docker build . \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg USER=$USER \
   --build-arg GROUP=$(id -gn) \
-  -t scdock-r-dev:v0.5.3-personal
+  -t scdock-r-dev:v0.5.4-personal
 ```
 
 ### Building ArchR Wrapper Image
@@ -115,7 +119,7 @@ The ArchR wrapper provides UID-compatible layer over official ArchR image:
 After the first successful build (when renv snapshots the packages):
 
 ```bash
-CID=$(docker create scdock-r-dev:v0.5.3)
+CID=$(docker create scdock-r-dev:v0.5.4)
 docker cp $CID:/opt/settings/renv.lock ./renv.lock
 docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
 docker rm $CID
@@ -131,8 +135,8 @@ COPY renv.lock /opt/settings/renv.lock
 ### Running sanity checks
 
 ```bash
-docker run --rm scdock-r-dev:v0.5.3 bash -lc 'scripts/poststart_sanity.sh'
-docker run --rm scdock-r-archr:v0.5.3 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-dev:v0.5.4 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-archr:v0.5.4 bash -lc 'scripts/poststart_sanity.sh'
 ```
 
 ## Architecture
@@ -254,24 +258,28 @@ if (!require("PACKAGE")) BiocManager::install("PACKAGE")
 
 ### AI Tools Integration (Runtime Setup)
 
-AI tools (Claude Code, MCP servers) are installed **at runtime** via **SciAgent-toolkit**, not during image build. This provides:
-- Per-project configuration with correct absolute paths
-- Clean separation between container infrastructure and AI tooling
-- User control over when to spend time on optional installations
+**The image is containerization-only.** It carries no AI tooling itself — no Claude/Gemini CLI, no MCP servers, no ToolUniverse, no Serena, no PAL, no agents/skills.
+
+What the image **does** carry are the **prerequisites** that downstream AI tooling needs:
+- **Node.js 20 LTS** (`node`, `npm`, `npx`) — for JS/TS-based MCP servers (Sequential Thinking, Context7).
+- **`uv` / `uvx`** (Astral) — for Python-based AI tools (ToolUniverse, PAL, Serena).
+- **Python `toml`** (in `/opt/venvs/base`) — for Codex CLI config generation.
+
+All actual AI tooling is installed **at runtime, per-project**, by `SciAgent-toolkit`'s `setup-ai.sh`.
 
 **Why runtime instead of build-time:**
-1. `.mcp.json` requires absolute paths - must be generated with actual project path
-2. AI context files (CLAUDE.md, etc.) are project-specific
-3. ToolUniverse creates `tooluniverse-env/` per-project for isolation
-4. Avoids maintaining separate AI-enabled image
+1. `.mcp.json` requires absolute paths — must be generated against the real project path.
+2. AI context files (CLAUDE.md, AGENTS.md, GEMINI.md) are project-specific.
+3. ToolUniverse creates `tooluniverse-env/` per project for isolation.
+4. Keeps a single image shareable across users / projects regardless of which AI stack they want.
 
 **Setup workflow:**
-1. Run `init-project.sh --with-submodules` to create project structure with SciAgent-toolkit submodule
-2. Open project in VS Code Dev Container
-3. Run: `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`
-4. Fill in `context.md` with your scientific question
+1. `scripts/init-project.sh --with-submodules <path>` — scaffolds the project and adds SciAgent-toolkit as a submodule under `01_modules/SciAgent-toolkit/`.
+2. Open the project in VS Code Dev Container.
+3. Inside the container, run `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`.
+4. Fill in `context.md` with your scientific question.
 
-**Note:** SciAgent-toolkit is maintained at `toolkits/SciAgent-toolkit/` in the scbio-docker repo and added as a submodule to `01_modules/SciAgent-toolkit/` in new projects.
+**Note:** SciAgent-toolkit is tracked here at `toolkits/SciAgent-toolkit/` (submodule) and re-attached per-project at `01_modules/SciAgent-toolkit/`. It is NOT copied into the image.
 
 **Configuration files created:**
 - `.mcp.json` - MCP server configuration (project-local, gitignored)
@@ -446,7 +454,7 @@ docker run --rm -it \
   -u $(id -u):$(id -g) \
   -v /path/to/project:/workspaces/project \
   --memory=450g --cpus=50 \
-  scdock-r-dev:v0.5.3 bash
+  scdock-r-dev:v0.5.4 bash
 ```
 
 **Run ArchR image manually:**
@@ -489,7 +497,7 @@ docker compose -f .devcontainer/docker-compose.yml down
 
 ### UID/GID Handling (Generic + Runtime Remapping)
 
-**New Strategy (v0.5.3): Generic Images with Runtime UID Remapping**
+**Strategy (v0.5.3+): Generic Images with Runtime UID Remapping**
 
 Images are built with **generic user (devuser:1000)** by default, then mapped to actual user at runtime:
 
@@ -532,7 +540,7 @@ LOCAL_GID=788600513  # Your GID (run: id -g)
 
 **Manual Docker Run:**
 ```bash
-docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.3
+docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.4
 ```
 
 **Active Directory / Special Characters:**
@@ -745,7 +753,7 @@ unset GITHUB_PAT
 
 ## Notes
 
-- Current version: v0.5.3
+- Current version: v0.5.4
 - Default branch for PRs: `main`
 - This repository uses git; current branch is `dev`
 - Heavy annotation packages are excluded by default; enable with `--build-arg INCLUDE_HEAVY_R_DATA=1` or install at runtime

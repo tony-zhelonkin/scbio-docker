@@ -1,6 +1,6 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.2-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.4-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 Purpose-built Docker images and VS Code Dev Container config for single-cell analysis in R and Python. The goal is a clean, reproducible, and fast-to-start environment you can use locally or remotely without yak-shaving.
@@ -57,28 +57,24 @@ Documentation
 
 AI integration (CLI agents)
 
-This repository integrates with the `SciAgent-toolkit` for AI-powered assistance (Claude Code, MCP servers with 600+ scientific tools).
+The image is **containerization-only** — it ships no AI tooling itself. It carries only the **prerequisites** (Node.js 20, `uv`/`uvx`, Python `toml`) so that the `SciAgent-toolkit` submodule can install AI tooling at runtime, per-project.
 
 **Setup (Runtime - inside container):**
 ```bash
-# 1. Initialize project with AI setup script
-./init-project.sh ~/projects/my-analysis basic-rna --ai --interactive
+# 1. Scaffold a project with SciAgent-toolkit attached as a submodule
+scripts/init-project.sh ~/projects/my-analysis --with-submodules
 
 # 2. Open in VS Code, Reopen in Container
 
-# 3. Inside container, run setup (first time only)
-.devcontainer/scripts/setup-ai.sh           # Full setup (5-15 min)
-.devcontainer/scripts/setup-ai.sh --minimal # Fast setup (2-3 min)
-
-# 4. Verify
-claude
-/mcp  # Shows: sequential-thinking, tooluniverse, serena
+# 3. Inside the container, run AI setup (first time only)
+./01_modules/SciAgent-toolkit/scripts/setup-ai.sh          # Full setup (5-15 min)
+./01_modules/SciAgent-toolkit/scripts/setup-ai.sh --minimal # Fast setup (2-3 min)
 ```
 
-**What gets installed:**
-- Claude Code CLI (`~/.local/bin/claude`)
-- MCP servers: Sequential Thinking, ToolUniverse (600+ tools), Serena (code intelligence)
-- Project-specific `.mcp.json` configuration
+**What `setup-ai.sh` installs (at runtime, into the project):**
+- Claude Code CLI / Gemini CLI (as configured)
+- MCP servers: Sequential Thinking, Context7, ToolUniverse, PAL, optionally Serena
+- Project-local `.mcp.json`, `.claude/`, `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
 
 License
 - MIT. See LICENSE.
