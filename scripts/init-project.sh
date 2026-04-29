@@ -59,6 +59,7 @@ usage() {
     echo "Options:"
     echo "  --data-mount KEY:PATH[:ro]    Add data mount (can be used multiple times)"
     echo "                                 KEY is a label, PATH is host path, :ro for read-only"
+    echo "  --image-version vX.Y.Z         Override image tag (default: read from VERSION file)"
     echo "  --interactive                  Prompt for all configuration options"
     echo "  --git-init                     Initialize git repository"
     echo "  --with-submodules              Add RNAseq-toolkit and SciAgent-toolkit as git submodules"
@@ -100,6 +101,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --data-mount)
             DATA_MOUNTS+=("$2")
+            shift 2
+            ;;
+        --image-version)
+            IMAGE_VERSION="$2"
             shift 2
             ;;
         --interactive)
