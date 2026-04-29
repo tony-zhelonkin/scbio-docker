@@ -7,14 +7,18 @@
 # Examples:
 #   scripts/build.sh
 #   scripts/build.sh --github-pat ghp_xxxxx
-#   scripts/build.sh --tag scdock-r-dev:v0.5.2
+#   scripts/build.sh --tag scdock-r-dev:vX.Y.Z
 
 set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+IMAGE_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
+
 GITHUB_PAT="${GITHUB_PAT:-}"
-TAG="scdock-r-dev:v0.5.2"
+TAG="scdock-r-dev:${IMAGE_VERSION}"
 USER_ID=1000
 GROUP_ID=1000
 USER_NAME=devuser
@@ -36,7 +40,7 @@ Usage: $0 [OPTIONS]
 
 Options:
   --github-pat TOKEN   GitHub personal access token (avoids rate limits)
-  --tag TAG            Docker image tag (default: scdock-r-dev:v0.5.2)
+  --tag TAG            Docker image tag (default: scdock-r-dev:\$IMAGE_VERSION from VERSION file)
   --personal           Build with YOUR UID/GID (for personal use only)
   --user-id UID        Custom user ID (default: 1000)
   --group-id GID       Custom group ID (default: 1000)

@@ -22,8 +22,12 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+IMAGE_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
+
 # Default values (GENERIC for shareability)
-TAG="scdock-r-archr:v0.5.1"
+TAG="scdock-r-archr:${IMAGE_VERSION}"
 USER_ID=1000           # Generic default (shareable image)
 GROUP_ID=1000          # Generic default
 USER_NAME=devuser      # Generic username
@@ -67,7 +71,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --tag TAG            Docker image tag (default: scdock-r-archr:v0.5.1)"
+            echo "  --tag TAG            Docker image tag (default: scdock-r-archr:\$IMAGE_VERSION from VERSION file)"
             echo "  --personal           Build with YOUR UID/GID (for personal use only)"
             echo "  --user-id UID        Custom user ID (default: 1000 for shareable image)"
             echo "  --group-id GID       Custom group ID (default: 1000)"
