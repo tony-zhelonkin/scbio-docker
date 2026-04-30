@@ -94,6 +94,7 @@ Tracked in detail in the active refactor plan; phases:
 
 ### v0.6.0 — Robustness & UX polish
 
+- **SSH passthrough.** Install `openssh-client` + `gh` CLI in the image; forward host `SSH_AUTH_SOCK` and (optionally) `~/.config/gh` in the compose template. Recipe and rationale: [ssh-passthrough.md](ssh-passthrough.md). Currently deferred — no project blocks on it.
 - **R install robustness.** Switch `safe_install()` to `installed.packages()` check; explicit per-package logging; build-time verification (`smoke_test_R.R`) covering tidyverse, Seurat, Signac, edgeR, limma, clusterProfiler, GSVA, anndataR.
 - **BiocManager UX.** Set `BiocManager.check_repositories = FALSE` in `.Rprofile`; one-time welcome message explaining two-tier library design.
 - **Python venv UX.** Pre-build `squid` venv in image (most common spatial use case, +3–5 GB; opt-out documented). Add progress indicators to `usepy` showing "Installing snapatac2…" etc.
