@@ -34,20 +34,21 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 BiocManager::install(version = "3.22", ask = FALSE)
 
 essential_tidyverse <- c(
-  "tidyverse","Matrix","future","future.apply","parallelly"
+  "tidyverse","Matrix","data.table","future","future.apply","parallelly"
 )
 
 visualization <- c(
-  "ggpubr","ggridges","patchwork","pheatmap","RColorBrewer","Cairo","ragg","kableExtra","plotly","ggrastr"
+  "ggpubr","ggridges","patchwork","pheatmap","RColorBrewer","Cairo","textshaping","ragg","kableExtra","plotly","ggrastr"
 )
 
-stats_modeling <- c("lme4","brms","broom.mixed","DescTools")
+stats_modeling <- c("lme4","brms","broom.mixed","DescTools","Rfast")
 data_manip <- c("reshape2","Rcpp","RcppEigen")
 vscode_support <- c("languageserver","httpgd")
 r_python <- c("reticulate")
+notebooks <- c("IRkernel")
 
 cran_core <- c(
-  essential_tidyverse, visualization, stats_modeling, data_manip, vscode_support, r_python,
+  essential_tidyverse, visualization, stats_modeling, data_manip, vscode_support, r_python, notebooks,
   "devtools","hdf5r","pandoc"
 )
 safe_install(cran_core, install.packages, repos = "https://cloud.r-project.org")
@@ -56,6 +57,7 @@ bioc_core <- c(
   "SingleCellExperiment","scran","scater","scuttle",
   "edgeR","limma","DESeq2",
   "GenomicRanges","GenomeInfoDb","IRanges","S4Vectors","SummarizedExperiment","BiocParallel",
+  "Rsamtools",
   "SoupX","DropletUtils","scDblFinder",
   "ComplexHeatmap","dittoSeq",
   "biomaRt","AnnotationHub","AnnotationDbi",
@@ -87,7 +89,8 @@ safe_install("WGCNA", install.packages, repos = "https://cloud.r-project.org")
 github_packages <- c(
   "satijalab/seurat-data","satijalab/azimuth","mojaveazure/seurat-disk",
   "pmbio/MuDataSeurat","cellgeni/sceasy","zellkonverter/zellkonverter",
-  "carmonalab/GeneNMF","welch-lab/liger","immunogenomics/crescendo"
+  "carmonalab/GeneNMF","welch-lab/liger","immunogenomics/crescendo",
+  "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS"
 )
 for (pkg in github_packages) {
   try({
