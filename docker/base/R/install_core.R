@@ -3,7 +3,7 @@
 # CORE R PACKAGES for scbio-docker (moved under docker/base/R)
 # These are pre-installed in the image. Additional packages can be installed at runtime.
 
-snapshot <- Sys.getenv("RSPM_SNAPSHOT", unset = "2025-02-15")
+snapshot <- Sys.getenv("RSPM_SNAPSHOT", unset = "2026-04-15")
 options(repos = c(CRAN = paste0("https://packagemanager.posit.co/cran/__linux__/jammy/", snapshot)))
 
 github_pat <- Sys.getenv("GITHUB_PAT")
