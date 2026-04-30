@@ -33,7 +33,7 @@ bokeh
 # Single-Cell Analysis
 anndata==0.10.9
 scanpy==1.10.4
-scvi-tools==1.1.6
+scvi-tools==1.2.0
 cellrank==2.0.6
 scvelo==0.3.2
 scrublet==0.2.3

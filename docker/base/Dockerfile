@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     locales \
     build-essential g++ gfortran \
-    git wget curl ca-certificates \
+    git wget curl ca-certificates gnupg software-properties-common \
     # R build dependencies
     libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
@@ -62,14 +62,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagick++-dev \
     # X11 dependencies (required for R)
     libx11-dev libxt-dev x11proto-core-dev \
-    # Python build dependencies
-    python3 python3-dev python3-pip python3-venv python3-setuptools python3-wheel \
     # CLI tool build dependencies
     libbz2-dev liblzma-dev libncurses5-dev libcurl4-openssl-dev autoconf automake \
-    # Keep these for runtime package installation
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone \
     && locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
+
+# Python 3.11 via deadsnakes PPA (Ubuntu 22.04 ships only 3.10; modern PyData
+# packages — lightning, scvi-tools 1.2+, jax, flax — require >=3.11).
+RUN add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-dev python3.11-venv python3.11-distutils \
+    && rm -rf /var/lib/apt/lists/* && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 
 ####################################################
 ### Build R from source
@@ -124,7 +129,7 @@ RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh && \
 COPY docker/requirements /opt/environments
 
 ENV PIP_NO_CACHE_DIR=1
-RUN python3 -m venv /opt/venvs/base && \
+RUN python3.11 -m venv /opt/venvs/base && \
     /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
     /opt/venvs/base/bin/python -m pip install --no-cache-dir -r /opt/environments/base.txt && \
     rm -rf ~/.cache/pip /root/.cache/pip /tmp/*
@@ -181,7 +186,7 @@ ENV TZ=America/Chicago LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 ARG R_VERSION_MAJOR=4
 ARG R_VERSION_MINOR=5
 ARG R_VERSION_PATCH=3
-ARG VENV_NAME=python3.10
+ARG VENV_NAME=python3.11
 
 ENV R_VERSION_MAJOR=$R_VERSION_MAJOR \
     R_VERSION_MINOR=$R_VERSION_MINOR \
@@ -220,8 +225,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagick++-dev \
     # X11 dependencies (required for R)
     libx11-dev libxt-dev x11proto-core-dev \
-    # Python runtime dependencies
-    python3 python3-dev python3-pip python3-venv python3-setuptools python3-wheel \
+    # Tooling for adding deadsnakes PPA below
+    gnupg software-properties-common \
     # CLI tool runtime dependencies
     libncurses5-dev libcurl4-openssl-dev \
     # Utilities
@@ -229,6 +234,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
+
+# Python 3.11 runtime (matches builder venv interpreter)
+RUN add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-dev python3.11-venv python3.11-distutils \
+    && rm -rf /var/lib/apt/lists/*
 
 ####################################################
 ### AI prerequisites (Node.js + uv)
@@ -347,7 +358,7 @@ RUN printf '%s\n' \
   '    squid|atac|comms) ' \
   '      if [ ! -d "/opt/venvs/$1" ]; then ' \
   '        echo "Creating layered venv: $1"; ' \
-  '        python3 -m venv --system-site-packages /opt/venvs/$1; ' \
+  '        python3.11 -m venv --system-site-packages /opt/venvs/$1; ' \
   '        if [ -f "/opt/environments/${1}.txt" ]; then ' \
   '          /opt/venvs/$1/bin/pip install --no-cache-dir -r /opt/environments/${1}.txt; ' \
   '        fi; ' \

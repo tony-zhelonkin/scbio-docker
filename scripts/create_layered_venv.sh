@@ -28,7 +28,7 @@ fi
 
 # Create layered venv (inherits base packages)
 echo "Creating layered venv: $ENV_NAME (inherits from base)"
-python3 -m venv --system-site-packages "$VENV_DIR"
+python3.11 -m venv --system-site-packages "$VENV_DIR"
 
 # Upgrade pip/setuptools/wheel
 "$VENV_DIR/bin/python" -m pip install --upgrade --no-cache-dir pip setuptools wheel
