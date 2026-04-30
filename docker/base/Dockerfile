@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # R build dependencies
     libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
+    libuv1-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev gfortran \
     # Additional scientific libraries (for R packages)
@@ -209,6 +210,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # R runtime dependencies
     libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libcairo2-dev \
+    libuv1-dev \
     libreadline-dev libbz2-dev liblzma-dev libicu-dev libpcre3-dev zlib1g-dev \
     libblas-dev liblapack-dev \
     # Additional scientific libraries (for runtime R package compilation)
