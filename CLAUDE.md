@@ -13,6 +13,8 @@ This is a Docker-based development environment for single-cell RNA-seq and epige
 - **greenleaflab/archr:1.0.3-base-r4.4** (official ArchR): R 4.4 + ArchR 1.0.3, maintained by ArchR developers
 
 **Key Changes in v0.5.4:**
+- **R 4.5.3 + Bioconductor 3.22** (bumped from 4.5.0 + 3.21). `anndataR` now installs cleanly from Bioconductor (was missing in 3.21).
+- **Expanded core R packages**: added `IRkernel` (Jupyter R kernel), `Rsamtools` (Bioc), `Rfast`, `data.table`, `textshaping` (explicit), and GitHub-installed `Zhen-Miao/PICsnATAC` + `Zhen-Miao/PACS`.
 - **Stripped AI tooling from the image** — image is containerization-only. No Claude/Gemini CLI, no MCP servers, no ToolUniverse/Serena/PAL baked in.
 - **Kept AI prerequisites** so SciAgent-toolkit's `setup-ai.sh` can run cleanly:
   - Node.js 20 LTS (`node`, `npm`, `npx`)
