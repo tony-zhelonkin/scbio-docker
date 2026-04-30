@@ -92,16 +92,46 @@ github_packages <- c(
   "carmonalab/GeneNMF","welch-lab/liger","immunogenomics/crescendo",
   "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS"
 )
+install_gh_pkg <- function(slug) {
+  pkg_name <- sub(".*/", "", slug)
+  if (requireNamespace(pkg_name, quietly = TRUE)) {
+    message(sprintf("Package %s already installed, skipping", pkg_name))
+    return(invisible(TRUE))
+  }
+  ok <- tryCatch({
+    remotes::install_github(slug, quiet = TRUE, upgrade = "never")
+    TRUE
+  }, error = function(e) {
+    message(sprintf("install_github failed for %s: %s", slug, e$message))
+    FALSE
+  })
+  if (!ok) {
+    # Fallback: manual git clone + install_local (avoids api.github.com HTTP/2 flakiness).
+    message(sprintf("Falling back to git clone + install_local for %s", slug))
+    tryCatch({
+      tmp <- tempfile()
+      dir.create(tmp)
+      url <- sprintf("https://github.com/%s.git", slug)
+      Sys.setenv(GIT_HTTP_VERSION = "HTTP/1.1")
+      system2("git", c("-c", "http.version=HTTP/1.1", "clone", "--depth", "1",
+                       url, file.path(tmp, pkg_name)),
+              stdout = TRUE, stderr = TRUE)
+      remotes::install_local(file.path(tmp, pkg_name),
+                             quiet = TRUE, upgrade = "never", dependencies = TRUE)
+      unlink(tmp, recursive = TRUE)
+    }, error = function(e) warning(sprintf("clone+install_local failed for %s: %s",
+                                           slug, e$message)))
+  }
+}
+
 for (pkg in github_packages) {
-  try({
-    if (pkg == "zellkonverter/zellkonverter") {
-      if (!requireNamespace("zellkonverter", quietly = TRUE)) {
-        BiocManager::install("zellkonverter", ask = FALSE, update = FALSE)
-      }
-    } else {
-      remotes::install_github(pkg, quiet = TRUE, upgrade = "never")
+  if (pkg == "zellkonverter/zellkonverter") {
+    if (!requireNamespace("zellkonverter", quietly = TRUE)) {
+      try(BiocManager::install("zellkonverter", ask = FALSE, update = FALSE), silent = TRUE)
     }
-  }, silent = TRUE)
+  } else {
+    install_gh_pkg(pkg)
+  }
 }
 
 safe_install("MOFA2", BiocManager::install, ask = FALSE, update = FALSE)
