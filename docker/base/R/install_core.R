@@ -31,7 +31,7 @@ if (!requireNamespace("remotes", quietly = TRUE))
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager", repos = "https://cloud.r-project.org")
 
-BiocManager::install(version = "3.21", ask = FALSE)
+BiocManager::install(version = "3.22", ask = FALSE)
 
 essential_tidyverse <- c(
   "tidyverse","Matrix","future","future.apply","parallelly"
