@@ -42,7 +42,7 @@ This is a Docker-based development environment for single-cell RNA-seq and epige
 - Single Python base venv with layered venvs for specialized tools
 - Core R packages pre-installed (~80), additional packages installed at runtime
 - Official ArchR image instead of custom build
-- Project templates + init-project.sh for quick scaffolding
+- Devcontainer/compose templates + init-container.sh for quick container setup
 
 Build: prefer `scripts/build.sh` or `docker build -f docker/base/Dockerfile`
 
@@ -184,7 +184,7 @@ The repo supports two devcontainer approaches:
 
 **Runtime:**
 - `.devcontainer/scripts/poststart_sanity.sh`: Validates container environment on startup
-- `init-project.sh`: Project scaffolding script (creates from templates)
+- `init-container.sh`: Renders `.devcontainer/` (devcontainer.json + compose + .env) into a target dir (symlinked as `init-project.sh`)
 
 ### Python Virtual Environments (v0.5.0: Layered Approach)
 
@@ -270,10 +270,11 @@ All actual AI tooling is installed **at runtime, per-project**, by `SciAgent-too
 4. Keeps a single image shareable across users / projects regardless of which AI stack they want.
 
 **Setup workflow:**
-1. `scripts/init-project.sh --with-submodules <path>` — scaffolds the project and adds SciAgent-toolkit as a submodule under `01_modules/SciAgent-toolkit/`.
-2. Open the project in VS Code Dev Container.
-3. Inside the container, run `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`.
-4. Fill in `context.md` with your scientific question.
+1. `scripts/init-container.sh <path>` — renders the dev container into the project directory.
+2. `sciagent new project --type analysis <path>` — scaffolds the project tree and attaches SciAgent-toolkit under `01_modules/SciAgent-toolkit/`.
+3. Open the project in VS Code Dev Container.
+4. Inside the container, run `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`.
+5. Fill in `context.md` with your scientific question.
 
 **Note:** SciAgent-toolkit is tracked here at `toolkits/SciAgent-toolkit/` (submodule) and re-attached per-project at `01_modules/SciAgent-toolkit/`. It is NOT copied into the image.
 
@@ -625,89 +626,59 @@ If `scenicplus` is not preinstalled:
 pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
 ```
 
-## Project Setup Pattern
+## Project Scaffolding
 
-### Separation of Concerns
+### Boundary with SciAgent-toolkit
 
-This repository follows a strict separation between **container infrastructure** and **AI tooling**:
+This repository is a **container substrate** and nothing more. It owns Docker
+images, R/Python environment definitions, build scripts, and the devcontainer +
+compose templates that wrap a project in a reproducible environment. It does
+**not** own project structure, analysis config, results layout, docs namespaces,
+or AI context — those belong to **SciAgent-toolkit**, a sibling repo attached
+per-project at `01_modules/SciAgent-toolkit/` (never vendored into the image).
 
-| Repository | Responsibility |
-|------------|----------------|
-| **scbio-docker** | Docker images, container setup, project directory structure |
-| **SciAgent-toolkit** | AI tools installation, MCP servers, agents/skills, methodology guidelines |
+| Repository | Owns |
+|------------|------|
+| **scbio-docker** | Dockerfiles, image definitions, R/Python env specs, build scripts, devcontainer/compose templates, `init-container.sh`, `.env` stub |
+| **SciAgent-toolkit** | Project scaffold (directory tree), config templates, `docs/_internal` namespace, AI harness (roles/skills/agents/commands) |
 
-### Quick Start
+Decide ownership by asking: *does the content change when the **image** changes
+(scbio-docker) or when the **project / AI harness** changes (SciAgent-toolkit)?*
+
+### Two-step workflow
 
 ```bash
-# From scbio-docker repository
-./init-project.sh ~/projects/my-analysis              # Uses "base" template (default)
-./init-project.sh ~/projects/my-analysis base --git-init --with-submodules
+# 1. Render the dev container into a target directory (scbio-docker)
+./init-project.sh ~/projects/my-analysis \
+    --data-mount atac:/scratch/data/DT-1234 \
+    --data-mount rna:/scratch/data/DT-5678:ro \
+    --service dev-core --max-cpus 50 --max-memory 450G
+
+# 2. Scaffold the project structure + AI harness (SciAgent-toolkit)
+sciagent new project --type analysis ~/projects/my-analysis
+
+# 3. Open in VS Code, reopen in container
+code ~/projects/my-analysis
 ```
 
-**What init-project.sh creates:**
+`init-project.sh` is a symlink to `scripts/init-container.sh`. It writes only
+`.devcontainer/{devcontainer.json,docker-compose.yml,.env,scripts/poststart_sanity.sh}`.
+
+**`init-container.sh` interface (container-only):**
 ```
-my-project/
-├── .devcontainer/
-│   ├── devcontainer.json      # Pre-configured VS Code container setup
-│   ├── docker-compose.yml     # Multi-service setup (dev-core + dev-archr)
-│   ├── .env                   # LOCAL_UID, LOCAL_GID, API keys
-│   └── scripts/
-│       └── poststart_sanity.sh
-├── .vscode/
-│   └── settings.json          # Universal Python + R configuration
-├── .gitignore                 # Excludes data/, results/, caches
-├── 00_data/
-│   ├── raw/                   # Raw data (add mount in docker-compose.yml)
-│   ├── processed/             # Processed objects
-│   └── references/            # Reference files
-├── 01_modules/                # Reusable toolkits (submodules)
-│   └── RNAseq-toolkit/        # R analysis functions (optional)
-├── 02_analysis/
-│   ├── config/                # Configuration files
-│   │   ├── config.R
-│   │   ├── pipeline.yaml
-│   │   └── color_config.R
-│   └── helpers/               # Project-specific scripts
-├── 03_results/
-│   ├── checkpoints/           # Cached intermediate objects
-│   ├── plots/                 # Generated figures
-│   └── tables/                # Output tables
-├── logs/
-├── README.md                  # Project instructions
-├── tasks.md                   # Task tracker
-└── notes.md                   # Research notes
+init-container.sh <project-dir> [OPTIONS]
+  --data-mount KEY:PATH[:ro]    Add a data mount (repeatable)
+  --image-version vX.Y.Z        Image tag (default: VERSION file)
+  --service dev-core|dev-archr  Compose service (default: dev-core)
+  --max-cpus N                  CPU limit default (default: 50)
+  --max-memory NG               Memory limit default (default: 450G)
 ```
 
-### After Container Setup (AI Tooling)
-
-Run inside the container to set up AI tools:
-```bash
-./01_modules/SciAgent-toolkit/scripts/setup-ai.sh
-```
-
-**What setup-ai.sh creates:**
-```
-my-project/
-├── .claude/                   # Claude Code configuration
-│   ├── agents/                # Symlinks to active agents
-│   └── skills/                # Symlinks to active skills
-├── .mcp.json                  # MCP server configuration
-├── CLAUDE.md                  # AI context for Claude
-├── GEMINI.md                  # AI context for Gemini
-├── AGENTS.md                  # Universal AI rules
-├── context.md                 # Scientific context (user fills in)
-└── 02_analysis/config/
-    └── analysis_config.yaml   # Project parameters
-```
-
-### Manual Setup (Without Templates)
-
-1. Copy `.devcontainer/` folder from scbio-docker repo
-2. Copy `.vscode/settings.json` from `templates/.vscode/settings.json`
-3. Edit `docker-compose.yml` to add data mounts
-4. Open in VS Code: `Dev Containers: Reopen in Container`
-
-See DEVOPS.md for complete instructions.
+The `.env` it writes carries `LOCAL_UID`/`LOCAL_GID`, `MAX_CPUS`/`MAX_MEMORY`,
+and MCP API-key stubs (`CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`)
+that SciAgent-toolkit's `setup-ai.sh` consumes later. It does **not** create the
+analysis tree, config files, docs, or `.gitkeep`s — run `sciagent new project`
+for those.
 
 ## Troubleshooting
 

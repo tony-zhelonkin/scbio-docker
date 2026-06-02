@@ -25,10 +25,13 @@ scripts/build.sh
 # 2) (Optional) Pull official ArchR image for scATAC work
 docker pull greenleaflab/archr:1.0.3-base-r4.4
 
-# 3) Scaffold a new analysis project
-./init-project.sh ~/projects/my-analysis basic-rna --interactive
+# 3) Render a dev container into a project directory
+./init-project.sh ~/projects/my-analysis
 
-# 4) Open + Reopen in Container
+# 4) Scaffold the project structure (SciAgent-toolkit)
+sciagent new project --type analysis ~/projects/my-analysis
+
+# 5) Open + Reopen in Container
 code ~/projects/my-analysis
 ```
 
@@ -44,7 +47,7 @@ Build modes (brief)
 - Personal: `scripts/build.sh --personal` bakes your UID/GID; not shareable but handy for local use
 
 Documentation
-- Quick start: QUICK-START.md
+- Quick start: QUICKSTART.md
 - Build guide: docs/build.md
 - Architecture: docs/architecture.md
 - DevOps and operations: docs/devops.md
@@ -57,24 +60,24 @@ Documentation
 
 AI integration (CLI agents)
 
-The image is **containerization-only** — it ships no AI tooling itself. It carries only the **prerequisites** (Node.js 20, `uv`/`uvx`, Python `toml`) so that the `SciAgent-toolkit` submodule can install AI tooling at runtime, per-project.
+The image is **containerization-only**. All context/LLM/agent management lives in a
+dedicated repo — [SciAgent-toolkit](https://github.com/tony-zhelonkin/SciAgent-toolkit).
+The image carries only the **prerequisites** (Node.js 20, `uv`/`uvx`, Python `toml`) so
+that SciAgent-toolkit can install AI tooling at runtime, per-project.
 
-**Setup (Runtime - inside container):**
+scbio-docker renders the dev container; SciAgent-toolkit scaffolds the project and the
+AI harness. They compose and never import each other:
+
 ```bash
-# 1. Scaffold a project with SciAgent-toolkit attached as a submodule
-scripts/init-project.sh ~/projects/my-analysis --with-submodules
+# 1. Render the dev container into a project directory (scbio-docker)
+./init-project.sh ~/projects/my-analysis
 
-# 2. Open in VS Code, Reopen in Container
+# 2. Scaffold the project structure + AI harness (SciAgent-toolkit)
+sciagent new project --type analysis ~/projects/my-analysis
 
-# 3. Inside the container, run AI setup (first time only)
-./01_modules/SciAgent-toolkit/scripts/setup-ai.sh          # Full setup (5-15 min)
-./01_modules/SciAgent-toolkit/scripts/setup-ai.sh --minimal # Fast setup (2-3 min)
+# 3. Open in VS Code, Reopen in Container, then run AI setup (first time only)
+./01_modules/SciAgent-toolkit/scripts/setup-ai.sh
 ```
-
-**What `setup-ai.sh` installs (at runtime, into the project):**
-- Claude Code CLI / Gemini CLI (as configured)
-- MCP servers: Sequential Thinking, Context7, ToolUniverse, PAL, optionally Serena
-- Project-local `.mcp.json`, `.claude/`, `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
 
 License
 - MIT. See LICENSE.

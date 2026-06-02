@@ -1,1 +1,1 @@
-scripts/init-project.sh
+scripts/init-container.sh
