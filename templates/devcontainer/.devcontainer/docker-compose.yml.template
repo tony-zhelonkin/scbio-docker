@@ -7,6 +7,7 @@ services:
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
       - SSH_AUTH_SOCK=/ssh-agent
+      - OLLAMA_HOST=${OLLAMA_HOST}
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
     # ports:
     #   - "8787:8787"
@@ -38,6 +39,7 @@ services:
         reservations:
           cpus: '2'
           memory: 8G
+{{GPU_DEVICES}}
 
   dev-archr:
     profiles: ["archr"]  # Only started with: docker compose --profile archr up
@@ -48,6 +50,7 @@ services:
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
       - SSH_AUTH_SOCK=/ssh-agent
+      - OLLAMA_HOST=${OLLAMA_HOST}
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
     # ports:
     #   - "8787:8787"
@@ -79,6 +82,7 @@ services:
         reservations:
           cpus: '2'
           memory: 8G
+{{GPU_DEVICES}}
 
 # --- Optional secrets pattern (uncomment to use) ---
 # Place secrets in files outside the repo (e.g. ~/.scbio-secrets/<name>),

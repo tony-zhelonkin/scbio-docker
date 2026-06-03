@@ -40,6 +40,7 @@ IMAGE_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
 SERVICE="dev-core"
 MAX_CPUS="50"
 MAX_MEMORY="450g"
+GPU=false
 declare -a DATA_MOUNTS=()
 
 usage() {
@@ -55,6 +56,7 @@ Options:
   --service dev-core|dev-archr  Compose service (default: dev-core)
   --max-cpus N                  CPU limit default (default: 50)
   --max-memory NG               Memory limit default (default: 450G)
+  --gpu                         Enable NVIDIA GPU passthrough (adds devices block)
 
 Example:
   $0 ~/projects/atac-study \\
@@ -79,6 +81,7 @@ while [[ $# -gt 0 ]]; do
         --service)       SERVICE="$2"; shift 2 ;;
         --max-cpus)      MAX_CPUS="$2"; shift 2 ;;
         --max-memory)    MAX_MEMORY="$2"; shift 2 ;;
+        --gpu)           GPU=true; shift ;;
         *)
             echo -e "${RED}Error: Unknown option '$1'${NC}" >&2
             usage
@@ -122,6 +125,13 @@ build_ssh_agent_mount() {
     fi
 }
 
+# --- Build the GPU devices block (empty when --gpu not passed) ---------------
+build_gpu_devices() {
+    if [[ "$GPU" == "true" ]]; then
+        printf '          devices:\n            - driver: nvidia\n              count: all\n              capabilities: [gpu]\n'
+    fi
+}
+
 # --- Build the multi-line data-mount block for the compose YAML --------------
 build_data_mount_block() {
     local lines=""
@@ -145,11 +155,11 @@ build_data_mount_block() {
 
 # --- Render docker-compose.yml (Python: multi-line tokens passed as args) ----
 render_docker_compose() {
-    local data_mount_block="$1" ssh_agent_mount="$2"
+    local data_mount_block="$1" ssh_agent_mount="$2" gpu_devices="$3"
     python3 - "$TEMPLATES_DIR" "$PROJECT_DIR" "$IMAGE_VERSION" "$PROJECT_NAME" \
-        "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" "$ssh_agent_mount" <<'PYEOF'
+        "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" "$ssh_agent_mount" "$gpu_devices" <<'PYEOF'
 import sys, pathlib
-tmpl, project_dir, image_version, project_name, max_cpus, max_memory, data_mounts, ssh_agent = sys.argv[1:9]
+tmpl, project_dir, image_version, project_name, max_cpus, max_memory, data_mounts, ssh_agent, gpu_devices = sys.argv[1:10]
 src = pathlib.Path(tmpl) / ".devcontainer" / "docker-compose.yml.template"
 dst = pathlib.Path(project_dir) / ".devcontainer" / "docker-compose.yml"
 content = src.read_text()
@@ -159,6 +169,7 @@ content = content.replace("{{MAX_CPUS}}", max_cpus)
 content = content.replace("{{MAX_MEMORY}}", max_memory)
 content = content.replace("{{DATA_MOUNTS}}", data_mounts)
 content = content.replace("{{SSH_AGENT_MOUNT}}", ssh_agent)
+content = content.replace("{{GPU_DEVICES}}", gpu_devices)
 dst.write_text(content)
 PYEOF
 }
@@ -215,6 +226,10 @@ WORKSPACE_FOLDER=..
 MAX_CPUS=${MAX_CPUS}
 MAX_MEMORY=${MAX_MEMORY}
 
+# Local Ollama endpoint — Docker bridge IP (host as seen from inside container)
+# Update if Ollama runs on a different host or port
+OLLAMA_HOST=http://172.17.0.1:11434
+
 # MCP Server API keys (consumed by SciAgent-toolkit's setup-ai.sh later)
 # Context7 - library docs (works without a key; key raises rate limits)
 CONTEXT7_API_KEY=${context7_key}
@@ -228,7 +243,7 @@ EOF
 echo -e "${GREEN}Rendering dev container for '${PROJECT_NAME}' (image scdock-r-dev:${IMAGE_VERSION}, service ${SERVICE})...${NC}"
 
 render_devcontainer_json
-render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)"
+render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)" "$(build_gpu_devices)"
 copy_devcontainer_scripts
 write_env_file
 
