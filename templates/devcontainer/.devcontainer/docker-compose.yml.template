@@ -6,11 +6,13 @@ services:
     env_file: ../.env
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
+      - SSH_AUTH_SOCK=/ssh-agent
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
     # ports:
     #   - "8787:8787"
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
+{{SSH_AGENT_MOUNT}}
 {{DATA_MOUNTS}}
     stdin_open: true
     tty: true
@@ -45,11 +47,13 @@ services:
     env_file: ../.env
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
+      - SSH_AUTH_SOCK=/ssh-agent
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
     # ports:
     #   - "8787:8787"
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
+{{SSH_AGENT_MOUNT}}
 {{DATA_MOUNTS}}
     stdin_open: true
     tty: true

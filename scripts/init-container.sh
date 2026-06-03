@@ -110,6 +110,18 @@ render_devcontainer_json() {
         > "${PROJECT_DIR}/.devcontainer/devcontainer.json"
 }
 
+# --- Build the SSH agent mount line (empty when no agent socket present) -----
+# Auto-detects SSH_AUTH_SOCK. If it's a live socket, returns a single volume
+# line that forwards it into the container. If absent/not a socket, returns
+# empty — the {{SSH_AGENT_MOUNT}} token is replaced with nothing, keeping the
+# compose file valid without any fallback-socket hacks.
+build_ssh_agent_mount() {
+    local sock="${SSH_AUTH_SOCK:-}"
+    if [[ -n "$sock" && -S "$sock" ]]; then
+        printf '      - %s:/ssh-agent:ro\n' "$sock"
+    fi
+}
+
 # --- Build the multi-line data-mount block for the compose YAML --------------
 build_data_mount_block() {
     local lines=""
@@ -131,13 +143,13 @@ build_data_mount_block() {
     printf '%s' "$lines"
 }
 
-# --- Render docker-compose.yml (Python: {{DATA_MOUNTS}} is multi-line) --------
+# --- Render docker-compose.yml (Python: multi-line tokens passed as args) ----
 render_docker_compose() {
-    local data_mount_block="$1"
+    local data_mount_block="$1" ssh_agent_mount="$2"
     python3 - "$TEMPLATES_DIR" "$PROJECT_DIR" "$IMAGE_VERSION" "$PROJECT_NAME" \
-        "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" <<'PYEOF'
+        "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" "$ssh_agent_mount" <<'PYEOF'
 import sys, pathlib
-tmpl, project_dir, image_version, project_name, max_cpus, max_memory, data_mounts = sys.argv[1:8]
+tmpl, project_dir, image_version, project_name, max_cpus, max_memory, data_mounts, ssh_agent = sys.argv[1:9]
 src = pathlib.Path(tmpl) / ".devcontainer" / "docker-compose.yml.template"
 dst = pathlib.Path(project_dir) / ".devcontainer" / "docker-compose.yml"
 content = src.read_text()
@@ -146,6 +158,7 @@ content = content.replace("{{PROJECT_NAME}}", project_name)
 content = content.replace("{{MAX_CPUS}}", max_cpus)
 content = content.replace("{{MAX_MEMORY}}", max_memory)
 content = content.replace("{{DATA_MOUNTS}}", data_mounts)
+content = content.replace("{{SSH_AGENT_MOUNT}}", ssh_agent)
 dst.write_text(content)
 PYEOF
 }
@@ -215,7 +228,7 @@ EOF
 echo -e "${GREEN}Rendering dev container for '${PROJECT_NAME}' (image scdock-r-dev:${IMAGE_VERSION}, service ${SERVICE})...${NC}"
 
 render_devcontainer_json
-render_docker_compose "$(build_data_mount_block)"
+render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)"
 copy_devcontainer_scripts
 write_env_file
 
