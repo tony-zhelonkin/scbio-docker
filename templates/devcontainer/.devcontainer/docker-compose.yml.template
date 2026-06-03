@@ -3,7 +3,7 @@ services:
     image: scdock-r-dev:{{IMAGE_VERSION}}
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/{{PROJECT_NAME}}
-    env_file: .env
+    env_file: ../.env
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
@@ -11,7 +11,8 @@ services:
     #   - "8787:8787"
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
-{{DATA_MOUNTS}}    stdin_open: true
+{{DATA_MOUNTS}}
+    stdin_open: true
     tty: true
     tmpfs:
       - /tmp:noexec,nodev,nosuid,mode=1777
@@ -20,7 +21,7 @@ services:
     # # If enabled, your home and any writable scratch must be tmpfs or named volumes:
     # # tmpfs:
     # #   - /tmp:noexec,nodev,nosuid,mode=1777
-    # #   - /home/devuser:exec,mode=0755,uid={{LOCAL_UID}},gid={{LOCAL_GID}}
+    # #   - /home/devuser:exec,mode=0755,uid=${LOCAL_UID:-1000},gid=${LOCAL_GID:-1000}
     # cap_drop: ["ALL"]
     # cap_add: ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]
     # security_opt: ["no-new-privileges:true"]
@@ -41,7 +42,7 @@ services:
     image: scdock-r-archr:{{IMAGE_VERSION}}
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/{{PROJECT_NAME}}
-    env_file: .env
+    env_file: ../.env
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
@@ -49,7 +50,8 @@ services:
     #   - "8787:8787"
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
-{{DATA_MOUNTS}}    stdin_open: true
+{{DATA_MOUNTS}}
+    stdin_open: true
     tty: true
     tmpfs:
       - /tmp:noexec,nodev,nosuid,mode=1777
@@ -58,7 +60,7 @@ services:
     # # If enabled, your home and any writable scratch must be tmpfs or named volumes:
     # # tmpfs:
     # #   - /tmp:noexec,nodev,nosuid,mode=1777
-    # #   - /home/devuser:exec,mode=0755,uid={{LOCAL_UID}},gid={{LOCAL_GID}}
+    # #   - /home/devuser:exec,mode=0755,uid=${LOCAL_UID:-1000},gid=${LOCAL_GID:-1000}
     # cap_drop: ["ALL"]
     # cap_add: ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]
     # security_opt: ["no-new-privileges:true"]

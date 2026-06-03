@@ -39,7 +39,7 @@ NC='\033[0m'
 IMAGE_VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
 SERVICE="dev-core"
 MAX_CPUS="50"
-MAX_MEMORY="450G"
+MAX_MEMORY="450g"
 declare -a DATA_MOUNTS=()
 
 usage() {
@@ -179,9 +179,12 @@ SANITY_EOF
     chmod +x "$dst"
 }
 
-# --- Create/update .devcontainer/.env (preserve existing MCP keys) -----------
+# --- Create/update .env at project root (preserve existing MCP keys) ---------
+# .env lives at the project root so Docker Compose v2 picks it up for variable
+# interpolation (compose v2 reads .env from the working directory, not the
+# compose file's directory).
 write_env_file() {
-    local env_file="${PROJECT_DIR}/.devcontainer/.env"
+    local env_file="${PROJECT_DIR}/.env"
     local context7_key="" gemini_key="" openai_key=""
     if [ -f "$env_file" ]; then
         context7_key=$(grep "^CONTEXT7_API_KEY=" "$env_file" 2>/dev/null | cut -d= -f2- || true)
@@ -193,7 +196,7 @@ write_env_file() {
 # Docker Compose environment variables
 LOCAL_UID=$(id -u)
 LOCAL_GID=$(id -g)
-WORKSPACE_FOLDER=..
+WORKSPACE_FOLDER=.
 
 # Resource limits (override compose defaults)
 MAX_CPUS=${MAX_CPUS}
@@ -220,8 +223,8 @@ echo ""
 echo -e "${GREEN}Dev container rendered into ${PROJECT_DIR}/.devcontainer/${NC}"
 echo "  - devcontainer.json"
 echo "  - docker-compose.yml"
-echo "  - .env"
 echo "  - scripts/poststart_sanity.sh"
+echo -e "${GREEN}Project env file written to ${PROJECT_DIR}/.env${NC}"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Scaffold the project structure (tree, config, docs, AI harness):"
