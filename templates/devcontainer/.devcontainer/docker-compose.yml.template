@@ -3,7 +3,7 @@ services:
     image: scdock-r-dev:{{IMAGE_VERSION}}
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/{{PROJECT_NAME}}
-    env_file: ../.env
+    env_file: .env
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
       - SSH_AUTH_SOCK=/ssh-agent
@@ -44,7 +44,7 @@ services:
     image: scdock-r-archr:{{IMAGE_VERSION}}
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /workspaces/{{PROJECT_NAME}}
-    env_file: ../.env
+    env_file: .env
     environment:
       - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
       - SSH_AUTH_SOCK=/ssh-agent
