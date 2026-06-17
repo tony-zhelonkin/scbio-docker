@@ -1,0 +1,732 @@
+# AGENTS.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Overview
+
+This is a Docker-based development environment for single-cell RNA-seq and epigenomics analyses, integrated with VS Code Remote Containers. The repository provides optimized Docker images with a focus on reproducibility and size efficiency.
+
+**Current Version:** v0.5.5 (Containerization-only image)
+
+**Image Variants:**
+- **scdock-r-dev:v0.5.5** (base): R 4.5 + Bioc 3.21 + Python 3.10 with core bioinformatics packages (**true ~20GB image**)
+- **greenleaflab/archr:1.0.3-base-r4.4** (official ArchR): R 4.4 + ArchR 1.0.3, maintained by ArchR developers
+
+**Key Changes in v0.5.5:**
+- **`ripgrep` + `fd` pre-installed** (apt). `fd-find` ships the binary as `fdfind`; a `/usr/local/bin/fd` symlink exposes the canonical `fd` name. `~/.local/bin` is added to PATH in interactive shells so user-installed tooling (e.g. the `dev-env` nvim/fzf) resolves.
+- **`init-container.sh` renders `.vscode/settings.json`** (from `templates/devcontainer/.vscode/settings.json`, never clobbering an existing file). Fixes the Shift+Enter Python REPL opening on the system interpreter (`ModuleNotFoundError: numpy`) by setting `python.defaultInterpreterPath=/opt/venvs/base/bin/python`.
+- **`fzf` is owned by the sibling `dev-env` repo** (`rollout.sh` now installs it into `~/.local`), clearing the `fzf-lua` minimum-version (0.36) abort. `nvim`/`fzf` stay out of the image to keep it lean.
+
+**Key Changes in v0.5.4:**
+- **R 4.5.3 + Bioconductor 3.22** (bumped from 4.5.0 + 3.21). `anndataR` now installs cleanly from Bioconductor (was missing in 3.21).
+- **Expanded core R packages**: added `IRkernel` (Jupyter R kernel), `Rsamtools` (Bioc), `Rfast`, `data.table`, `textshaping` (explicit), and GitHub-installed `Zhen-Miao/PICsnATAC` + `Zhen-Miao/PACS`.
+- **Stripped AI tooling from the image** — image is containerization-only. No Claude/Gemini CLI, no MCP servers, no ToolUniverse/Serena/PAL baked in.
+- **Kept AI prerequisites** so SciAgent-toolkit's `setup-ai.sh` can run cleanly:
+  - Node.js 20 LTS (`node`, `npm`, `npx`)
+  - `uv` / `uvx` (Astral)
+  - Python `toml` package (Codex CLI config generation)
+- **Filesystem isolation patterns** for the compose template documented in `docs/ISOLATION.md` (tmpfs `/tmp`, `pids_limit`, optional read-only root, secrets pattern).
+- **Repo tidied**: shell scripts under `scripts/`, meta-docs under `docs/`, single universal `templates/base/` scaffold.
+
+**v0.5.3 Changes (carried forward):**
+- Added Node 20, uv/uvx, Python `toml` as AI prerequisites (kept in v0.5.4).
+
+**v0.5.2 Changes (carried forward):**
+- **Additional R packages pre-installed**: chromVAR, motifmatchr, TFBSTools, JASPAR2022, SingleR, celldex, AnnotationHub, EnsDb.Mmusculus.v79, crescendo (GitHub)
+- **Ubuntu libraries added**: libhdf5-dev, libgsl-dev (enables hdf5r, DirichletMultinomial compilation)
+- **Bug fix**: safe_install() now handles meta-packages correctly (tidyverse installs properly)
+
+**v0.5.1 Changes (carried forward):**
+- **Multi-stage build** - completely discards build artifacts, no layer bloat
+- **True ~20GB Docker image** (not just filesystem, actual reported size)
+- **Build tools preserved** - can compile R/Python packages at runtime
+
+**v0.5.0 Optimizations (carried forward):**
+- Aggressive cache cleanup (renv, pip, build artifacts)
+- TinyTeX instead of full TeX distribution
+- Single Python base venv with layered venvs for specialized tools
+- Core R packages pre-installed (~80), additional packages installed at runtime
+- Official ArchR image instead of custom build
+- Devcontainer/compose templates + init-container.sh for quick container setup
+
+Build: prefer `scripts/build.sh` or `docker build -f docker/base/Dockerfile`
+
+## Build Commands
+
+### Building the base image (v0.5.4 - Multi-Stage)
+
+**IMPORTANT: Build Strategy (Shareable vs Personal)**
+
+The build system supports TWO modes:
+- **GENERIC (default)**: Creates `devuser:1000` - shareable with team/registry
+- **PERSONAL**: Creates image with YOUR UID - only for your use
+
+**Recommended: Generic build (shareable)**
+```bash
+scripts/build.sh                       # Generic build (devuser:1000)
+scripts/build.sh --github-pat ghp_...  # With GitHub PAT
+```
+
+**Personal build (your UID only):**
+```bash
+scripts/build.sh --personal            # Bakes your UID into image
+scripts/build.sh --personal --github-pat ghp_...
+```
+
+**How UID remapping works:**
+- **Generic image (devuser:1000)**: VS Code remaps 1000 → your UID automatically via `updateRemoteUserUID: true`
+- **Personal image (your UID)**: No remapping needed, but NOT shareable with others
+- **Best practice**: Use generic build + push to registry for team sharing
+
+**Manual generic build:**
+```bash
+docker build . \
+  -f docker/base/Dockerfile \
+  --build-arg GITHUB_PAT=$GITHUB_PAT \
+  -t scdock-r-dev:v0.5.4
+# Note: USER_ID defaults to 1000 (no need to specify)
+```
+
+**Manual personal build:**
+```bash
+docker build . \
+  -f docker/base/Dockerfile \
+  --build-arg GITHUB_PAT=$GITHUB_PAT \
+  --build-arg USER_ID=$(id -u) \
+  --build-arg GROUP_ID=$(id -g) \
+  --build-arg USER=$USER \
+  --build-arg GROUP=$(id -gn) \
+  -t scdock-r-dev:v0.5.4-personal
+```
+
+### Building ArchR Wrapper Image
+
+The ArchR wrapper provides UID-compatible layer over official ArchR image:
+
+```bash
+./build-archr-wrapper.sh                   # Generic build (devuser:1000)
+./build-archr-wrapper.sh --personal        # Personal build (your UID)
+```
+
+**What it does:**
+- Pulls official `greenleaflab/archr:1.0.3-base-r4.4`
+- Removes `rstudio` user, creates `devuser` with same pattern as base image
+- Result: Consistent UID handling across dev-core ↔ dev-archr switching
+
+**Why use wrapper instead of official image directly:**
+- Official image has `rstudio:1000` - different user from `devuser:1000`
+- Wrapper ensures both images use identical user setup
+- Seamless switching between dev-core and dev-archr services
+- VS Code UID remapping works consistently
+
+### Extracting renv lockfile after first build
+
+After the first successful build (when renv snapshots the packages):
+
+```bash
+CID=$(docker create scdock-r-dev:v0.5.4)
+docker cp $CID:/opt/settings/renv.lock ./renv.lock
+docker cp $CID:/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
+docker rm $CID
+git add renv.lock R-packages-manifest.csv
+git commit -m "Pin R via renv; add manifest"
+```
+
+Then add the following to `docker/base/Dockerfile` (after line ~95) to enable deterministic builds:
+```dockerfile
+COPY renv.lock /opt/settings/renv.lock
+```
+
+### Running sanity checks
+
+```bash
+docker run --rm scdock-r-dev:v0.5.4 bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm scdock-r-archr:v0.5.4 bash -lc 'scripts/poststart_sanity.sh'
+```
+
+## Architecture
+
+### Image Layering
+
+```
+ubuntu:22.04
+  └─ scdock-r-dev:v0.5.0 (docker/base/Dockerfile)
+       • R 4.5.0 built from source with Cairo, BLAS, LAPACK
+       • ~80 core R packages pre-installed (install_R_core.R)
+       • Python base venv: /opt/venvs/base
+       • Layered venvs created on-demand: {squid,atac,comms}
+       • CLI tools: samtools, bcftools, bedtools, scIBD
+       • TinyTeX (lightweight)
+       • Quarto for scientific documentation
+       • httpgd for VS Code R graphics
+
+greenleaflab/archr:1.0.3-base-r4.4 (official, standalone)
+       • R 4.4.x + ArchR 1.0.3
+       • Maintained by ArchR developers
+       • Use via docker-compose "dev-archr" service
+```
+
+### Docker Compose vs Single Image
+
+The repo supports two devcontainer approaches:
+
+1. **Docker Compose** (current setup in `.devcontainer/devcontainer.json`):
+   - Defines two services: `dev-core` and `dev-archr`
+   - Switch by changing `service` field in `devcontainer.json`
+   - Both services use identical mounts and UIDs
+
+2. **Single Image**: Directly specify `image` instead of `dockerComposeFile` in `devcontainer.json`
+
+### Key Scripts
+
+**Build-time:**
+- `.devcontainer/install_R_core.R`: Installs ~80 core R packages (Seurat, edgeR, limma, etc.)
+- `.devcontainer/install_R_packages.R`: Full package installer (deprecated in favor of core + runtime)
+- `.devcontainer/install_renv_project.R`: Handles renv init/restore/snapshot
+- `.devcontainer/install_httpgd.R`: Installs httpgd with CRAN-first, GitHub-fallback
+- `.devcontainer/install_quarto.sh`: Installs Quarto
+- `.devcontainer/create_layered_venv.sh`: Helper to create Python venvs with `--system-site-packages`
+
+**Runtime:**
+- `.devcontainer/scripts/poststart_sanity.sh`: Validates container environment on startup
+- `init-container.sh`: Renders `.devcontainer/` (devcontainer.json + compose + .env) into a target dir (symlinked as `init-project.sh`)
+
+### Python Virtual Environments (v0.5.0: Layered Approach)
+
+**Base venv (pre-installed in image):**
+- **/opt/venvs/base**: Core single-cell stack (scanpy, scvi-tools, muon, cellrank, scvelo, radian)
+  - Pre-installed during build (~25GB)
+  - Requirements: `docker/requirements/base.txt`
+
+**Layered venvs (created at runtime with `--system-site-packages`):**
+- **/opt/venvs/squid**: Spatial transcriptomics (squidpy, spatialdata)
+  - Inherits from base, adds only squidpy-specific packages (~3-5GB additional)
+  - Requirements: `docker/requirements/squid.txt`
+
+- **/opt/venvs/atac**: scATAC-seq tools (snapatac2, episcanpy)
+  - Inherits from base, adds only ATAC-specific packages (~2-3GB additional)
+  - Requirements: `docker/requirements/atac.txt`
+
+- **/opt/venvs/comms**: Cell communication and GRN (liana, cellphonedb, scglue)
+  - Inherits from base, adds only communication tools (~3-4GB additional)
+  - Requirements: `docker/requirements/comms.txt`
+
+**Creating layered venvs:**
+```bash
+# Automatic on first use:
+usepy squidpy  # Creates if doesn't exist, then activates
+
+# Manual creation:
+create_layered_venv.sh squidpy squidpy_requirements.txt
+create_layered_venv.sh atac atac_requirements.txt
+create_layered_venv.sh comms comms_requirements.txt
+```
+
+**Size savings:** 4 full venvs (100GB) → 1 base + 3 layered (~40GB total)
+
+### R Environment (v0.5.0: Core + Runtime)
+
+**R Version:** 4.5.0 + Bioconductor 3.21
+
+**Pre-installed Core Packages (~80):**
+- **Seurat ecosystem**: Seurat, Signac, BPCells, presto, glmGamPoi, sctransform
+- **RNA-seq foundations**: edgeR, limma, DESeq2, scran, scater
+- **GSEA & pathways**: clusterProfiler, GSVA, fgsea, msigdbr, decoupleR
+- **Multi-factorial**: muscat, MOFA2, mixOmics, lemur, liger, harmony
+- **Visualization**: ggplot2, patchwork, ggpubr, ComplexHeatmap, pheatmap
+- **Statistics**: lme4, brms, Matrix, future
+- **Interoperability**: anndataR, MuDataSeurat, sceasy, reticulate
+- **VS Code support**: languageserver, httpgd, Cairo
+
+Full list in `.devcontainer/install_R_core.R`
+
+**Runtime Package Installation:**
+Additional packages can be installed at runtime into user library (`~/R/...`):
+```r
+# Automatically installs to writable user library
+if (!require("PACKAGE")) BiocManager::install("PACKAGE")
+```
+
+**Reproducibility:**
+- **Image**: `renv.lock` at `/opt/settings/renv.lock` (extract after first build)
+- **Project**: Project-level `renv.lock` for per-project snapshots
+- **ArchR library** (ArchR image only): Separate library path at `$ARCHR_LIB` (default: `~/R/archr-lib`)
+
+**Key Changes:**
+- Heavy annotation packages (BSgenome.*, EnsDb.*, org.*.eg.db) NOT pre-installed - install at runtime if needed
+- Core packages cover 95% of workflows, specialized packages installed on-demand
+- User library is writable for runtime installs (no sudo needed)
+
+### AI Tools Integration (Runtime Setup)
+
+**The image is containerization-only.** It carries no AI tooling itself — no Claude/Gemini CLI, no MCP servers, no ToolUniverse, no Serena, no PAL, no agents/skills.
+
+What the image **does** carry are the **prerequisites** that downstream AI tooling needs:
+- **Node.js 20 LTS** (`node`, `npm`, `npx`) — for JS/TS-based MCP servers (Sequential Thinking).
+- **`uv` / `uvx`** (Astral) — for Python-based AI tools (ToolUniverse, PAL, Serena).
+- **Python `toml`** (in `/opt/venvs/base`) — for Codex CLI config generation.
+
+All actual AI tooling is installed **at runtime, per-project**, by `SciAgent-toolkit`'s `setup-ai.sh`.
+
+**Why runtime instead of build-time:**
+1. `.mcp.json` requires absolute paths — must be generated against the real project path.
+2. AI context files (CLAUDE.md, AGENTS.md, GEMINI.md) are project-specific.
+3. ToolUniverse creates `tooluniverse-env/` per project for isolation.
+4. Keeps a single image shareable across users / projects regardless of which AI stack they want.
+
+**Setup workflow:**
+1. `scripts/init-container.sh <path>` — renders the dev container into the project directory.
+2. `sciagent new project --type analysis <path>` — scaffolds the project tree and attaches SciAgent-toolkit under `01_modules/SciAgent-toolkit/`.
+3. Open the project in VS Code Dev Container.
+4. Inside the container, run `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh`.
+5. Fill in `context.md` with your scientific question.
+
+**Note:** SciAgent-toolkit is tracked here at `toolkits/SciAgent-toolkit/` (submodule) and re-attached per-project at `01_modules/SciAgent-toolkit/`. It is NOT copied into the image.
+
+**Configuration files created:**
+- `.mcp.json` - MCP server configuration (project-local, gitignored)
+- `.claude/agents/` - Symlinks to active agents from SciAgent-toolkit
+- `.claude/skills/` - Symlinks to active skills from SciAgent-toolkit
+- `CLAUDE.md`, `GEMINI.md`, `AGENTS.md` - AI context files
+- `context.md` - Scientific context (user fills in)
+- `02_analysis/config/analysis_config.yaml` - Project parameters
+
+**First-run timing:**
+- Full setup: 5-15 minutes (optional Serena Rust compilation)
+- Minimal setup (`--minimal`): 2-3 minutes
+- Subsequent runs: <1 minute (checks if already installed)
+
+**Available MCP servers:**
+- **Sequential Thinking**: Structured reasoning for complex decisions
+- **PAL**: Multi-model AI collaboration
+- **ToolUniverse**: 600+ scientific tools (ChEMBL, UniProt, PubMed, etc.)
+- **Serena**: Code intelligence (optional, requires compilation)
+
+**Methodology Guidelines:**
+Analysis guidelines are maintained in `SciAgent-toolkit/docs/guidelines/` (single source of truth).
+These are referenced from AI context files, not copied to each project.
+
+## Common Commands
+
+### Python Environment Switching
+
+```bash
+# Interactive shell switching
+usepy base       # switch to base env
+usepy squid      # switch to squid env
+usepy atac       # switch to ATAC env
+usepy comms      # switch to COMMS env
+
+# One-off commands
+py-base python -V
+py-squid python -c "import squidpy"
+py-atac python -c "import snapatac2"
+py-comms python -c "import pyscenic"
+
+# Check active environment
+which python && python -V
+```
+
+### R Session Management (Radian + Tmux Workflow)
+
+**Standard R terminal:** Radian (pre-installed in base venv)
+
+Inside **scdock-r-dev** container:
+```bash
+r-base           # Launch radian with base R libraries only
+radian           # Direct invocation (same as r-base)
+```
+
+Inside **greenleaflab/archr** container (official ArchR image):
+```bash
+radian           # Launch radian (ArchR available directly)
+
+# In R:
+library(ArchR)
+packageVersion("ArchR")  # 1.0.3
+```
+
+**Persistent R Sessions with Tmux (recommended for SSH):**
+```bash
+# Start persistent R session in tmux
+tmux new-session -s my-analysis radian
+
+# Detach: Ctrl+B, then D
+# Session continues running even if SSH disconnects
+
+# Re-attach later:
+tmux attach -t my-analysis
+
+# List sessions:
+tmux ls
+```
+
+**VS Code Integration:**
+- R code sent to active terminal (radian) via VS Code R extension
+- Set in `.vscode/settings.json`:
+  ```jsonc
+  "r.rterm.linux": "/opt/venvs/base/bin/radian",
+  "r.alwaysUseActiveTerminal": true,
+  "r.bracketedPaste": true
+  ```
+- Start radian in tmux → select that terminal in VS Code → send R code
+- Graphics display via httpgd (interactive plots in VS Code)
+
+### Switching to ArchR Container
+
+**Method 1: Edit devcontainer.json (persistent)**
+```bash
+# In .devcontainer/devcontainer.json, change:
+"service": "dev-core"  →  "service": "dev-archr"
+
+# In VS Code: Cmd/Ctrl+Shift+P → "Dev Containers: Rebuild and Reopen in Container"
+```
+
+**Method 2: Attach to running container (temporary)**
+```bash
+docker compose -f .devcontainer/docker-compose.yml up -d dev-archr
+# In VS Code: Cmd/Ctrl+Shift+P → "Dev Containers: Attach to Running Container"
+```
+
+See DEVOPS.md for complete workflow.
+
+### Installing Additional R Packages
+
+**Two-Tier R Library Architecture:**
+
+The container uses a read-only system library + writable user library design:
+
+```
+System Library (read-only)          User Library (writable)
+/usr/local/lib/R/library            ~/R/x86_64-pc-linux-gnu-library/4.5
+├─ Core packages (~80)              ├─ Runtime installs
+├─ Pinned via renv.lock            ├─ Project-specific packages
+├─ Owned by root                   ├─ Owned by devuser
+└─ Same across all containers      └─ Takes precedence over system
+```
+
+**Installing packages (no sudo needed):**
+
+```r
+install.packages("PACKAGE")
+BiocManager::install("PACKAGE")
+
+# Check library paths:
+.libPaths()
+# [1] "/home/devuser/R/x86_64-pc-linux-gnu-library/4.5"  # writable (runtime installs)
+# [2] "/usr/local/lib/R/library"                          # system (core packages)
+```
+
+**Expected Warning (NORMAL):**
+
+When installing with BiocManager, you'll see:
+```r
+BiocManager::install("AnnotationHub")
+...
+* DONE (AnnotationHub)
+
+Installation paths not writeable, unable to update packages
+  path: /usr/local/lib/R/library
+  packages:
+    aplot, BiocGenerics, Matrix, Seurat, ...
+```
+
+**This is expected and harmless:**
+- ✅ Your package installed successfully to user library
+- ⚠️ BiocManager checked if system packages need updates (by design with `update=TRUE`)
+- ❌ Cannot update system packages because they're read-only (intentional for reproducibility)
+
+**To suppress warnings:**
+```r
+BiocManager::install("PACKAGE", update = FALSE)
+```
+
+**Why read-only system library?**
+1. Reproducibility: Core packages pinned via renv.lock
+2. Shareability: Same baseline for all users
+3. Disk efficiency: ~10GB core packages shared across containers
+4. Separation: System packages stable, user packages experimental
+
+### Container Operations
+
+**Run base image manually:**
+```bash
+docker run --rm -it \
+  -u $(id -u):$(id -g) \
+  -v /path/to/project:/workspaces/project \
+  --memory=450g --cpus=50 \
+  scdock-r-dev:v0.5.4 bash
+```
+
+**Run ArchR image manually:**
+```bash
+docker run --rm -it \
+  -u $(id -u):$(id -g) \
+  -v /path/to/project:/workspaces/project \
+  --memory=450g --cpus=50 \
+  greenleaflab/archr:1.0.3-base-r4.4 bash
+```
+
+**Using Docker Compose:**
+```bash
+export LOCAL_UID=$(id -u); export LOCAL_GID=$(id -g); export WORKSPACE_FOLDER=$PWD
+docker compose -f .devcontainer/docker-compose.yml up -d dev-archr
+docker compose -f .devcontainer/docker-compose.yml exec dev-archr bash
+docker compose -f .devcontainer/docker-compose.yml down
+```
+
+## Code Architecture
+
+### Package Management Strategy
+
+**R packages:**
+- Deterministic builds via renv lockfile at `/opt/settings/renv.lock`
+- CRAN snapshot controlled by `RSPM_SNAPSHOT` env var (default: 2025-02-15)
+- Bioconductor version pinned to 3.21 (for R 4.5)
+- Core packages (~80) pre-installed via `install_R_core.R`
+- Heavy annotation packages (BSgenome.*, EnsDb.*, org.*.eg.db) are optional; install with `--build-arg INCLUDE_HEAVY_R_DATA=1` or at runtime
+- **ArchR**: Use official image instead of custom build
+
+**Python packages:**
+- Pinned versions in `docker/requirements/*.txt` files
+- Base venv fully resolved during image build
+- Layered venvs created on-demand with `--system-site-packages`
+- No conflicting dependencies between venvs
+
+**CLI tools:**
+- Explicit version pinning in Dockerfile (samtools 1.21, bcftools 1.21, bedtools 2.31.1)
+
+### UID/GID Handling (Generic + Runtime Remapping)
+
+**Strategy (v0.5.3+): Generic Images with Runtime UID Remapping**
+
+Images are built with **generic user (devuser:1000)** by default, then mapped to actual user at runtime:
+
+**How it works:**
+1. **Build**: Create generic `devuser:1000` (shareable image)
+2. **Runtime**: Remap 1000 → your actual UID
+   - **VS Code**: Automatic via `updateRemoteUserUID: true` in devcontainer.json
+   - **Docker Compose**: Manual via `LOCAL_UID=${LOCAL_UID:-1000}` env vars
+   - **Docker run**: Manual via `-u $(id -u):$(id -g)`
+
+**Benefits:**
+- ✅ **Single image works for everyone** (shareable via registry)
+- ✅ **Runs as YOUR UID** when you use it (trackable in htop)
+- ✅ **Runs as Bob's UID** when Bob uses it (auto-remapped)
+- ✅ **No permission conflicts** (files owned by actual user)
+- ✅ **Team-friendly** (build once, everyone can use)
+
+**VS Code Setup (Automatic Remapping):**
+```json
+// .devcontainer/devcontainer.json
+{
+  "remoteUser": "devuser",
+  "updateRemoteUserUID": true  // ← Remaps 1000 to your UID
+}
+```
+
+**Docker Compose Setup (Env Var Override):**
+```yaml
+# docker-compose.yml
+services:
+  dev-core:
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"  # Override via env
+```
+
+```bash
+# .env file
+LOCAL_UID=788715489  # Your UID (run: id -u)
+LOCAL_GID=788600513  # Your GID (run: id -g)
+```
+
+**Manual Docker Run:**
+```bash
+docker run -u $(id -u):$(id -g) scdock-r-dev:v0.5.4
+```
+
+**Active Directory / Special Characters:**
+The Dockerfile still handles AD users with group names containing spaces:
+- Normalizes group names by replacing spaces with underscores
+- Falls back to `grp_<gid>` if group creation fails
+- Uses numeric IDs for `chown` operations to avoid name parsing issues
+
+**Legacy (Personal Build):**
+If you need a personal-only image (not shareable):
+```bash
+scripts/build.sh --personal  # Bakes YOUR UID into image
+```
+
+### R Profile and Startup
+
+- `.Rprofile` is interactive-only and VS Code-aware
+- Enables httpgd only when running inside VS Code
+- Site-wide CRAN mirror set at `/etc/R/Rprofile.site` for non-interactive scripts
+- **Note:** `USE_ARCHR` mechanism deprecated; use official ArchR image instead
+
+### Image Slimming Decisions (v0.5.0)
+
+**Removed from base image** (to reduce size):
+- Bulk aligners: STAR, BWA, Bowtie2, Salmon, kallisto
+- Pre-processing tools: FastQC, Trimmomatic, Trim Galore, featureCounts, Picard
+- Heavy R annotation packages: moved to optional install
+- R/Python bridging: pyreadr, rpy2, anndata2ri (commented in base_requirements.txt)
+- **Full R package installs**: Replaced with ~80 core packages
+- **Multiple full Python venvs**: Replaced with base + layered venvs
+- **Full TeX distribution**: Replaced with TinyTeX
+- **Custom ArchR build**: Use official image instead
+
+**Retained** (essential for downstream analysis):
+- samtools, bcftools, bedtools (epigenomics-friendly workflows)
+- scIBD (scATAC doublet detection)
+- MACS3 (Python)
+
+**Size Impact:**
+- Before: 500GB reported, ~200GB actual filesystem
+- After: 533GB reported (Docker layer issue), ~20GB actual filesystem
+
+## Interoperability Workflows
+
+### R ↔ Python Round-Trip
+
+For multi-modal or integrated analyses (e.g., scRNA + scATAC):
+
+**Export from R (Seurat):**
+```r
+library(MuDataSeurat)
+WriteH5AD(object = s, file = "rna.h5ad", assay = "RNA")  # single assay
+WriteH5MU(s, "multiome.h5mu")                            # multiome
+```
+
+**Process in Python:**
+```bash
+usepy base
+```
+```python
+import scanpy as sc, muon as mu
+m = mu.read_h5mu("multiome.h5mu")
+rna = m.mod["RNA"]; atac = m.mod["ATAC"]
+# Run scVI/PeakVI/SCGLUE; store embeddings in obsm['X_scvi'], etc.
+mu.write_h5mu("multiome.h5mu", m)
+```
+
+**Import back to R:**
+```r
+library(MuDataSeurat)
+s_multi <- ReadH5MU("multiome.h5mu")
+names(s_multi@reductions)  # Check for pca, umap, scvi, peakvi, etc.
+```
+
+### GRN Inference (SCENIC+)
+
+Use the COMMS venv for cell communication and GRN tools:
+
+```bash
+usepy comms
+python -c "import pycistarget, pycistopic"
+```
+
+If `scenicplus` is not preinstalled:
+```bash
+pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
+```
+
+## Project Scaffolding
+
+### Boundary with SciAgent-toolkit
+
+This repository is a **container substrate** and nothing more. It owns Docker
+images, R/Python environment definitions, build scripts, and the devcontainer +
+compose templates that wrap a project in a reproducible environment. It does
+**not** own project structure, analysis config, results layout, docs namespaces,
+or AI context — those belong to **SciAgent-toolkit**, a sibling repo attached
+per-project at `01_modules/SciAgent-toolkit/` (never vendored into the image).
+
+| Repository | Owns |
+|------------|------|
+| **scbio-docker** | Dockerfiles, image definitions, R/Python env specs, build scripts, devcontainer/compose templates, `init-container.sh`, `.env` stub |
+| **SciAgent-toolkit** | Project scaffold (directory tree), config templates, `docs/_internal` namespace, AI harness (roles/skills/agents/commands) |
+
+Decide ownership by asking: *does the content change when the **image** changes
+(scbio-docker) or when the **project / AI harness** changes (SciAgent-toolkit)?*
+
+### Two-step workflow
+
+```bash
+# 1. Render the dev container into a target directory (scbio-docker)
+./init-project.sh ~/projects/my-analysis \
+    --data-mount atac:/scratch/data/DT-1234 \
+    --data-mount rna:/scratch/data/DT-5678:ro \
+    --service dev-core --max-cpus 50 --max-memory 450G
+
+# 2. Scaffold the project structure + AI harness (SciAgent-toolkit)
+sciagent new project --type analysis ~/projects/my-analysis
+
+# 3. Open in VS Code, reopen in container
+code ~/projects/my-analysis
+```
+
+`init-project.sh` is a symlink to `scripts/init-container.sh`. It writes only
+`.devcontainer/{devcontainer.json,docker-compose.yml,.env,scripts/poststart_sanity.sh}`.
+
+**`init-container.sh` interface (container-only):**
+```
+init-container.sh <project-dir> [OPTIONS]
+  --data-mount KEY:PATH[:ro]    Add a data mount (repeatable)
+  --image-version vX.Y.Z        Image tag (default: VERSION file)
+  --service dev-core|dev-archr  Compose service (default: dev-core)
+  --max-cpus N                  CPU limit default (default: 50)
+  --max-memory NG               Memory limit default (default: 450G)
+```
+
+The `.env` it writes carries `LOCAL_UID`/`LOCAL_GID`, `MAX_CPUS`/`MAX_MEMORY`,
+and MCP API-key stubs (`GEMINI_API_KEY`, `OPENAI_API_KEY`)
+that SciAgent-toolkit's `setup-ai.sh` consumes later. It does **not** create the
+analysis tree, config files, docs, or `.gitkeep`s — run `sciagent new project`
+for those.
+
+## Troubleshooting
+
+### Permission Issues
+
+Check mount ownership if workspace writes fail:
+```bash
+id -u; id -g; id -gn
+ls -ld /workspaces/project
+# On host if needed:
+sudo chown -R $(id -u):$(id -g) /path/to/project
+```
+
+### R Library Not Writable
+
+The sanity script checks this at startup. Ensure user library path is writable:
+```r
+.libPaths()  # First entry should be writable
+```
+
+### Missing ArchR
+
+If `library(ArchR)` fails, you're using the `dev-core` service which doesn't include ArchR.
+
+**Solution:** Switch to `dev-archr` service (uses official ArchR image)
+1. Edit `.devcontainer/devcontainer.json`: change `"service": "dev-core"` to `"service": "dev-archr"`
+2. VS Code: `Cmd/Ctrl+Shift+P` → "Dev Containers: Rebuild and Reopen in Container"
+
+See "Switching to ArchR" section in DEVOPS.md.
+
+### GitHub Rate Limits
+
+Set `GITHUB_PAT` during build:
+```bash
+export GITHUB_PAT=ghp_your_token_here
+# build commands...
+unset GITHUB_PAT
+```
+
+## Notes
+
+- Current version: v0.5.4
+- Default branch for PRs: `main`
+- This repository uses git; current branch is `dev`
+- Heavy annotation packages are excluded by default; enable with `--build-arg INCLUDE_HEAVY_R_DATA=1` or install at runtime
+- For long-running tasks, use `tmux` inside the container to survive disconnections
+- VS Code should exclude heavy I/O paths in settings to speed up indexing
