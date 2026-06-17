@@ -11,7 +11,7 @@
 #   init-container.sh <project-dir> [OPTIONS]
 #
 # Options:
-#   --data-mount KEY:PATH[:ro]    Add a data mount (repeatable)
+#   --data-mount KEY:PATH[:rw]    Add a data mount (repeatable; read-only by default)
 #   --image-version vX.Y.Z        Image tag (default: read from VERSION)
 #   --service dev-core|dev-archr  Compose service (default: dev-core)
 #   --max-cpus N                  CPU limit default (default: 50)
@@ -50,8 +50,8 @@ Usage: $0 <project-dir> [OPTIONS]
 Renders .devcontainer/{devcontainer.json,docker-compose.yml,.env} into <project-dir>.
 
 Options:
-  --data-mount KEY:PATH[:ro]    Add a data mount (repeatable)
-                                KEY is a label, PATH is a host path, :ro for read-only
+  --data-mount KEY:PATH[:rw]    Add a data mount (repeatable; read-only by default)
+                                KEY is a label, PATH is a host path, :rw for read-write
   --image-version vX.Y.Z        Image tag (default: VERSION file -> ${IMAGE_VERSION})
   --service dev-core|dev-archr  Compose service (default: dev-core)
   --max-cpus N                  CPU limit default (default: 50)
@@ -61,7 +61,7 @@ Options:
 Example:
   $0 ~/projects/atac-study \\
       --data-mount atac:/scratch/data/DT-1234 \\
-      --data-mount rna:/scratch/data/DT-5678:ro
+      --data-mount scratch:/scratch/work/DT-5678:rw
 
 For the project scaffold (tree, config, docs, AI harness):
   sciagent new project --type analysis <project-dir>
@@ -137,13 +137,14 @@ build_data_mount_block() {
     local lines=""
     if [ ${#DATA_MOUNTS[@]} -gt 0 ]; then
         lines+="      # Data mounts"$'\n'
-        local mount label path ro
+        local mount label path mode
         for mount in "${DATA_MOUNTS[@]}"; do
-            IFS=':' read -r label path ro <<< "$mount"
-            if [ -n "${ro:-}" ]; then
-                lines+="      - ${path}:/workspaces/${PROJECT_NAME}/00_data/${label}:ro"$'\n'
-            else
+            IFS=':' read -r label path mode <<< "$mount"
+            # Read-only by default (00_data is input data); pass :rw to opt out.
+            if [ "${mode:-ro}" = "rw" ]; then
                 lines+="      - ${path}:/workspaces/${PROJECT_NAME}/00_data/${label}"$'\n'
+            else
+                lines+="      - ${path}:/workspaces/${PROJECT_NAME}/00_data/${label}:ro"$'\n'
             fi
         done
     else
