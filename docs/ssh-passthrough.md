@@ -48,7 +48,6 @@ Edit `templates/base/.devcontainer/docker-compose.yml.template`. For BOTH `dev-c
 
 ```yaml
     environment:
-      - CONTEXT7_API_KEY=${CONTEXT7_API_KEY}
       - SSH_AUTH_SOCK=/ssh-agent
 
     volumes:

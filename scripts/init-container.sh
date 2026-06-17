@@ -210,9 +210,8 @@ SANITY_EOF
 # to the compose file's directory).
 write_env_file() {
     local env_file="${PROJECT_DIR}/.devcontainer/.env"
-    local context7_key="" gemini_key="" openai_key=""
+    local gemini_key="" openai_key=""
     if [ -f "$env_file" ]; then
-        context7_key=$(grep "^CONTEXT7_API_KEY=" "$env_file" 2>/dev/null | cut -d= -f2- || true)
         gemini_key=$(grep "^GEMINI_API_KEY=" "$env_file" 2>/dev/null | cut -d= -f2- || true)
         openai_key=$(grep "^OPENAI_API_KEY=" "$env_file" 2>/dev/null | cut -d= -f2- || true)
     fi
@@ -232,8 +231,6 @@ MAX_MEMORY=${MAX_MEMORY}
 OLLAMA_HOST=http://172.17.0.1:11434
 
 # MCP Server API keys (consumed by SciAgent-toolkit's setup-ai.sh later)
-# Context7 - library docs (works without a key; key raises rate limits)
-CONTEXT7_API_KEY=${context7_key}
 # PAL - multi-model AI collaboration (needs at least one of the below)
 GEMINI_API_KEY=${gemini_key}
 OPENAI_API_KEY=${openai_key}

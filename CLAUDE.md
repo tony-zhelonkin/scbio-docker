@@ -257,7 +257,7 @@ if (!require("PACKAGE")) BiocManager::install("PACKAGE")
 **The image is containerization-only.** It carries no AI tooling itself — no Claude/Gemini CLI, no MCP servers, no ToolUniverse, no Serena, no PAL, no agents/skills.
 
 What the image **does** carry are the **prerequisites** that downstream AI tooling needs:
-- **Node.js 20 LTS** (`node`, `npm`, `npx`) — for JS/TS-based MCP servers (Sequential Thinking, Context7).
+- **Node.js 20 LTS** (`node`, `npm`, `npx`) — for JS/TS-based MCP servers (Sequential Thinking).
 - **`uv` / `uvx`** (Astral) — for Python-based AI tools (ToolUniverse, PAL, Serena).
 - **Python `toml`** (in `/opt/venvs/base`) — for Codex CLI config generation.
 
@@ -294,7 +294,6 @@ All actual AI tooling is installed **at runtime, per-project**, by `SciAgent-too
 **Available MCP servers:**
 - **Sequential Thinking**: Structured reasoning for complex decisions
 - **PAL**: Multi-model AI collaboration
-- **Context7**: Up-to-date library documentation
 - **ToolUniverse**: 600+ scientific tools (ChEMBL, UniProt, PubMed, etc.)
 - **Serena**: Code intelligence (optional, requires compilation)
 
@@ -675,7 +674,7 @@ init-container.sh <project-dir> [OPTIONS]
 ```
 
 The `.env` it writes carries `LOCAL_UID`/`LOCAL_GID`, `MAX_CPUS`/`MAX_MEMORY`,
-and MCP API-key stubs (`CONTEXT7_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`)
+and MCP API-key stubs (`GEMINI_API_KEY`, `OPENAI_API_KEY`)
 that SciAgent-toolkit's `setup-ai.sh` consumes later. It does **not** create the
 analysis tree, config files, docs, or `.gitkeep`s — run `sciagent new project`
 for those.
