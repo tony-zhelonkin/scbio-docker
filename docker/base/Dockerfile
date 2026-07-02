@@ -153,13 +153,18 @@ RUN wget https://github.com/arq5x/bedtools2/releases/download/v2.31.1/bedtools-2
     tar -xf bedtools-2.31.1.tar.gz && cd bedtools2 && make -j$(nproc) && make install && \
     cd / && rm -rf /build/*
 
-# scIBD (Python-based, install to base venv)
-# Upstream requirements.txt lists 'umap>=0.1.1' which doesn't exist on PyPI
-# (the real package is 'umap-learn', already installed via base.txt). Filter it out.
-RUN git clone https://github.com/Ying-Lab/scIBD && cd scIBD && \
-    grep -v '^umap[<>=]' requirements.txt > requirements_filtered.txt && \
-    /opt/venvs/base/bin/pip install --no-cache-dir -r requirements_filtered.txt && \
-    /opt/venvs/base/bin/python setup.py install && \
+# scIBD (scATAC doublet detection, installed into the base venv).
+# Upstream ships a FULL frozen conda env as its requirements.txt — hard `==`
+# pins on numpy/pandas/scanpy/anndata/scikit-bio/... Installing it wholesale
+# DOWNGRADES and breaks the carefully pinned base stack (scanpy's import chain
+# fails: anndata -> dask -> xarray vs the downgraded pandas). So install scIBD
+# itself with --no-deps and add only its genuine extra deps not already in
+# base.txt, constrained by base.txt so the core stack is never downgraded.
+# scIBD runs fine against the newer base scanpy/anndata.
+RUN git clone https://github.com/Ying-Lab/scIBD && \
+    /opt/venvs/base/bin/pip install --no-cache-dir --no-deps ./scIBD && \
+    /opt/venvs/base/bin/pip install --no-cache-dir -c /opt/environments/base.txt \
+        scikit-bio biom-format get-annotations annoy && \
     cd / && rm -rf /build/scIBD /root/.cache/pip /tmp/*
 
 ####################################################
@@ -174,7 +179,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.4"
+LABEL version="v0.5.5"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -229,8 +234,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg software-properties-common \
     # CLI tool runtime dependencies
     libncurses5-dev libcurl4-openssl-dev \
-    # Utilities
-    vim nano tmux less htop && \
+    # Utilities (ripgrep -> rg; fd-find -> fdfind, symlinked to fd below)
+    vim nano tmux less htop ripgrep fd-find && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
@@ -240,6 +245,10 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-dev python3.11-venv python3.11-distutils \
     && rm -rf /var/lib/apt/lists/*
+
+# Expose Debian's fd-find binary (installed as `fdfind`) under its canonical
+# `fd` name, system-wide on PATH (/usr/local/bin is already on PATH above).
+RUN ln -sf "$(command -v fdfind)" /usr/local/bin/fd
 
 ####################################################
 ### AI prerequisites (Node.js + uv)
@@ -367,6 +376,8 @@ RUN printf '%s\n' \
   '    *) echo "usepy base|squid|atac|comms"; return 1;;' \
   '  esac; ' \
   '}' \
+  '# Put user-local binaries (e.g. dev-env nvim/fzf in ~/.local/bin) on PATH' \
+  'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH";; esac' \
   >> /etc/bash.bashrc
 
 ####################################################

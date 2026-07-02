@@ -175,6 +175,19 @@ dst.write_text(content)
 PYEOF
 }
 
+# --- Render .vscode/settings.json (interpreter + R term selection) -----------
+# Owned by scbio-docker because it points at image paths (/opt/venvs/base/...).
+# Without it VS Code falls back to the system Python and the Shift+Enter REPL
+# can't import numpy. Copied verbatim (no tokens); never clobbers user edits.
+render_vscode_settings() {
+    local src="${TEMPLATES_DIR}/.vscode/settings.json"
+    local dst="${PROJECT_DIR}/.vscode/settings.json"
+    [ -f "$src" ] || return 0
+    [ -f "$dst" ] && return 0          # never clobber user edits
+    mkdir -p "${PROJECT_DIR}/.vscode"
+    cp "$src" "$dst"
+}
+
 # --- Copy devcontainer scripts + poststart sanity fallback -------------------
 copy_devcontainer_scripts() {
     if [ -d "${TEMPLATES_DIR}/.devcontainer/scripts" ]; then
@@ -242,6 +255,7 @@ echo -e "${GREEN}Rendering dev container for '${PROJECT_NAME}' (image scdock-r-d
 
 render_devcontainer_json
 render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)" "$(build_gpu_devices)"
+render_vscode_settings
 copy_devcontainer_scripts
 write_env_file
 
@@ -250,6 +264,7 @@ echo -e "${GREEN}Dev container rendered into ${PROJECT_DIR}/.devcontainer/${NC}"
 echo "  - devcontainer.json"
 echo "  - docker-compose.yml"
 echo "  - .env"
+echo "  - .vscode/settings.json"
 echo "  - scripts/poststart_sanity.sh"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"

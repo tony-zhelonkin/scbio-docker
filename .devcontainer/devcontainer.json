@@ -3,7 +3,12 @@
     "dockerComposeFile": "docker-compose.yml",
     "service": "dev-archr",
     "workspaceFolder": "/workspaces/project",
+    "containerEnv": {
+        // Bridges the container to the Host OS Ollama service
+        "OLLAMA_HOST": "http://172.17.0.1:11434"
+    },
     "settings": {
+        "python.terminal.activateEnvironment": false,
         "files.associations": {
             "*.Rmd": "rmd"
         }

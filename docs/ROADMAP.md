@@ -46,7 +46,16 @@ Project flow:
 
 ## Current Status
 
-**In progress:** v0.5.4 — repo cleanup, AI strip from image, template consolidation, isolation hardening (see Roadmap below).
+**Latest:** v0.5.5 — dev-tooling + REPL papercuts (see below).
+
+### v0.5.5 changes
+
+- **`ripgrep` + `fd` baked into the image** (apt). `fd-find` installs the binary as `fdfind`; a `/usr/local/bin/fd` symlink exposes it under its canonical name.
+- **`~/.local/bin` on PATH** in interactive shells (via `/etc/bash.bashrc`), so user-installed dev tooling (e.g. the `dev-env` nvim/fzf in `~/.local`) resolves.
+- **`init-container.sh` now renders `.vscode/settings.json`** (from `templates/devcontainer/.vscode/settings.json`, never clobbering an existing one). This sets `python.defaultInterpreterPath=/opt/venvs/base/bin/python`, fixing the Shift+Enter Python REPL opening on the system interpreter (`ModuleNotFoundError: numpy`).
+- Sibling `dev-env` repo's `rollout.sh` gains an `fzf` installer (pinned `FZF_VER`), clearing the `fzf-lua` "version 0.29.0 < minimum 0.36" abort. `nvim`/`fzf` stay owned by `dev-env` (`~/.local`); the image stays lean.
+
+**Previously released:** v0.5.4 — repo cleanup, AI strip from image, template consolidation, isolation hardening.
 
 ### v0.5.4 changes (Phase 4 landed)
 
