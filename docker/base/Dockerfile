@@ -179,7 +179,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.5"
+LABEL version="v0.5.6"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -235,7 +235,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # CLI tool runtime dependencies
     libncurses5-dev libcurl4-openssl-dev \
     # Utilities (ripgrep -> rg; fd-find -> fdfind, symlinked to fd below)
-    vim nano tmux less htop ripgrep fd-find && \
+    # jq: JSON CLI required by SciAgent-toolkit's claude_settings.sh to backfill
+    #     statusLine + gold defaults into .claude/settings.json (soft-fails without it).
+    # pandoc: needed by htmlwidgets::saveWidget(selfcontained=TRUE) and Rmd/knitr
+    #     rendering; previously best-effort apt-installed at runtime by install_deps.R.
+    vim nano tmux less htop ripgrep fd-find jq pandoc && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
@@ -249,6 +253,25 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa && \
 # Expose Debian's fd-find binary (installed as `fdfind`) under its canonical
 # `fd` name, system-wide on PATH (/usr/local/bin is already on PATH above).
 RUN ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+
+####################################################
+### Quarto CLI (native .qmd render for scientific notebooks)
+####################################################
+# Quarto ships as a standalone .deb from GitHub (bundles its own pandoc + engine);
+# it is NOT in the Ubuntu archives, so `apt-get install quarto` never resolves.
+# Pinned for reproducibility. Enables `quarto render`; the apt `pandoc` above still
+# provides a plain `pandoc` on PATH for rmarkdown/knitr + htmlwidgets::saveWidget.
+ARG QUARTO_VERSION=1.9.38
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in amd64) qarch=amd64 ;; arm64) qarch=arm64 ;; *) echo "unsupported arch: $arch" >&2; exit 1 ;; esac; \
+    curl -fsSL -o /tmp/quarto.deb \
+      "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-${qarch}.deb"; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends /tmp/quarto.deb; \
+    rm -f /tmp/quarto.deb; \
+    rm -rf /var/lib/apt/lists/*; \
+    quarto --version
 
 ####################################################
 ### AI prerequisites (Node.js + uv)

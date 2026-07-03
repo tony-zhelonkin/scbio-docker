@@ -9,12 +9,22 @@
   "python.terminal.executeInFileDir": true,
 
   // R Configuration
-  "r.alwaysUseActiveTerminal": true,
+  // alwaysUseActiveTerminal MUST be false so the R extension owns its own
+  // radian session (side pane) instead of piping "Run Selection" / .qmd chunks
+  // into whatever terminal is focused (e.g. bash) — the latter yields
+  // "bash: syntax error near unexpected token" when R/knitr code hits the shell.
+  "r.alwaysUseActiveTerminal": false,
   "r.bracketedPaste": true,
   "r.rterm.linux": "/opt/venvs/base/bin/radian",
   "r.sessionWatcher": true,
   "r.plot.useHttpgd": true,
   "r.lsp.diagnostics": false,
+
+  // Quarto — render .qmd via the image's quarto CLI; run chunks in the R session
+  "quarto.render.renderOnSave": false,
+  "[quarto]": {
+    "editor.formatOnSave": false
+  },
 
   // Terminal
   "terminal.integrated.defaultProfile.linux": "bash"
