@@ -8,6 +8,10 @@
   "terminal.integrated.bracketedPasteMode": true,
   "python.terminal.executeInFileDir": true,
 
+  // Jupyter — empty filter shows all kernels (incl. the baked python311-scagent
+  // kernelspec); prevents VS Code from hiding the venv kernel behind heuristics.
+  "jupyter.kernels.filter": [],
+
   // R Configuration
   // alwaysUseActiveTerminal MUST be false so the R extension owns its own
   // radian session (side pane) instead of piping "Run Selection" / .qmd chunks

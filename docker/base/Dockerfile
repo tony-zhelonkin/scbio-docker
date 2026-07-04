@@ -179,7 +179,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.6"
+LABEL version="v0.5.7"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -331,6 +331,29 @@ COPY --from=builder /root/.TinyTeX /root/.TinyTeX
 
 # Python venv (base)
 COPY --from=builder /opt/venvs/base /opt/venvs/base
+
+####################################################
+### Interactive Python widgets (jupyter-scatter + live kernel)
+####################################################
+# jupyter-scatter (a.k.a. jscatter) renders interactive scatterplots in the
+# notebook via anywidget/ipywidgets; those require a LIVE Jupyter kernel, hence
+# ipykernel. We install `jupyter-scatter` — the lean meta-package — NOT the raw
+# `jscatter` distribution (which drags in MDAnalysis/nglview/pdb2pqr). Versions
+# pinned to what the running STING-JR base venv already validated. This runs
+# AFTER the venv is COPY'd from the builder, so /opt/venvs/base/bin/pip is valid.
+#
+# The kernelspec is registered with --prefix (into the venv's share/jupyter),
+# NEVER --user: the runtime user is `devuser` (uid 1000) and cannot see kernels
+# installed under /root/.local. --prefix keeps the spec inside the venv, visible
+# to every user (fixes VS Code's "Running cells requires ipykernel" prompt).
+RUN /opt/venvs/base/bin/pip install --no-cache-dir \
+        "jupyter-scatter==1.0.1" \
+        "ipykernel==7.3.0" && \
+    /opt/venvs/base/bin/python -m ipykernel install \
+        --prefix /opt/venvs/base \
+        --name python311-scagent \
+        --display-name "Python 3.11 (SciAgent)" && \
+    rm -rf /root/.cache/pip ~/.cache/pip /tmp/* 2>/dev/null || true
 
 # Bioinformatics tools (samtools, bcftools, bedtools)
 COPY --from=builder /usr/local/bin/samtools /usr/local/bin/samtools

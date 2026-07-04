@@ -13,6 +13,16 @@
   },
   "customizations": {
     "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venvs/base/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "jupyter.kernels.filter": [],
+        "r.rterm.linux": "/opt/venvs/base/bin/radian",
+        "r.bracketedPaste": true,
+        "files.associations": {
+          "*.Rmd": "rmd"
+        }
+      },
       "extensions": [
         "rdebugger.r-debugger",
         "reditorsupport.r",
