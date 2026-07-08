@@ -144,6 +144,13 @@ chmod +x "$claude_dir/statusline.sh"
 # 2b. settings.json — schema-valid power-user defaults. Telemetry is left ON on
 #     purpose: disabling it trips the feature-flag layer that gates agent teams /
 #     1M context, so we do NOT set DISABLE_TELEMETRY here.
+#     `attribution`: SciAgent-toolkit policy is NO AI authorship, ever
+#     (AGENTS.md §6, CONTRIBUTING.md). Empty `commit`/`pr` strings suppress the
+#     default `Co-Authored-By: Claude …` commit trailer and the "Generated with
+#     Claude Code" PR footer; `sessionUrl:false` drops the Claude-Session trailer.
+#     This is the schema Claude Code actually honors — booleans like
+#     {"commits":false} are silently ignored. `desired` wins the merge below, so
+#     this force-disables attribution even if a stale value was seeded earlier.
 desired="$(cat <<'JSON'
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
@@ -153,6 +160,7 @@ desired="$(cat <<'JSON'
   "showThinkingSummaries": true,
   "autoMemoryEnabled": false,
   "teammateMode": "auto",
+  "attribution": { "commit": "", "pr": "", "sessionUrl": false },
   "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" },
   "statusLine": { "type": "command", "command": "bash \"$HOME/.claude/statusline.sh\"", "padding": 2 }
 }
