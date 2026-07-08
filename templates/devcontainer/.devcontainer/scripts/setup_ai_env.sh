@@ -63,8 +63,8 @@ install_with_fallback opencode "opencode"     'curl -fsSL https://opencode.ai/in
 
 # Pi agent — the official pi.dev installer is interactive AND wants Node >=22.19;
 # the npm package installs cleanly headless on the image's Node 20 into a
-# user-writable prefix (~/.local, already on PATH). configure_pi_models.sh writes
-# the local-model roster separately.
+# user-writable prefix (~/.local, already on PATH). The local-model list is
+# written just below (section 1b) from the adjacent models.agentic.json.
 if command -v pi >/dev/null 2>&1; then
   log "Pi agent present ($(command -v pi)) — skip"
 else
@@ -76,6 +76,35 @@ else
     log "WARN: Pi agent install failed (continuing)"
   fi
 fi
+
+######################################################################
+# 1b. Pi local-model list  (folded in from the former configure_pi_models.sh)
+######################################################################
+# Single source of truth: models.agentic.json, shipped next to this script.
+# Agentic (tool-capable) models ONLY — reasoning-only models (FuseO1,
+# DeepSeek-R1) are excluded on purpose: they do not tool-call and 400 the agent.
+# Written on every start (home is not persisted across rebuilds). The Ollama
+# baseUrl is rewritten to the container's OLLAMA_HOST (the Docker bridge).
+configure_pi_models(){
+  local src="$(dirname "${BASH_SOURCE[0]}")/models.agentic.json"
+  local bridge="${OLLAMA_HOST:-http://172.17.0.1:11434}"
+  mkdir -p "$HOME/.pi/agent"
+  if [ ! -f "$src" ]; then
+    log "WARN: models.agentic.json not found beside script — skipping Pi model list"
+    return 0
+  fi
+  if command -v jq >/dev/null 2>&1; then
+    jq --arg base "${bridge%/}/v1" '
+      del(._comment, ._policy, ._bridge)
+      | .providers.ollama.baseUrl = $base
+    ' "$src" > "$HOME/.pi/agent/models.json" \
+      && log "Pi models configured (agentic-only) → Ollama @ ${bridge}"
+  else
+    grep -v '"_' "$src" > "$HOME/.pi/agent/models.json"
+    log "Pi models written verbatim (jq absent; baseUrl not rewritten)"
+  fi
+}
+configure_pi_models
 
 # Antigravity CLI ships as `antigravity` (short alias `agy`); probe both.
 if command -v antigravity >/dev/null 2>&1 || command -v agy >/dev/null 2>&1; then
