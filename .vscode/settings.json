@@ -12,5 +12,29 @@
   "r.rterm.linux": "/usr/local/bin/radian",
   "r.sessionWatcher": true,
   "r.plot.useHttpgd": true,
-  "r.lsp.diagnostics": false
+  "r.lsp.diagnostics": false,
+
+  // Performance: keep the VS Code file watcher off large, machine-generated
+  // trees. inotify watches are a host-wide budget; toolkit venvs / caches
+  // exhaust it and trigger "Unable to watch for file changes" freezes.
+  // Excluding a path only stops inotify polling — Explorer/open/preview still
+  // work and venvs stay functional.
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/00_data/**": true,
+    "**/01_modules/**": true,
+    "**/.venv/**": true,
+    "**/*-env/**": true,
+    "**/__pycache__/**": true,
+    "**/.ipynb_checkpoints/**": true,
+    "**/renv/library/**": true,
+    "**/03_results/checkpoints/**": true
+  },
+  "search.exclude": {
+    "**/00_data": true,
+    "**/01_modules": true,
+    "**/03_results": true,
+    "**/__pycache__": true
+  }
 }

@@ -31,5 +31,33 @@
   },
 
   // Terminal
-  "terminal.integrated.defaultProfile.linux": "bash"
+  "terminal.integrated.defaultProfile.linux": "bash",
+
+  // Performance: keep the VS Code file watcher off large, machine-generated
+  // trees. inotify watches are a HOST-WIDE budget shared across every VS Code
+  // window + app; an umbrella/superproject mounts N compartment repos at once
+  // (each carrying its own 01_modules toolkit copy + venvs), which exhausts the
+  // budget and triggers "Unable to watch for file changes" freezes. Excluding a
+  // path from the watcher does NOT hide it (Explorer / open / preview still
+  // work) and does NOT affect any venv's functionality — it only stops inotify
+  // polling. 03_results stays watched so figure PNGs live-refresh; only its
+  // checkpoints (many small files) are dropped.
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/00_data/**": true,
+    "**/01_modules/**": true,       // vendored SciAgent/RNAseq toolkit copies (× every compartment)
+    "**/.venv/**": true,            // skill venvs etc. — kept on disk, just unwatched
+    "**/*-env/**": true,            // stray python venvs
+    "**/__pycache__/**": true,
+    "**/.ipynb_checkpoints/**": true,
+    "**/renv/library/**": true,
+    "**/03_results/checkpoints/**": true
+  },
+  "search.exclude": {
+    "**/00_data": true,
+    "**/01_modules": true,
+    "**/03_results": true,
+    "**/__pycache__": true
+  }
 }
