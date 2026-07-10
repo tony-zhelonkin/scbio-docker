@@ -179,7 +179,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.8"
+LABEL version="v0.5.9"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -242,7 +242,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # imagemagick (convert/identify): image.nvim's magick_cli processor for
     #     inline figures. chafa: sixel/ansi fallback. tldr: quick command help.
     #     See docs/plans/inline-images-nvim.md (dev-env repo).
-    vim nano tmux less htop ripgrep fd-find jq pandoc \
+    # NOTE: tmux is intentionally NOT apt-installed here — Ubuntu 22.04 ships
+    #     3.2a, which lacks `allow-passthrough` (the kitty-graphics switch). A
+    #     pinned modern tmux is built from source below into /usr/local/bin.
+    vim nano less htop ripgrep fd-find jq pandoc \
     imagemagick chafa tldr && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
@@ -257,6 +260,32 @@ RUN add-apt-repository -y ppa:deadsnakes/ppa && \
 # Expose Debian's fd-find binary (installed as `fdfind`) under its canonical
 # `fd` name, system-wide on PATH (/usr/local/bin is already on PATH above).
 RUN ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+
+####################################################
+### tmux >= 3.3 (source build) — kitty inline-image passthrough
+####################################################
+# Ubuntu 22.04 apt only ships tmux 3.2a, which LACKS `allow-passthrough` — the
+# switch that lets the kitty graphics protocol (image.nvim) tunnel through tmux
+# to the outer terminal. Build a pinned modern tmux from source into
+# /usr/local/bin (first on PATH) so inline figures work inside the container.
+# See docs/plans/inline-images-nvim.md (dev-env repo). ncurses headers come from
+# libncurses5-dev (installed above); libevent + bison are pulled just for this.
+# Pinned to the latest official release (matches the workstation host tmux), so
+# the container and host multiplexers are identical. Any >= 3.3 has passthrough.
+ARG TMUX_VERSION=3.7b
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libevent-dev bison; \
+    cd /tmp; \
+    curl -fsSL -o tmux.tar.gz "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz"; \
+    tar xzf tmux.tar.gz; \
+    cd "tmux-${TMUX_VERSION}"; \
+    ./configure --prefix=/usr/local; \
+    make -j"$(nproc)"; \
+    make install; \
+    cd /; rm -rf /tmp/tmux*; \
+    rm -rf /var/lib/apt/lists/*; \
+    tmux -V
 
 ####################################################
 ### Quarto CLI (native .qmd render for scientific notebooks)
