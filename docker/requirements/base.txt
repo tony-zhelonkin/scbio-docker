@@ -1,6 +1,13 @@
 # interface
 radian==0.6.13
 
+# Inline-notebook workflow (molten.nvim client + kernel comms).
+# nvim's python3 provider runs from this venv, so pynvim + jupyter_client must
+# live in base (ipykernel is installed separately in the Dockerfile runtime
+# stage). See docs/plans/inline-images-nvim.md.
+pynvim
+jupyter_client
+
 # Configuration parsing (for SciAgent-toolkit Codex config)
 toml
 

@@ -179,7 +179,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 FROM ubuntu:22.04 AS runtime
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.7"
+LABEL version="v0.5.8"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -239,7 +239,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     #     statusLine + gold defaults into .claude/settings.json (soft-fails without it).
     # pandoc: needed by htmlwidgets::saveWidget(selfcontained=TRUE) and Rmd/knitr
     #     rendering; previously best-effort apt-installed at runtime by install_deps.R.
-    vim nano tmux less htop ripgrep fd-find jq pandoc && \
+    # imagemagick (convert/identify): image.nvim's magick_cli processor for
+    #     inline figures. chafa: sixel/ansi fallback. tldr: quick command help.
+    #     See docs/plans/inline-images-nvim.md (dev-env repo).
+    vim nano tmux less htop ripgrep fd-find jq pandoc \
+    imagemagick chafa tldr && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
@@ -354,6 +358,17 @@ RUN /opt/venvs/base/bin/pip install --no-cache-dir \
         --name python311-scagent \
         --display-name "Python 3.11 (SciAgent)" && \
     rm -rf /root/.cache/pip ~/.cache/pip /tmp/* 2>/dev/null || true
+
+####################################################
+### Register the R Jupyter kernel (IRkernel)
+####################################################
+# install_core.R installs the IRkernel *package* but never registers a
+# kernelspec, so jupyter_client (and molten.nvim) cannot see an R kernel.
+# Register it with prefix= into the venv's share/jupyter — the same location
+# and reasoning as the Python kernel above: a --user spec lands in /root/.local
+# and is invisible to devuser (uid 1000). See docs/plans/inline-images-nvim.md.
+RUN R -q --vanilla -e 'IRkernel::installspec(prefix = "/opt/venvs/base", name = "ir", displayname = "R (SciAgent)")' && \
+    rm -rf /tmp/* 2>/dev/null || true
 
 # Bioinformatics tools (samtools, bcftools, bedtools)
 COPY --from=builder /usr/local/bin/samtools /usr/local/bin/samtools
