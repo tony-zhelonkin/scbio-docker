@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# provc — container-substrate provenance & propagation across dev-container projects.
+#
+# Sibling to `prov` (git submodule provenance). Where prov keeps a dozen toolkit
+# worktrees from drifting, `provc` keeps a dozen rendered dev-containers on the
+# same base-image version AND carrying the dev-env personal layer (nvim/tmux/
+# shell). It reports drift and propagates: bump each project's compose to the
+# TARGET image, ensure the dev-env RO mount + postStart rollout are wired,
+# recreate the container, provision dev-env inside, and verify the toolchain.
+#
+# MENTAL MODEL
+#   scbio-docker/VERSION  ─►  TARGET image tag (scdock-r-dev:vX.Y.Z)
+#   each project/.devcontainer/docker-compose.yml pins an image tag (the "gitlink"
+#   analog). `provc apply` moves that pin to TARGET + wires the dev-env layer, then
+#   force-recreates so the running container actually adopts it.
+#
+# DESTRUCTIVE NOTE: recreation replaces the container. Only /workspaces (bind mount)
+#   survives; in-container home state (installed AI tooling, ~/.local, shell history)
+#   is rebuilt from the image + dev-env rollout. Default is DRY-RUN; pass --go.
+#
+# Usage:
+#   provc status  [FILTER]                 # dashboard: pinned tag vs TARGET + wiring + state
+#   provc detail  [FILTER]                 # per-project block
+#   provc apply   [FILTER] [--go] [opts]   # propagate (dry-run unless --go)
+#
+# Options (apply):
+#   --target vX.Y.Z   override target (default: scbio-docker/VERSION)
+#   --go              actually edit/recreate/provision (default: dry-run)
+#   --no-recreate     edit compose/json + provision the RUNNING container; skip force-recreate
+#   --no-provision    skip the in-container dev-env rollout step
+#   FILTER            substring; only projects whose path matches are touched
+set -uo pipefail
+
+RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYN=$'\033[36m'; DIM=$'\033[2m'; NC=$'\033[0m'
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"; while [ -L "$SCRIPT_PATH" ]; do
+  d="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"; SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+  [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$d/$SCRIPT_PATH"; done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+ROOTS=("${PROVC_ROOTS:-/data1/users/antonz/projects}")
+TARGET="scdock-r-dev:$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
+DEVENV_HOST="${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}"
+
+CMD="${1:-status}"; shift || true
+GO=0; RECREATE=1; PROVISION=1; FILTER=""
+while [ $# -gt 0 ]; do case "$1" in
+  --go) GO=1;; --no-recreate) RECREATE=0;; --no-provision) PROVISION=0;;
+  --target) TARGET="scdock-r-dev:${2#scdock-r-dev:}"; shift;;
+  --target=*) TARGET="scdock-r-dev:${1#*=}"; TARGET="scdock-r-dev:${TARGET#scdock-r-dev:}";;
+  -*) echo "unknown option: $1" >&2; exit 2;;
+  *) FILTER="$1";; esac; shift; done
+
+# discover: every project (.devcontainer/docker-compose.yml pinning scdock-r-dev)
+discover() {
+  local r; for r in "${ROOTS[@]}"; do
+    find "$r" -maxdepth 6 -type f -path '*/.devcontainer/docker-compose.yml' \
+      -not -path '*/.ref/*' -not -path '*/.git/*' 2>/dev/null
+  done | sort -u | while read -r f; do
+    grep -q 'scdock-r-dev' "$f" || continue
+    local proj; proj="$(cd "$(dirname "$f")/.." && pwd)"
+    if [ -n "$FILTER" ]; then
+      shopt -s nocasematch
+      [[ "$(basename "$proj")" == *"$FILTER"* ]] || { shopt -u nocasematch; continue; }
+      shopt -u nocasematch
+    fi
+    printf '%s\n' "$proj"
+  done
+}
+
+# compose project name VS Code uses: lowercased basename + _devcontainer
+cproject() { echo "$(basename "$1" | tr '[:upper:]' '[:lower:]')_devcontainer"; }
+
+pinned_tag() { grep -hoE 'scdock-r-dev:v[0-9][0-9.]*' "$1/.devcontainer/docker-compose.yml" 2>/dev/null | head -1; }
+has_devenv_mount() { grep -q '/opt/dev-env' "$1/.devcontainer/docker-compose.yml" 2>/dev/null; }
+has_rollout_hook() {
+  grep -q 'dev-env/rollout.sh' "$1/.devcontainer/devcontainer.json" 2>/dev/null \
+  || grep -rq 'dev-env/rollout.sh' "$1/.devcontainer/" 2>/dev/null
+}
+container_state() { # <proj> -> "running <name>" | "exited <name>" | "absent"
+  local cp; cp="$(cproject "$1")"
+  local line; line="$(docker ps -a --filter "name=${cp}-dev-core" --format '{{.State}} {{.Names}}' 2>/dev/null | head -1)"
+  [ -n "$line" ] && echo "$line" || echo "absent -"
+}
+
+cmd_status() {
+  printf '%sTARGET: %s%s   %sroots: %s%s\n\n' "$CYN" "$TARGET" "$NC" "$DIM" "${ROOTS[*]}" "$NC"
+  printf '%-42s %-14s %-6s %-8s %-9s\n' "PROJECT" "PINNED" "→TGT" "WIRED" "STATE"
+  printf '%s\n' "$(printf '%.0s─' {1..85})"
+  local proj
+  while read -r proj; do
+    [ -z "$proj" ] && continue
+    local tag pin ok wired st stc
+    tag="$(pinned_tag "$proj")"; pin="${tag#scdock-r-dev:}"
+    [ "$tag" = "$TARGET" ] && ok="${GRN}=${NC}" || ok="${YEL}↑${NC}"
+    if has_devenv_mount "$proj" && has_rollout_hook "$proj"; then wired="${GRN}yes${NC}"; else wired="${RED}no${NC} "; fi
+    read -r stc _ <<<"$(container_state "$proj")"
+    case "$stc" in running) st="${GRN}running${NC}";; exited) st="${YEL}exited${NC}";; *) st="${DIM}absent${NC}";; esac
+    printf '%-42s %-14s %-15b %-18b %-18b\n' "${proj##*/data1/users/antonz/}" "${pin:-?}" "$ok" "$wired" "$st"
+  done < <(discover)
+}
+
+# idempotent file edits on one project; echoes what changed
+wire_files() {
+  local proj="$1" dc="$1/.devcontainer/docker-compose.yml" dj="$1/.devcontainer/devcontainer.json"
+  local ts; ts="$(date +%s 2>/dev/null || echo bak)"
+  # 1) bump image tag(s) -> TARGET
+  if ! grep -q "$TARGET" "$dc" 2>/dev/null; then
+    [ "$GO" = 1 ] && { cp "$dc" "$dc.provc.$ts"; sed -i -E "s#scdock-r-dev:v[0-9][0-9.]*#$TARGET#g" "$dc"; }
+    echo "    - bump image -> $TARGET"
+  fi
+  # 2) dev-env RO mount (insert after the workspace bind line)
+  if ! has_devenv_mount "$proj"; then
+    if [ "$GO" = 1 ]; then
+      awk -v host="$DEVENV_HOST" '
+        {print}
+        /- \$\{WORKSPACE_FOLDER/ {print "      - " host ":/opt/dev-env:ro"}
+      ' "$dc" > "$dc.tmp" && mv "$dc.tmp" "$dc"
+    fi
+    echo "    - add dev-env RO mount ($DEVENV_HOST:/opt/dev-env:ro)"
+  fi
+  # 3) postStart rollout hook
+  if ! has_rollout_hook "$proj"; then
+    if [ "$GO" = 1 ] && [ -f "$dj" ]; then
+      cp "$dj" "$dj.provc.$ts"
+      # append the rollout to an existing postStartCommand string (before its closing quote)
+      if grep -q '"postStartCommand"' "$dj"; then
+        sed -i -E "s#(\"postStartCommand\"[^\"]*\"[^\"]*)(\"[[:space:]]*)#\1 \&\& { [ -x /opt/dev-env/rollout.sh ] \&\& /opt/dev-env/rollout.sh --copy --no-sync || true; }\2#" "$dj"
+      fi
+    fi
+    echo "    - wire postStart dev-env rollout"
+  fi
+}
+
+recreate() { # <proj>
+  local proj="$1" cp; cp="$(cproject "$proj")"
+  echo "    - docker compose -p $cp up -d --force-recreate dev-core"
+  [ "$GO" = 1 ] || return 0
+  ( cd "$proj/.devcontainer" && docker compose -p "$cp" up -d --force-recreate dev-core ) \
+    && echo "      ${GRN}recreated${NC}" || echo "      ${RED}recreate FAILED${NC}"
+}
+
+provision() { # <proj>
+  local proj="$1" cp name; cp="$(cproject "$proj")"
+  name="$(docker ps --filter "name=${cp}-dev-core" --format '{{.Names}}' 2>/dev/null | head -1)"
+  [ -z "$name" ] && { echo "    ${RED}- no running container to provision${NC}"; return 1; }
+  echo "    - provision dev-env in $name (rollout --copy --no-sync)"
+  [ "$GO" = 1 ] || return 0
+  docker exec -u devuser "$name" bash -lc '[ -x /opt/dev-env/rollout.sh ] && /opt/dev-env/rollout.sh --copy --no-sync' \
+    >/dev/null 2>&1 && echo "      ${GRN}provisioned${NC}" || echo "      ${YEL}provision had warnings${NC}"
+  echo "    - verify:"
+  docker exec -u devuser "$name" bash -lc 'echo "        tmux: $(tmux -V 2>/dev/null); convert: $(convert -version 2>/dev/null | head -1 | cut -d\  -f1-3); nvim: $(~/.local/bin/nvim --version 2>/dev/null | head -1)"' 2>/dev/null
+}
+
+cmd_apply() {
+  printf '%sTARGET: %s%s   go=%s recreate=%s provision=%s\n\n' "$CYN" "$TARGET" "$NC" "$GO" "$RECREATE" "$PROVISION"
+  [ "$GO" = 1 ] || printf '%s(dry-run — pass --go to execute)%s\n\n' "$YEL" "$NC"
+  local proj n=0
+  while read -r proj; do
+    [ -z "$proj" ] && continue; n=$((n+1))
+    printf '%s▸ %s%s\n' "$CYN" "${proj##*/data1/users/antonz/}" "$NC"
+    wire_files "$proj"
+    [ "$RECREATE" = 1 ] && recreate "$proj"
+    [ "$PROVISION" = 1 ] && provision "$proj"
+  done < <(discover)
+  [ "$n" = 0 ] && echo "no matching projects."
+  echo; printf '%sdone (%d project(s)).%s\n' "$GRN" "$n" "$NC"
+}
+
+case "$CMD" in
+  status|ls) cmd_status;;
+  detail)    cmd_status;;   # (compact for now; detail alias)
+  apply)     cmd_apply;;
+  -h|--help) sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//';;
+  *) echo "unknown command: $CMD (status|apply|--help)" >&2; exit 2;;
+esac

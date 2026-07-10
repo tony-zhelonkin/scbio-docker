@@ -12,6 +12,11 @@ services:
     #   - "8787:8787"
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
+      # dev-env (personal nvim/tmux/shell layer) mounted read-only; provisioned
+      # into ~/.local + ~/.config by postStart via `rollout.sh --copy`. Keeps
+      # personal prefs OUT of the shared image core. Override host path with
+      # DEVENV_HOST in .env. See docs/plans/inline-images-nvim.md (dev-env repo).
+      - ${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}:/opt/dev-env:ro
 {{SSH_AGENT_MOUNT}}
 {{DATA_MOUNTS}}
     stdin_open: true
@@ -54,6 +59,11 @@ services:
     #   - "8787:8787"
     volumes:
       - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
+      # dev-env (personal nvim/tmux/shell layer) mounted read-only; provisioned
+      # into ~/.local + ~/.config by postStart via `rollout.sh --copy`. Keeps
+      # personal prefs OUT of the shared image core. Override host path with
+      # DEVENV_HOST in .env. See docs/plans/inline-images-nvim.md (dev-env repo).
+      - ${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}:/opt/dev-env:ro
 {{SSH_AGENT_MOUNT}}
 {{DATA_MOUNTS}}
     stdin_open: true
