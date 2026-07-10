@@ -2,7 +2,7 @@
   "python.defaultInterpreterPath": "/opt/venvs/base/bin/python",
   "python.terminal.launchArgs": [],
   "python.REPL.enableREPLSmartSend": true,
-  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvironment": false,
   "python.terminal.runInDedicatedTerminal": true,
   "python.terminal.executeInFileDir": true,
   "terminal.integrated.bracketedPasteMode": true,

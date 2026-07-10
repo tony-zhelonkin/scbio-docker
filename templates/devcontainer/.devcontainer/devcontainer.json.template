@@ -15,7 +15,7 @@
     "vscode": {
       "settings": {
         "python.defaultInterpreterPath": "/opt/venvs/base/bin/python",
-        "python.terminal.activateEnvironment": true,
+        "python.terminal.activateEnvironment": false,
         "jupyter.kernels.filter": [],
         "r.rterm.linux": "/opt/venvs/base/bin/radian",
         "r.bracketedPaste": true,

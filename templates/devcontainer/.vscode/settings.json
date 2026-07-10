@@ -3,7 +3,7 @@
   "python.defaultInterpreterPath": "/opt/venvs/base/bin/python",
   "python.terminal.launchArgs": [],
   "python.REPL.enableREPLSmartSend": true,
-  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvironment": false,
   "python.terminal.runInDedicatedTerminal": true,
   "terminal.integrated.bracketedPasteMode": true,
   "python.terminal.executeInFileDir": true,
@@ -32,6 +32,17 @@
 
   // Terminal
   "terminal.integrated.defaultProfile.linux": "bash",
+
+  // Git: an umbrella/superproject nests many repos (each compartment carries its
+  // own 01_modules toolkit copies). Left on defaults, the Git extension opens a
+  // separate repository model + file watcher for EVERY nested repo, spiking CPU
+  // during the initial scan and starving the remote server's heartbeat — the
+  // cause of the ~3-5 min Remote-SSH / Dev-Container reconnect drops. Cap the
+  // recursive discovery so only the workspace root repo is tracked.
+  "git.detectSubmodules": false,
+  "git.autoRepositoryDetection": "openEditors",
+  "git.repositoryScanMaxDepth": 1,
+  "git.scanRepositories": [],
 
   // Performance: keep the VS Code file watcher off large, machine-generated
   // trees. inotify watches are a HOST-WIDE budget shared across every VS Code
