@@ -120,9 +120,11 @@ wire_files() {
   # 2) dev-env RO mount (insert after the workspace bind line)
   if ! has_devenv_mount "$proj"; then
     if [ "$GO" = 1 ]; then
+      # Insert as the FIRST entry under each `volumes:` block — robust across both
+      # template composes (${WORKSPACE_FOLDER}) and hand-customized ones (- ..:/…).
       awk -v host="$DEVENV_HOST" '
         {print}
-        /- \$\{WORKSPACE_FOLDER/ {print "      - " host ":/opt/dev-env:ro"}
+        /^[[:space:]]*volumes:[[:space:]]*$/ {print "      - " host ":/opt/dev-env:ro"}
       ' "$dc" > "$dc.tmp" && mv "$dc.tmp" "$dc"
     fi
     echo "    - add dev-env RO mount ($DEVENV_HOST:/opt/dev-env:ro)"
