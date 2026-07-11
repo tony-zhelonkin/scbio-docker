@@ -17,3 +17,6 @@ reproduction_test/
 # Local reference clones (read-only inspiration repos)
 .ref/
 
+
+# provc apply backups
+*.provc.*

@@ -33,5 +33,5 @@
             ]
         }
     },
-    "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh'"
+    "postStartCommand": "bash -lc 'chmod +x .devcontainer/scripts/poststart_sanity.sh && .devcontainer/scripts/poststart_sanity.sh' && { [ -x /opt/dev-env/rollout.sh ] && /opt/dev-env/rollout.sh --copy --no-sync || true; }"
 }
