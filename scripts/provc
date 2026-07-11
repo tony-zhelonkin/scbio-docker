@@ -18,6 +18,15 @@
 #   survives; in-container home state (installed AI tooling, ~/.local, shell history)
 #   is rebuilt from the image + dev-env rollout. Default is DRY-RUN; pass --go.
 #
+# SCOPE NOTE (deliberate blind spots):
+#   • Only the `dev-core` service is tracked. The `dev-archr` sidecar is DEPRECATED
+#     (ArchR upstream unmaintained > 2y; field moved to per-language stacks —
+#     Seurat/Signac in R, scanpy/snapATAC in Python) and intentionally left to
+#     drift, on the path to removal. Don't wire monitoring for it.
+#   • `status` reports the PINNED tag + lifecycle state, not the running
+#     container's actual image — a container left on an old tag or a VS Code-forked
+#     `vsc-*-uid` image can read green. Cross-check with `da` when it matters.
+#
 # Usage:
 #   provc status  [FILTER]                 # dashboard: pinned tag vs TARGET + wiring + state
 #   provc detail  [FILTER]                 # per-project block
