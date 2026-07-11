@@ -39,7 +39,13 @@ SCRIPT_PATH="${BASH_SOURCE[0]}"; while [ -L "$SCRIPT_PATH" ]; do
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-ROOTS=("${PROVC_ROOTS:-/data1/users/antonz/projects}")
+# Project roots span several filesystems (containers were rendered across them).
+# Override with PROVC_ROOTS="dir1 dir2 …". MISSING-dir containers (project deleted)
+# can't be reached here — they have no compose file to wire; clean those by hand.
+if [ -n "${PROVC_ROOTS:-}" ]; then read -r -a ROOTS <<<"$PROVC_ROOTS"; else
+  ROOTS=(/data1/users/antonz/projects /scratch/current/antonz/projects \
+         /data2/users/JCRLab /data1/users/antonz/pipeline/scbio-docker)
+fi
 TARGET="scdock-r-dev:$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
 DEVENV_HOST="${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}"
 
@@ -47,6 +53,7 @@ CMD="${1:-status}"; shift || true
 GO=0; RECREATE=1; PROVISION=1; FILTER=""
 while [ $# -gt 0 ]; do case "$1" in
   --go) GO=1;; --no-recreate) RECREATE=0;; --no-provision) PROVISION=0;;
+  --wire-only) RECREATE=0; PROVISION=0;;
   --target) TARGET="scdock-r-dev:${2#scdock-r-dev:}"; shift;;
   --target=*) TARGET="scdock-r-dev:${1#*=}"; TARGET="scdock-r-dev:${TARGET#scdock-r-dev:}";;
   -*) echo "unknown option: $1" >&2; exit 2;;
