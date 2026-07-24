@@ -67,7 +67,7 @@ scripts/build.sh                 # generic build (devuser:1000, shareable); --pe
 ./init-project.sh <dir> [--data-mount k:PATH[:rw]] [--service dev-core|dev-archr] [--gpu]
 usepy base|squid|atac|comms      # switch Python env (layered venvs created on first use)
 r-base                           # radian on base R libs
-docker run --rm scdock-r-dev:$(cat VERSION) bash -lc 'scripts/poststart_sanity.sh'
+docker run --rm -v "$PWD:/repo" -w /repo scdock-r-dev:$(cat VERSION) bash scripts/poststart_sanity.sh  # sanity script is mounted, not baked into the image
 ```
 
 ## Gotchas

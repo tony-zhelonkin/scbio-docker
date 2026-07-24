@@ -1,6 +1,6 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.4-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.10-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 Purpose-built Docker images and VS Code Dev Container config for single-cell analysis in R and Python. The goal is a clean, reproducible, and fast-to-start environment you can use locally or remotely without yak-shaving.
@@ -12,9 +12,10 @@ Who this helps
 
 Key features
 - ~20GB true image via multi-stage build (size-optimized)
-- R 4.5 + Bioconductor 3.21 core stack; Python 3.10 base venv
+- R 4.5.3 + Bioconductor 3.22 core stack (~80 packages); Python 3.11 base venv
 - Layered Python venvs on demand: squid (spatial), atac, comms
-- VS Code friendly: httpgd plotting, radian, language server
+- VS Code friendly: httpgd plotting, radian, language server, Jupyter R + Python kernels
+- Containerization-only: AI tooling installs at runtime (see docs/ai-integration.md)
 - Build tools retained to allow runtime installs when needed
 
 Quick start
@@ -36,8 +37,8 @@ code ~/projects/my-analysis
 ```
 
 Working in the container
-- Default service: dev-core (R 4.5 + Python)
-- Switch to ArchR (R 4.4) by setting service to dev-archr in `.devcontainer/devcontainer.json`
+- Default service: dev-core (R 4.5.3 + Python 3.11)
+- ArchR (R 4.4) is a legacy sidecar, gated behind the `archr` compose profile — on the path to removal (see docs/architecture.md)
 - R: run `radian` (or `r-base` wrapper)
 - Python envs: `usepy base|squid|atac|comms` (creates layered venvs on demand)
 - Sanity check: `.devcontainer/scripts/poststart_sanity.sh` (in a project) or run `scripts/poststart_sanity.sh` inside the image with a bind mount
@@ -46,27 +47,29 @@ Build modes (brief)
 - Generic (default): shareable image with `devuser:1000`
 - Personal: `scripts/build.sh --personal` bakes your UID/GID; not shareable but handy for local use
 
-Documentation
+Documentation — see [docs/README.md](docs/README.md) for the full map.
 - Quick start: QUICKSTART.md
-- Build guide: docs/build.md
 - Architecture: docs/architecture.md
-- DevOps and operations: docs/devops.md
-- Runtime R/Python installs: docs/runtime-install.md
+- Build guide: docs/build.md
+- Environments (R/Python, runtime installs): docs/environments.md
+- Dev container & templates: docs/devcontainer.md
+- AI integration: docs/ai-integration.md
+- Operations runbook: docs/operations.md
 - Repo structure: docs/repo-structure.md
-- Image size notes: docs/size-optimization.md
-- Migration notes: docs/migration.md
-- Branching model: docs/branching.md
 - Changelog: docs/changelog.md
 
 AI integration (CLI agents)
 
-The image is **containerization-only**. All context/LLM/agent management lives in a
-dedicated repo — [SciAgent-toolkit](https://github.com/tony-zhelonkin/SciAgent-toolkit).
+The image is **containerization-only**. 
+All context/LLM/agent management lives in a dedicated repo — [SciAgent-toolkit](https://github.com/tony-zhelonkin/SciAgent-toolkit).
 The image carries only the **prerequisites** (Node.js 20, `uv`/`uvx`, Python `toml`) so
 that SciAgent-toolkit can install AI tooling at runtime, per-project.
 
-scbio-docker renders the dev container; SciAgent-toolkit scaffolds the project and the
-AI harness. They compose and never import each other:
+Thus my personal workflow is: 
+- scbio-docker renders the dev container  
+- SciAgent-toolkit scaffolds the project context management wrapping AI harness. 
+
+They are intended to compose 
 
 ```bash
 # 1. Render the dev container into a project directory (scbio-docker)

@@ -1,97 +1,82 @@
-# SSH passthrough — deferred
+# SSH agent passthrough
 
-**Status (as of v0.5.4):** *Not implemented.* Tracked here as a known gap with a copy-pasteable recipe to enable when it lands.
+Git over SSH inside the container uses the **host's SSH agent** — no private keys are copied into the container. This is implemented in the devcontainer/compose templates and wired automatically by `scripts/init-container.sh`.
 
-## What's missing
+## How it works
 
-| Layer | Current state |
+| Piece | Behaviour |
 |---|---|
-| Image (`scdock-r-dev:v0.5.4`) | `git` is present. `ssh` and `gh` CLIs are **not** installed. |
-| Compose template (`templates/base/.devcontainer/docker-compose.yml.template`) | No `SSH_AUTH_SOCK` env, no agent-socket mount, no `~/.ssh` mount, no `~/.config/gh` mount. |
-| Existing project devcontainers (DC_hum_verse, AdaW_eWAT, GVDRP1, JBader, etc.) | None forward SSH or `gh` config. The pattern was never added. |
+| Compose services | Both `dev-core` and `dev-archr` set `SSH_AUTH_SOCK=/ssh-agent` in `environment:`. |
+| `init-container.sh` | Auto-detects the host `SSH_AUTH_SOCK`. If it points at a live socket, the script emits a volume line mounting it **read-only** at `/ssh-agent`. |
+| No agent on host | The `{{SSH_AGENT_MOUNT}}` token renders empty — no mount is added, the compose file stays valid, and nothing else breaks. |
 
-Practical impact inside any current container:
-- `ssh git@github.com` → "ssh: command not found".
-- `gh ...` → "gh: command not found".
-- `git push` over an SSH remote → fails (no client, no key access).
-- Workaround in current use: do everything SSH-/gh-related on the host, treat the container as a compute layer.
+The relevant detection logic in `scripts/init-container.sh` (`build_ssh_agent_mount`) mounts the socket only when it is a real socket:
 
-## Why it's deferred (not blocked)
-
-- It widens the trust boundary of the container slightly (any in-container process can use the host's loaded SSH keys via the agent socket). For an interactive single-user container that's fine, but it's a deliberate decision to flip on.
-- It requires an image rebuild (apt installs) plus template edits — should bundle with the next minor bump rather than amend v0.5.4 in place.
-- No active project currently needs it; the host workflow has been sufficient.
-
-## Recipe to enable (when it lands — target: v0.5.5 or v0.6.0)
-
-### 1. Image: install SSH client and `gh` CLI
-
-In `docker/base/Dockerfile`, add to the apt installs in the runtime stage:
-
-```dockerfile
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssh-client \
- && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
- && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
- && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
- && apt-get update && apt-get install -y --no-install-recommends gh \
- && rm -rf /var/lib/apt/lists/*
+```bash
+local sock="${SSH_AUTH_SOCK:-}"
+if [[ -n "$sock" && -S "$sock" ]]; then
+    printf '      - %s:/ssh-agent:ro\n' "$sock"
+fi
 ```
 
-Adds ~30 MB. Bumps version to v0.5.5.
-
-### 2. Compose template: forward SSH agent + (optionally) `gh` config
-
-Edit `templates/base/.devcontainer/docker-compose.yml.template`. For BOTH `dev-core` and `dev-archr` services, add to the `environment:` and `volumes:` blocks:
+The resulting service block looks like:
 
 ```yaml
-    environment:
-      - SSH_AUTH_SOCK=/ssh-agent
-
-    volumes:
-      - ${WORKSPACE_FOLDER:-.}:/workspaces/{{PROJECT_NAME}}
-      # SSH agent forwarding (falls back to /dev/null when no agent runs)
-      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh-agent
-      # known_hosts so first-time GitHub connections don't prompt
-      - ${HOME}/.ssh/known_hosts:/home/devuser/.ssh/known_hosts:ro
-      # Optional: reuse host's gh CLI auth (mounted read-only)
-      - ${HOME}/.config/gh:/home/devuser/.config/gh:ro
-{{DATA_MOUNTS}}
+environment:
+  - SSH_AUTH_SOCK=/ssh-agent
+volumes:
+  - /run/user/1000/keyring/ssh:/ssh-agent:ro   # host agent socket (path varies)
 ```
 
-The `${SSH_AUTH_SOCK:-/dev/null}` fallback is the standard pattern — when no agent is running on the host (CI, headless), the bind mount lands on `/dev/null` and SSH simply isn't available; nothing else breaks.
+Because the container's `SSH_AUTH_SOCK` always points at `/ssh-agent`, `ssh` (and therefore `git` over an SSH remote) inside the container talks to whatever agent the host has loaded. Keys never leave the host — only the agent socket is shared, read-only.
 
-### 3. (No code change) Confirm the host has an SSH agent loaded
+## Prerequisite: an agent on the host
+
+Passthrough forwards an agent; it does not create one. On the host, before rendering the container (or before opening it in VS Code):
 
 ```bash
-ssh-add -l                          # should list your GitHub key
-gh auth status                      # should report logged-in
+ssh-add -l          # should list your key(s)
 ```
 
-If `ssh-add -l` returns "Could not open a connection to your authentication agent", the user has not started one. Common patterns: `eval "$(ssh-agent)" && ssh-add ~/.ssh/id_ed25519_github`, or use `keychain` (the user's host already has `keychain 2.8.5` set up — see the `gh auth login` flow that ran earlier).
-
-### 4. Rebuild and test
+If it reports "Could not open a connection to your authentication agent" or "no identities", start one and load your key:
 
 ```bash
-echo v0.5.5 > VERSION
-scripts/build.sh --yes --github-pat "$(gh auth token)"
-docker run --rm -v ${SSH_AUTH_SOCK}:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
-    scdock-r-dev:v0.5.5 bash -lc 'ssh -T git@github.com || true; gh --version'
+eval "$(ssh-agent)"
+ssh-add ~/.ssh/id_ed25519
 ```
 
-Expected: `Hi <username>! You've successfully authenticated...` from GitHub, and a `gh version 2.x.x` line.
+`init-container.sh` reads `SSH_AUTH_SOCK` at render time, so make sure the agent is running in the shell you run it from. VS Code Dev Containers also forward the agent automatically when it launches the container, so the compose-level mount and VS Code's forwarding both point the container at the same host agent.
 
-## Decision log
+## Verify inside the container
 
-- **Forward `~/.config/gh`?** *Optional.* Convenient (no re-auth in container) but mounts a token file. Keep it `:ro`. Skip if you prefer per-container `gh auth login`.
-- **Mount `~/.ssh` directly?** *Don't.* It exposes private key files to the container filesystem. The agent-socket pattern keeps keys on the host while letting the container *use* them via the agent.
-- **Why not VS Code's automatic agent forwarding?** VS Code does forward the agent automatically when launching a Dev Container — but only when the container is launched via VS Code, not via raw `docker compose up`. Explicit compose-level forwarding works in both cases.
+```bash
+echo "$SSH_AUTH_SOCK"          # -> /ssh-agent
+ssh-add -l                     # lists the same keys as on the host
+ssh -T git@github.com          # -> "Hi <user>! You've successfully authenticated..."
+git clone git@github.com:org/repo.git
+```
+
+If `ssh-add -l` lists your keys, passthrough is working. If it prints "Could not open a connection to your authentication agent", the mount was skipped (see below).
+
+## When no agent is running
+
+If `SSH_AUTH_SOCK` is unset or does not point at a live socket when `init-container.sh` runs:
+
+- The `{{SSH_AGENT_MOUNT}}` placeholder is replaced with nothing — the rendered `docker-compose.yml` has **no** `/ssh-agent` mount.
+- Inside the container `SSH_AUTH_SOCK` still equals `/ssh-agent`, but that path does not exist, so `ssh-add -l` / `ssh` cannot reach an agent.
+- Nothing else is affected; the container starts normally and you can use HTTPS git remotes or a token instead.
+
+To fix: start an agent and load your key on the host, then **re-render** the container (`init-container.sh <project-dir>`) so the mount line is emitted, and restart the container. There is no `/dev/null` fallback socket — the mount is simply present or absent.
+
+## Notes
+
+- The socket is mounted `:ro`. That prevents the container from replacing the socket file; it does not restrict use of the loaded keys — any process in the container can sign with them while the container runs. This matches the trust model of a single-user interactive dev container.
+- Only the agent socket is shared. `~/.ssh` (private keys, config) is **not** mounted, by design.
+- Known-hosts prompts on first GitHub connection are harmless; accept the fingerprint or pre-populate `~/.ssh/known_hosts` on the host.
 
 ## Cross-references
 
-- Compose template that needs editing: `templates/base/.devcontainer/docker-compose.yml.template`
-- Image Dockerfile: `docker/base/Dockerfile`
-- Isolation policy (compatible — agent forwarding does not conflict with current `tmpfs /tmp` / `pids` defaults): [ISOLATION.md](ISOLATION.md)
-- Roadmap entry: [ROADMAP.md](ROADMAP.md) under v0.6.0 → "SSH passthrough"
+- Renderer: [`scripts/init-container.sh`](../scripts/init-container.sh) (`build_ssh_agent_mount`)
+- Compose template: `templates/devcontainer/.devcontainer/docker-compose.yml.template`
+- Devcontainer wiring: [devcontainer.md](devcontainer.md)
+- Container isolation defaults (tmpfs `/tmp`, `pids`, optional hardening): [isolation.md](isolation.md)

@@ -1,60 +1,42 @@
-# Documentation Index
+# Documentation
 
-This directory contains detailed documentation for the scbio-docker project.
+Detailed docs for **scbio-docker** — the Docker/dev-container substrate for
+single-cell R + Python analysis. The canonical image version lives in the
+[`VERSION`](../VERSION) file; version history lives in [changelog.md](changelog.md).
 
-## Quick Navigation
+Start at the root [README.md](../README.md) and [QUICKSTART.md](../QUICKSTART.md).
 
-### Getting Started
-- **[../README.md](../README.md)** - Project overview and quick links
-- **[../QUICK-START.md](../QUICK-START.md)** - Get running in 5 minutes
+## Map
 
-### System Documentation
-- **[architecture.md](architecture.md)** - System architecture and design philosophy
-- **[build.md](build.md)** - Building Docker images
-- **[repo-structure.md](repo-structure.md)** - Repository organization
+| Doc | What it covers |
+|-----|----------------|
+| [architecture.md](architecture.md) | Image layering, venv/R-library model, design decisions, image size |
+| [build.md](build.md) | Building the image: `scripts/build.sh`, build modes, UID/GID, renv lockfile |
+| [environments.md](environments.md) | Python venvs (`usepy`), R two-tier libraries, runtime installs, R↔Python interop |
+| [devcontainer.md](devcontainer.md) | `init-container.sh`, the `templates/devcontainer/` scaffold, compose services, VS Code settings |
+| [ai-integration.md](ai-integration.md) | Containerization-only stance, SciAgent-toolkit boundary, `setup_ai_env.sh` AI-CLI bootstrap |
+| [operations.md](operations.md) | Runbook: run/compose, ArchR (legacy), tmux R sessions, troubleshooting |
+| [repo-structure.md](repo-structure.md) | Repository tree and where things live |
+| [isolation.md](isolation.md) | Filesystem/process isolation and opt-in container hardening |
+| [ssh-passthrough.md](ssh-passthrough.md) | SSH agent forwarding into the container |
+| [vscode-remote-stability.md](vscode-remote-stability.md) | Avoiding Remote-SSH / Dev-Container reconnect freezes |
+| [branching.md](branching.md) | Git branching and archive tags |
+| [roadmap.md](roadmap.md) | Forward-looking direction |
+| [changelog.md](changelog.md) | Cumulative version history (the one place versions live) |
 
-### Operations & Workflows
-- **[devops.md](devops.md)** - Build, run, and operations guide
-- **[runtime-install.md](runtime-install.md)** - Installing R/Python packages at runtime
-- **[size-optimization.md](size-optimization.md)** - Docker image size optimization strategies
+Community health: [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
-### Project Management
-- **[branching.md](branching.md)** - Git branching strategy
-- **[changelog.md](changelog.md)** - Version history and release notes
-- **[migration.md](migration.md)** - Migration guides between versions
+Historical planning snapshots are frozen under [`archive/`](archive/).
 
-### AI Integration
-- **[../AGENTS.md](../AGENTS.md)** - AI agent conventions and testing
-- **[../CLAUDE.md](../CLAUDE.md)** - Comprehensive Claude Code reference
+## Reading order
 
-### Contributing
-- **[../CONTRIBUTING.md](../CONTRIBUTING.md)** - How to contribute
-- **[../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)** - Community guidelines
-- **[../SECURITY.md](../SECURITY.md)** - Security policies
+- **New users:** [../README.md](../README.md) → [../QUICKSTART.md](../QUICKSTART.md) → [architecture.md](architecture.md) → [operations.md](operations.md)
+- **Building the image:** [build.md](build.md) → [architecture.md](architecture.md) → [environments.md](environments.md)
+- **Setting up a project:** [devcontainer.md](devcontainer.md) → [ai-integration.md](ai-integration.md)
+- **Contributors:** [CONTRIBUTING.md](CONTRIBUTING.md) → [repo-structure.md](repo-structure.md) → [branching.md](branching.md)
 
-## Recommended Reading Order
+## Conventions
 
-### For New Users
-1. [../README.md](../README.md) - Start here
-2. [../QUICK-START.md](../QUICK-START.md) - Get up and running
-3. [architecture.md](architecture.md) - Understand the system
-4. [devops.md](devops.md) - Learn operations
-
-### For Contributors
-1. [../CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
-2. [repo-structure.md](repo-structure.md) - File organization
-3. [build.md](build.md) - Build process
-4. [branching.md](branching.md) - Git workflow
-
-### For AI Agents
-1. [../AGENTS.md](../AGENTS.md) - Agent conventions
-2. [repo-structure.md](repo-structure.md) - File locations
-3. [architecture.md](architecture.md) - System design
-4. [../CLAUDE.md](../CLAUDE.md) - Comprehensive reference (for complex tasks)
-
-## Documentation Philosophy
-
-- **Concise** - Focus on what you need to know, link to details
-- **Task-oriented** - Organized by what you want to do
-- **Up-to-date** - Reflects current v0.5.2 structure
-- **Linked** - Easy navigation between related topics
+- **Version-agnostic** — commands read the tag from `VERSION`; explicit versions live only in [changelog.md](changelog.md).
+- **One concern per doc** — docs link out rather than duplicate.
+- **Scannable** — short intro, then tables and fenced commands.

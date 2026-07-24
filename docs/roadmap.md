@@ -61,6 +61,15 @@ Released versions and their changes are tracked in [changelog.md](changelog.md).
 1. **BiocManager "paths not writeable" warnings.** Harmless (system library is intentionally read-only) but confusing to new users. Documented; an `.Rprofile` quieting option is under consideration.
 2. **Layered venvs not auto-created.** Built on first `usepy` call (~2–5 min delay). Trade-off accepted; pre-baking `squid` is under consideration (see open questions).
 
+### Deferred — concretely identified (2026-07)
+
+Small, well-scoped items surfaced during the v0.5.10 pass; parked with enough context to pick up cold. Each has a matching `TODO(...)` marker at the code site.
+
+- **Purge tmux build-only deps** (`bison`, `libevent-dev`) from the runtime image. The catch: `libevent-dev` drags in `libevent-2.1-7`, which tmux links against — a naive purge+autoremove breaks tmux. Fix: purge both but reinstall `libevent-2.1-7` in the same layer. Marker: `docker/base/Dockerfile` tmux block.
+- **Consolidate the 4–5 runtime `apt-get update && install` layers** into fewer layers (single index refresh). Low risk but touches the whole runtime stage; batch with the next structural change. Marker: `docker/base/Dockerfile` top of runtime stage.
+- **Bake `poststart_sanity.sh` into the image?** It is currently mounted at runtime, so bare `docker run <image> scripts/poststart_sanity.sh` fails (docs now show the `-v $PWD:/repo` mount form). Baking it to `/usr/local/bin` would make the cheat-sheet commands work as-is — decide vs. keeping it project-mounted.
+- **CI smoke test still unbuilt.** Today's validation was manual (`docker run` core R/Python/kernel checks). The near-term GitHub Actions build+validate workflow (with `smoke_test_R.R`) would automate exactly that.
+
 ---
 
 ## Roadmap
