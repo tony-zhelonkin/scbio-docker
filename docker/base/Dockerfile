@@ -178,6 +178,13 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 #####################################
 FROM ubuntu:22.04 AS runtime
 
+# TODO(cache, deferred 2026-07): the runtime stage runs 4-5 separate
+#   `apt-get update && install` layers (base deps, deadsnakes, tmux build-deps,
+#   quarto, node). Each refreshes the apt index and adds a layer. Consolidating
+#   the apt installs (single update, grouped installs where install order
+#   allows) would trim layers and build time. Deferred: low risk but touches
+#   the whole runtime stage, so batch it with the next structural change.
+
 # IMAGE_VERSION is fed from the VERSION file by scripts/build.sh (--build-arg).
 # Kept version-agnostic here so the label never drifts on a bump.
 ARG IMAGE_VERSION=dev
@@ -280,6 +287,13 @@ RUN ln -sf "$(command -v fdfind)" /usr/local/bin/fd
 # libncurses5-dev (installed above); libevent + bison are pulled just for this.
 # Pinned to the latest official release (matches the workstation host tmux), so
 # the container and host multiplexers are identical. Any >= 3.3 has passthrough.
+#
+# TODO(size, deferred 2026-07): this RUN leaves `bison` and `libevent-dev` in
+#   the runtime image (build-only). Purging them shaves a little bloat, but
+#   `libevent-dev` pulls the `libevent-2.1-7` runtime lib that tmux links
+#   against — naive `apt-get purge` + autoremove would break tmux. Correct fix:
+#   purge `bison` + `libevent-dev` but explicitly reinstall `libevent-2.1-7`
+#   in the same layer. Skipped this pass to avoid a tmux-breakage risk.
 ARG TMUX_VERSION=3.7b
 RUN set -eux; \
     apt-get update; \
