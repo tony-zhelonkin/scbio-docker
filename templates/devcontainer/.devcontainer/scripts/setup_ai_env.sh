@@ -160,6 +160,7 @@ desired="$(cat <<'JSON'
   "showThinkingSummaries": true,
   "autoMemoryEnabled": false,
   "teammateMode": "auto",
+  "cleanupPeriodDays": 90,
   "attribution": { "commit": "", "pr": "", "sessionUrl": false },
   "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" },
   "statusLine": { "type": "command", "command": "bash \"$HOME/.claude/statusline.sh\"", "padding": 2 }
