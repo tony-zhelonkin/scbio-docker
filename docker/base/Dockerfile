@@ -178,8 +178,11 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 #####################################
 FROM ubuntu:22.04 AS runtime
 
+# IMAGE_VERSION is fed from the VERSION file by scripts/build.sh (--build-arg).
+# Kept version-agnostic here so the label never drifts on a bump.
+ARG IMAGE_VERSION=dev
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="v0.5.9"
+LABEL version="${IMAGE_VERSION}"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -246,7 +249,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     #     3.2a, which lacks `allow-passthrough` (the kitty-graphics switch). A
     #     pinned modern tmux is built from source below into /usr/local/bin.
     vim nano less htop ripgrep fd-find jq pandoc \
-    imagemagick chafa tldr && \
+    imagemagick chafa tldr \
+    # bubblewrap (bwrap): the sandbox backend for the Codex CLI's
+    #   workspace-write mode. Without it, sandboxed exec fails outright. Note it
+    #   still needs unprivileged user namespaces at RUN time — pair with
+    #   `--security-opt seccomp=unconfined` (see docs/ai-integration.md).
+    bubblewrap && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ >/etc/timezone && \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
@@ -317,6 +325,7 @@ RUN set -eux; \
 
 # Node.js 20 LTS from NodeSource (provides node, npm, npx)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/* && \
     node --version && npm --version && npx --version

@@ -94,6 +94,7 @@ if [ -n "$GITHUB_PAT" ]; then
   DOCKER_BUILDKIT=1 docker build . \
     -f docker/base/Dockerfile \
     --secret id=github_pat,src="$PAT_FILE" \
+    --build-arg IMAGE_VERSION="$IMAGE_VERSION" \
     --build-arg USER_ID="$USER_ID" \
     --build-arg GROUP_ID="$GROUP_ID" \
     --build-arg USER="$USER_NAME" \
@@ -105,6 +106,7 @@ if [ -n "$GITHUB_PAT" ]; then
 else
   DOCKER_BUILDKIT=1 docker build . \
     -f docker/base/Dockerfile \
+    --build-arg IMAGE_VERSION="$IMAGE_VERSION" \
     --build-arg USER_ID="$USER_ID" \
     --build-arg GROUP_ID="$GROUP_ID" \
     --build-arg USER="$USER_NAME" \

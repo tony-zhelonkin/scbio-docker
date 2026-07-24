@@ -11,6 +11,13 @@ jupyter_client
 # Configuration parsing (for SciAgent-toolkit Codex config)
 toml
 
+# Test runner — agents and analysis scripts assume `pytest` is importable/on PATH.
+pytest
+
+# .xlsx reader backend for pandas.read_excel (score_eTreg / mt-hi scripts).
+# Pinned: an unpinned presence silently vanished on rebuild and broke runs.
+openpyxl==3.1.5
+
 # Core Scientific Computing
 numpy==1.26.4
 scipy>=1.12
