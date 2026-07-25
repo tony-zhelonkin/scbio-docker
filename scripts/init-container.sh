@@ -113,16 +113,19 @@ render_devcontainer_json() {
         > "${PROJECT_DIR}/.devcontainer/devcontainer.json"
 }
 
-# --- Build the SSH agent mount line (empty when no agent socket present) -----
-# Auto-detects SSH_AUTH_SOCK. If it's a live socket, returns a single volume
-# line that forwards it into the container. If absent/not a socket, returns
-# empty — the {{SSH_AGENT_MOUNT}} token is replaced with nothing, keeping the
-# compose file valid without any fallback-socket hacks.
+# --- Build the SSH agent mount line ------------------------------------------
+# We deliberately bake in the STABLE, reboot-invariant host socket path
+# /run/user/$UID/ssh-agent.sock rather than the live $SSH_AUTH_SOCK. The
+# desktop/login agent lives at an ephemeral /tmp/ssh-XXXX/agent.<pid> path that
+# changes on every reboot/login; baking that into the compose file means that
+# after a reboot the path is dead, Docker auto-creates the missing bind source
+# as an empty DIRECTORY, and mounting a dir onto the container's /ssh-agent
+# socket fails with "not a directory". /run/user/$UID is local tmpfs with a
+# fixed path across reboots, so the mount source stays valid. The user's
+# ~/.bashrc pins the agent to this same path (see keychain/ssh-agent block).
 build_ssh_agent_mount() {
-    local sock="${SSH_AUTH_SOCK:-}"
-    if [[ -n "$sock" && -S "$sock" ]]; then
-        printf '      - %s:/ssh-agent:ro\n' "$sock"
-    fi
+    printf '      # Host SSH agent forwarded on a stable, reboot-invariant path\n'
+    printf '      - /run/user/%s/ssh-agent.sock:/ssh-agent:ro\n' "$(id -u)"
 }
 
 # --- Build the GPU devices block (empty when --gpu not passed) ---------------

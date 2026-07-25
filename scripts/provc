@@ -38,6 +38,16 @@
 #   --no-recreate     edit compose/json + provision the RUNNING container; skip force-recreate
 #   --no-provision    skip the in-container dev-env rollout step
 #   FILTER            substring; only projects whose path matches are touched
+#
+# EXAMPLE — dev-env layer missing after a manual recreate
+#   Symptom: inside the container `tmux ls` errors, `ws`/shell helpers absent —
+#     even though /opt/dev-env is mounted.
+#   Why: recreating with raw `docker compose up -d` (or `de`) bypasses the
+#     devcontainer postStart hook that runs the dev-env rollout. Only the
+#     devcontainer lifecycle — or provc — provisions the personal layer.
+#   Fix (in place, non-destructive, no image bump):
+#       provc apply <project> --no-recreate --go
+#   When: after any out-of-band recreate, or whenever `status` shows WIRED=no.
 set -uo pipefail
 
 RED=$'\033[31m'; GRN=$'\033[32m'; YEL=$'\033[33m'; CYN=$'\033[36m'; DIM=$'\033[2m'; NC=$'\033[0m'
@@ -190,6 +200,6 @@ case "$CMD" in
   status|ls) cmd_status;;
   detail)    cmd_status;;   # (compact for now; detail alias)
   apply)     cmd_apply;;
-  -h|--help) sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//';;
+  -h|--help) sed -n '2,50p' "$0" | sed 's/^# \{0,1\}//';;
   *) echo "unknown command: $CMD (status|apply|--help)" >&2; exit 2;;
 esac
