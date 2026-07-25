@@ -3,10 +3,21 @@
 #
 # Sibling to `prov` (git submodule provenance). Where prov keeps a dozen toolkit
 # worktrees from drifting, `provc` keeps a dozen rendered dev-containers on the
-# same base-image version AND carrying the dev-env personal layer (nvim/tmux/
-# shell). It reports drift and propagates: bump each project's compose to the
-# TARGET image, ensure the dev-env RO mount + postStart rollout are wired,
-# recreate the container, provision dev-env inside, and verify the toolchain.
+# same base-image version AND carrying the personal home layer — dev-env
+# (nvim/tmux/shell) + AI harness (claude/codex/agy/pi + ~/.claude). It reports
+# drift and propagates: bump each project's compose to the TARGET image, ensure
+# the dev-env RO mount + postStart rollout are wired, recreate the container,
+# provision dev-env + AI harness inside, and verify the toolchain.
+#
+# PROVISIONING SEAMS (what lives where — so you don't have to remember):
+#   1 base image       R/python/tmux/nvim/convert          image build (pin bumped here)
+#   2 dev-env layer    shell/ws/nvim/tmux                  rollout.sh (RO mount /opt/dev-env)
+#   3 AI harness       claude/codex/agy/pi + ~/.claude     setup_ai_env.sh
+#   4 sciagent project .claude/ agents/skills/roles        `sciagent` (in /workspaces; survives)
+#   Layers 2+3 are HOME state — wiped on recreate, run by postStart. `provc`
+#   provision replays exactly those two umbrella scripts (its single source of
+#   truth). init-container.sh only SCAFFOLDS them into a new project; it never
+#   provisions a running container.
 #
 # MENTAL MODEL
 #   scbio-docker/VERSION  ─►  TARGET image tag (scdock-r-dev:vX.Y.Z)
@@ -16,7 +27,8 @@
 #
 # DESTRUCTIVE NOTE: recreation replaces the container. Only /workspaces (bind mount)
 #   survives; in-container home state (installed AI tooling, ~/.local, shell history)
-#   is rebuilt from the image + dev-env rollout. Default is DRY-RUN; pass --go.
+#   is rebuilt from the image + dev-env rollout + AI harness (provc replays both;
+#   ad-hoc uncommitted in-container tweaks are lost). Default is DRY-RUN; pass --go.
 #
 # SCOPE NOTE (deliberate blind spots):
 #   • Only the `dev-core` service is tracked. The `dev-archr` sidecar is DEPRECATED
@@ -36,7 +48,9 @@
 #   --target vX.Y.Z   override target (default: scbio-docker/VERSION)
 #   --go              actually edit/recreate/provision (default: dry-run)
 #   --no-recreate     edit compose/json + provision the RUNNING container; skip force-recreate
-#   --no-provision    skip the in-container dev-env rollout step
+#   --no-provision    skip BOTH in-container provisioning steps (dev-env + AI)
+#   --no-ai           provision dev-env only; skip the AI harness (setup_ai_env.sh
+#                     does network installs — use this for the fast/offline path)
 #   FILTER            substring; only projects whose path matches are touched
 #
 # EXAMPLE — dev-env layer missing after a manual recreate
@@ -69,9 +83,10 @@ TARGET="scdock-r-dev:$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
 DEVENV_HOST="${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}"
 
 CMD="${1:-status}"; shift || true
-GO=0; RECREATE=1; PROVISION=1; FILTER=""
+GO=0; RECREATE=1; PROVISION=1; AI=1; FILTER=""
 while [ $# -gt 0 ]; do case "$1" in
   --go) GO=1;; --no-recreate) RECREATE=0;; --no-provision) PROVISION=0;;
+  --no-ai) AI=0;;
   --wire-only) RECREATE=0; PROVISION=0;;
   --target) TARGET="scdock-r-dev:${2#scdock-r-dev:}"; shift;;
   --target=*) TARGET="scdock-r-dev:${1#*=}"; TARGET="scdock-r-dev:${TARGET#scdock-r-dev:}";;
@@ -170,19 +185,33 @@ recreate() { # <proj>
 }
 
 provision() { # <proj>
+  # Replays the two umbrella entrypoints the devcontainer postStart runs — the
+  # single source of truth for a fresh container's home layer (both are wiped on
+  # recreate). Keep this list == postStart's, and only aggregation scripts here:
+  #   rollout.sh      -> dev-env personal layer (shell/ws/nvim/tmux)     [always]
+  #   setup_ai_env.sh -> AI CLIs (claude/codex/agy/pi) + ~/.claude seed  [--no-ai skips]
+  # setup_ai_env.sh does network installs (curl|bash); --no-ai for the fast path.
   local proj="$1" cp name; cp="$(cproject "$proj")"
   name="$(docker ps --filter "name=${cp}-dev-core" --format '{{.Names}}' 2>/dev/null | head -1)"
   [ -z "$name" ] && { echo "    ${RED}- no running container to provision${NC}"; return 1; }
   echo "    - provision dev-env in $name (rollout --copy --no-sync)"
+  [ "$AI" = 1 ] && echo "    - provision AI harness in $name (setup_ai_env.sh)"
   [ "$GO" = 1 ] || return 0
   docker exec -u devuser "$name" bash -lc '[ -x /opt/dev-env/rollout.sh ] && /opt/dev-env/rollout.sh --copy --no-sync' \
-    >/dev/null 2>&1 && echo "      ${GRN}provisioned${NC}" || echo "      ${YEL}provision had warnings${NC}"
+    >/dev/null 2>&1 && echo "      ${GRN}dev-env provisioned${NC}" || echo "      ${YEL}dev-env had warnings${NC}"
+  if [ "$AI" = 1 ]; then
+    # postStart runs it CWD-relative from the workspace root (= container working_dir).
+    # Invoke via `bash` (not exec) so a script lacking the +x bit still runs — postStart
+    # chmods first; we don't, and some projects vendor the script non-executable.
+    docker exec -u devuser "$name" bash -lc '[ -f .devcontainer/scripts/setup_ai_env.sh ] && bash .devcontainer/scripts/setup_ai_env.sh' \
+      >/dev/null 2>&1 && echo "      ${GRN}AI harness provisioned${NC}" || echo "      ${YEL}AI harness skipped/had warnings${NC}"
+  fi
   echo "    - verify:"
-  docker exec -u devuser "$name" bash -lc 'echo "        tmux: $(tmux -V 2>/dev/null); convert: $(convert -version 2>/dev/null | head -1 | cut -d\  -f1-3); nvim: $(~/.local/bin/nvim --version 2>/dev/null | head -1)"' 2>/dev/null
+  docker exec -u devuser "$name" bash -lc 'echo "        tmux: $(tmux -V 2>/dev/null); nvim: $(~/.local/bin/nvim --version 2>/dev/null | head -1); convert: $(convert -version 2>/dev/null | head -1 | cut -d\  -f1-3); claude: $(command -v claude >/dev/null && claude --version 2>/dev/null || echo MISSING)"' 2>/dev/null
 }
 
 cmd_apply() {
-  printf '%sTARGET: %s%s   go=%s recreate=%s provision=%s\n\n' "$CYN" "$TARGET" "$NC" "$GO" "$RECREATE" "$PROVISION"
+  printf '%sTARGET: %s%s   go=%s recreate=%s provision=%s ai=%s\n\n' "$CYN" "$TARGET" "$NC" "$GO" "$RECREATE" "$PROVISION" "$AI"
   [ "$GO" = 1 ] || printf '%s(dry-run — pass --go to execute)%s\n\n' "$YEL" "$NC"
   local proj n=0
   while read -r proj; do
@@ -200,6 +229,6 @@ case "$CMD" in
   status|ls) cmd_status;;
   detail)    cmd_status;;   # (compact for now; detail alias)
   apply)     cmd_apply;;
-  -h|--help) sed -n '2,50p' "$0" | sed 's/^# \{0,1\}//';;
+  -h|--help) sed -n '2,63p' "$0" | sed 's/^# \{0,1\}//';;
   *) echo "unknown command: $CMD (status|apply|--help)" >&2; exit 2;;
 esac
