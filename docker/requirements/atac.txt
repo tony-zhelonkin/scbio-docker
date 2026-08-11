@@ -1,5 +1,7 @@
 # ATAC-specific environment (kept separate to avoid pandas pin conflicts)
-snapatac2==2.7.1
+# 2.9.0 is the newest release with a cp311 wheel — 2.10.0 dropped to
+# requires-python >=3.12, so it cannot be used until the image moves off 3.11.
+snapatac2==2.9.0
 episcanpy==0.4.0
 kaleido
 multiprocess

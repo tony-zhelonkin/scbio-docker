@@ -84,7 +84,7 @@ else
 fi
 
 sep "Tips"
-echo "usepy base|squid|atac|comms  # switch Python env"
+echo "usepy base|squid|atac|comms|scenic  # switch Python env"
 if command -v r-base >/dev/null 2>&1; then
   echo "r-base / r-archr            # regular vs ArchR R sessions"
 else
@@ -93,7 +93,7 @@ fi
 
 echo "Current image flavor: ${IMAGE_FLAVOR:-unknown}"
 echo "Active Python: $(which python)"
-echo "To switch Python env: usepy base|squid|atac|comms"
+echo "To switch Python env: usepy base|squid|atac|comms|scenic"
 if [ "${IMAGE_FLAVOR:-dev-core}" = "dev-archr" ]; then
   echo "R sessions: r-base (no ArchR), r-archr (ArchR-enabled via USE_ARCHR=1)"
 else

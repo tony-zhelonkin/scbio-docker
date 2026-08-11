@@ -37,6 +37,8 @@ Default branch: `main`.
 - `init-project.sh` → symlink to `scripts/init-container.sh`.
 - `templates/devcontainer/` — the ONLY template tree (devcontainer.json/compose/.env/.vscode + `scripts/setup_ai_env.sh`).
 - `.devcontainer/` — a rendered example, not the source of truth.
+- `refdata/` — shared reference-data cache tooling (fetcher image + per-source scripts).
+  The *mechanism* only; the bytes live on a host path passed via `--refcache`.
 - `toolkits/SciAgent-toolkit/` — submodule (the AI harness; see boundary).
 - `docs/` — all detailed docs; `docs/README.md` is the map.
 
@@ -65,7 +67,7 @@ project --type analysis <dir>` (scaffold) → open in VS Code → run `setup-ai.
 ```bash
 scripts/build.sh                 # generic build (devuser:1000, shareable); --personal for your UID
 ./init-project.sh <dir> [--data-mount k:PATH[:rw]] [--service dev-core|dev-archr] [--gpu]
-usepy base|squid|atac|comms      # switch Python env (layered venvs created on first use)
+usepy base|squid|atac|comms|scenic      # switch Python env (layered venvs created on first use)
 r-base                           # radian on base R libs
 docker run --rm -v "$PWD:/repo" -w /repo scdock-r-dev:$(cat VERSION) bash scripts/poststart_sanity.sh  # sanity script is mounted, not baked into the image
 ```
@@ -74,9 +76,11 @@ docker run --rm -v "$PWD:/repo" -w /repo scdock-r-dev:$(cat VERSION) bash script
 
 - **Version-agnostic edits.** Don't hardcode `vX.Y.Z` in docs/scripts; read `VERSION`. Only `docs/changelog.md` spells out versions.
 - **Two-tier R libs.** System `/usr/local/lib/R/library` is read-only (renv-pinned); runtime installs land in writable `~/R/...` with no sudo. The "installation paths not writeable" notice is expected — use `update = FALSE` to quiet it.
+- **`safe_install()` hides failures.** `install_core.R` wraps every install in a `tryCatch` that turns errors into warnings, so a green build does NOT mean the package set is complete. After any build, diff the intended list against `installed.packages()` rather than trusting the exit code. (This masked seven missing packages, `chromVAR` among them, for two releases.)
+- **C++ standard floor.** `/usr/local/lib/R/etc/Makevars.site` forces `CXX11STD`/`CXX14STD` to `-std=gnu++17`. Packages declaring `CXX_STD = CXX11` otherwise fail against current RcppArmadillo. Don't drop it.
 - **UID remapping.** Generic image is `devuser:1000`; VS Code remaps via `updateRemoteUserUID`, Compose via `LOCAL_UID/LOCAL_GID`, `docker run` via `-u $(id -u):$(id -g)`.
 - **`USE_ARCHR` is deprecated** — use the ArchR image/profile, not the toggle.
-- Heavy annotation packages (BSgenome.*, EnsDb.*, org.*.eg.db) are NOT pre-installed; install at runtime.
+- Heavy annotation packages (BSgenome.*, EnsDb.* other than `EnsDb.Mmusculus.v79`, and `org.*.eg.db` other than `org.Hs.eg.db` / `org.Mm.eg.db`) are NOT pre-installed; install at runtime.
 
 ## Docs map
 
@@ -88,4 +92,5 @@ Start at [docs/README.md](docs/README.md). Most-used:
 [ai-integration.md](docs/ai-integration.md) ·
 [operations.md](docs/operations.md) ·
 [repo-structure.md](docs/repo-structure.md) ·
+[refdata/README.md](refdata/README.md) ·
 [changelog.md](docs/changelog.md)

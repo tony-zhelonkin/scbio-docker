@@ -17,6 +17,7 @@ Start at the root [README.md](../README.md) and [QUICKSTART.md](../QUICKSTART.md
 | [ai-integration.md](ai-integration.md) | Containerization-only stance, SciAgent-toolkit boundary, `setup_ai_env.sh` AI-CLI bootstrap |
 | [operations.md](operations.md) | Runbook: run/compose, ArchR (legacy), tmux R sessions, troubleshooting |
 | [repo-structure.md](repo-structure.md) | Repository tree and where things live |
+| [../refdata/README.md](../refdata/README.md) | Shared reference-data cache: fetcher image, sources, `--refcache` mount |
 | [isolation.md](isolation.md) | Filesystem/process isolation and opt-in container hardening |
 | [ssh-passthrough.md](ssh-passthrough.md) | SSH agent forwarding into the container |
 | [vscode-remote-stability.md](vscode-remote-stability.md) | Avoiding Remote-SSH / Dev-Container reconnect freezes |

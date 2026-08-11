@@ -11,6 +11,69 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.12]
+
+> `refdata/` is versioned separately — see [../refdata/CHANGELOG.md](../refdata/CHANGELOG.md).
+> Changes under `refdata/` never bump `VERSION` and never appear here.
+
+> This release skips `v0.5.11` in the changelog. A `v0.5.11` bump was prepared
+> in-tree and then folded into this one before shipping, so it has no entry of
+> its own. Note that a locally-built `scdock-r-dev:v0.5.11` image exists on the
+> workstation (built 2026-08-07, from a tree whose `VERSION` still read
+> `v0.5.10`); it corresponds to no changelog entry and should not be treated as
+> a release.
+
+### Added
+- **MALLET 2.0.8 + a headless JRE (`openjdk-17-jre-headless`).** `pycisTopic`'s
+  `run_cgs_models_mallet()` shells out to a MALLET install for collapsed-Gibbs
+  LDA topic modelling; the pure-Python fallback is impractically slow on real
+  cell × region matrices. Installed at `/opt/mallet` with `mallet` symlinked
+  onto `PATH` and `MALLET_HOME` / `MALLET_MEMORY=16g` exported (the stock 1g
+  JVM heap OOMs). This is the image's only Java consumer — hence the JRE, not
+  a JDK.
+- **Annotation databases baked in: `org.Hs.eg.db`, `org.Mm.eg.db`.** These
+  were the two `org.*.eg.db` packages every project installed at runtime
+  anyway (clusterProfiler / GSEA ID mapping), so the "install annotation
+  packages at runtime" rule no longer applies to them. Other `org.*`,
+  `BSgenome.*` and `EnsDb.*` packages remain runtime installs.
+- **Ortholog conversion: `homologene`, `babelgene`, `orthogene`.**
+  `babelgene` and `homologene` carry offline human↔mouse mappings (no
+  network at call time); `orthogene` (Bioconductor) is the higher-level
+  wrapper over both plus gprofiler, and also does ortholog-aware
+  conversion of whole expression matrices. `biomaRt` stays the online
+  fallback for non-mouse species.
+- **TF motif databases for chromVAR: `JASPAR2024` and `chromVARmotifs`.**
+  `JASPAR2022` was the only motif source in the image. `JASPAR2024` adds
+  the current CORE release (note: it materialises its SQLite DB through
+  `BiocFileCache` on first use, so the first call needs network).
+  `chromVARmotifs` (`GreenleafLab/chromVARmotifs`, GitHub) provides the
+  curated cisBP `human_pwms_v2` / `mouse_pwms_v2` PWM sets that the
+  chromVAR and ArchR/Signac deviation workflows assume.
+- **`FactoMineR` + `factoextra`** for PCA/MCA/MFA exploratory multivariate
+  analysis and its ggplot2 visualisations.
+- **`scenic` Python env (`usepy scenic`) — SCENIC+ stack, finally installable.**
+  `pycistopic` / `pycistarget` sat commented out in `comms.txt` with a stale
+  "not on PyPI for py3.10" note. They are not on PyPI *at all* (both 404 from
+  the JSON API), so `docker/requirements/scenic.txt` installs them from git at
+  pinned commits. Critically this env is **isolated, not layered**: pycisTopic
+  pins `pandas == 1.5` against base's 2.2.3, and a `--system-site-packages`
+  layer would shadow base's pandas for scanpy/anndata/muon — precisely the
+  breakage `atac.txt` was split off to avoid. Like the other non-base envs it
+  is built on first `usepy`, so it adds no image build risk.
+  `scripts/create_layered_venv.sh` gained `--isolated` to match.
+- **`init-container.sh --refcache PATH`** binds the shared reference-data cache
+  `:ro` at `/refcache` and exports `REFCACHE_ROOT`, so analysis code resolves
+  reference paths from an env var instead of a host layout or snapshot tag.
+
+### Changed
+- **`snapatac2` 2.7.1 → 2.9.0** in `docker/requirements/atac.txt`. 2.9.0 is the
+  newest release still publishing a cp311 wheel; 2.10.0 moved to
+  `requires-python >=3.12` and cannot be used until the image leaves 3.11.
+
+### Notes
+- Running chromVAR still needs a `BSgenome.*` package for peak sequences;
+  those are ~1GB each and stay runtime installs by design.
+
 ## [v0.5.10]
 
 ### Added

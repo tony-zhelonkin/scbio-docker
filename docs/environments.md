@@ -124,7 +124,9 @@ remotes::install_github("satijalab/seurat-data")
 ```
 
 Heavy annotation packages (`BSgenome.*`, `EnsDb.*`, `org.*.eg.db`) are **not**
-preinstalled — pull them on demand, one at a time if memory is tight.
+preinstalled — pull them on demand, one at a time if memory is tight. The
+exceptions, baked in because nearly every project needs them:
+`org.Hs.eg.db`, `org.Mm.eg.db`, `EnsDb.Mmusculus.v79`.
 
 ### The "Installation paths not writeable" warning is normal
 

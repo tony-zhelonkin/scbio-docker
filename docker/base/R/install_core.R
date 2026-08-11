@@ -9,6 +9,34 @@ options(repos = c(CRAN = paste0("https://packagemanager.posit.co/cran/__linux__/
 github_pat <- Sys.getenv("GITHUB_PAT")
 if (nzchar(github_pat)) Sys.setenv(GITHUB_PAT = github_pat)
 
+# Failures are recorded to a file, not just warned about: R warnings are
+# deferred and were being lost in the build log, which hid chromVAR and six
+# other absent packages across two releases.
+.failures <- new.env(parent = emptyenv())
+.failures$rows <- list()
+
+record_failure <- function(pkg, msg) {
+  .failures$rows[[length(.failures$rows) + 1L]] <-
+    data.frame(package = pkg, error = gsub("[\r\n]+", " ", msg),
+               stringsAsFactors = FALSE)
+  message(sprintf("FAILED: %s: %s", pkg, msg))
+}
+
+write_failure_report <- function(dir = "/opt/settings") {
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+  path <- file.path(dir, "install_failures.csv")
+  if (length(.failures$rows)) {
+    df <- do.call(rbind, .failures$rows)
+    write.csv(df, path, row.names = FALSE)
+    message(sprintf("\n=== %d PACKAGE(S) FAILED TO INSTALL ===", nrow(df)))
+    for (i in seq_len(nrow(df))) message(sprintf("  %s: %s", df$package[i], df$error[i]))
+    message(sprintf("=== report: %s ===\n", path))
+  } else {
+    write.csv(data.frame(package = character(), error = character()), path, row.names = FALSE)
+    message("All requested packages installed; no failures.")
+  }
+}
+
 safe_install <- function(pkgs, installer, ...) {
   installed <- installed.packages()[, "Package"]
   for (pkg in pkgs) {
@@ -17,8 +45,13 @@ safe_install <- function(pkgs, installer, ...) {
       tryCatch({
         installer(pkg, ...)
       }, error = function(e) {
-        warning(sprintf("Failed to install %s: %s", pkg, e$message))
+        record_failure(pkg, conditionMessage(e))
       })
+      # install.packages() signals a warning rather than an error when a build
+      # fails, so the tryCatch above never fires; confirm the package landed.
+      if (!requireNamespace(pkg, quietly = TRUE)) {
+        record_failure(pkg, "install returned without error but package is not loadable")
+      }
     } else {
       message(sprintf("Package %s already installed, skipping", pkg))
     }
@@ -76,21 +109,32 @@ gsea_packages <- c("clusterProfiler","GSVA","fgsea","msigdbr","enrichplot")
 safe_install(gsea_packages, BiocManager::install, ask = FALSE, update = FALSE)
 safe_install("decoupleR", BiocManager::install, ask = FALSE, update = FALSE)
 
-chromatin_packages <- c("chromVAR","motifmatchr","TFBSTools","JASPAR2022","SingleR","celldex")
+chromatin_packages <- c("chromVAR","motifmatchr","TFBSTools","JASPAR2022","JASPAR2024","SingleR","celldex")
 safe_install(chromatin_packages, BiocManager::install, ask = FALSE, update = FALSE)
 
-organism_packages <- c("EnsDb.Mmusculus.v79")
+# Ortholog conversion (offline mappings; biomaRt above is the online path)
+ortholog_packages <- c("homologene","babelgene")
+safe_install(ortholog_packages, install.packages, repos = "https://cloud.r-project.org")
+safe_install("orthogene", BiocManager::install, ask = FALSE, update = FALSE)
+
+# Multivariate exploratory analysis (PCA/MCA/MFA + ggplot2 viz)
+mva_packages <- c("FactoMineR","factoextra")
+safe_install(mva_packages, install.packages, repos = "https://cloud.r-project.org")
+
+organism_packages <- c("EnsDb.Mmusculus.v79","org.Hs.eg.db","org.Mm.eg.db")
 safe_install(organism_packages, BiocManager::install, ask = FALSE, update = FALSE)
 
 multifactorial <- c("muscat","harmony","mbkmeans")
 safe_install(multifactorial, BiocManager::install, ask = FALSE, update = FALSE)
-safe_install("WGCNA", install.packages, repos = "https://cloud.r-project.org")
+# Via BiocManager: deps impute/preprocessCore are Bioconductor-only.
+safe_install("WGCNA", BiocManager::install, ask = FALSE, update = FALSE)
 
 github_packages <- c(
   "satijalab/seurat-data","satijalab/azimuth","mojaveazure/seurat-disk",
   "pmbio/MuDataSeurat","cellgeni/sceasy","zellkonverter/zellkonverter",
-  "carmonalab/GeneNMF","welch-lab/liger","immunogenomics/crescendo",
-  "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS"
+  "carmonalab/GeneNMF","immunogenomics/crescendo",
+  "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
+  "GreenleafLab/chromVARmotifs"
 )
 install_gh_pkg <- function(slug) {
   pkg_name <- sub(".*/", "", slug)
@@ -119,9 +163,10 @@ install_gh_pkg <- function(slug) {
       remotes::install_local(file.path(tmp, pkg_name),
                              quiet = TRUE, upgrade = "never", dependencies = TRUE)
       unlink(tmp, recursive = TRUE)
-    }, error = function(e) warning(sprintf("clone+install_local failed for %s: %s",
-                                           slug, e$message)))
+    }, error = function(e) record_failure(pkg_name, sprintf("clone+install_local failed: %s", e$message)))
   }
+  if (!requireNamespace(pkg_name, quietly = TRUE))
+    record_failure(pkg_name, sprintf("github install of %s produced no loadable package", slug))
 }
 
 for (pkg in github_packages) {
@@ -133,6 +178,12 @@ for (pkg in github_packages) {
     install_gh_pkg(pkg)
   }
 }
+
+# rliger (NOT "liger": the GitHub slug welch-lab/liger yields the wrong package
+# name, so it was never detected as installed). RcppPlanc lives on r-universe.
+safe_install("rliger", install.packages,
+             repos = c("https://welch-lab.r-universe.dev",
+                       "https://cloud.r-project.org"))
 
 safe_install("MOFA2", BiocManager::install, ask = FALSE, update = FALSE)
 safe_install("mixOmics", BiocManager::install, ask = FALSE, update = FALSE)
@@ -152,6 +203,8 @@ ip <- as.data.frame(installed.packages()[, c("Package", "Version", "Built")], st
 log_dir <- "/opt/settings"
 if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE)
 write.csv(ip, file.path(log_dir, "installed_R_core_packages.csv"), row.names = FALSE)
+
+write_failure_report()
 
 message("Core R package installation completed.")
 message(sprintf("Total packages installed: %d", nrow(ip)))

@@ -4,15 +4,24 @@ set -euo pipefail
 # create_layered_venv.sh - Create Python venv with --system-site-packages
 # Inherits from base venv, only installs additional packages
 
+ISOLATED=0
+if [ "${1:-}" = "--isolated" ]; then
+    ISOLATED=1
+    shift
+fi
+
 if [ $# -lt 2 ]; then
-    echo "Usage: create_layered_venv.sh <venv_name> <requirements_file>"
+    echo "Usage: create_layered_venv.sh [--isolated] <venv_name> <requirements_file>"
     echo ""
     echo "Examples:"
     echo "  create_layered_venv.sh squid /opt/environments/squid.txt"
     echo "  create_layered_venv.sh atac /opt/environments/atac.txt"
     echo "  create_layered_venv.sh comms /opt/environments/comms.txt"
+    echo "  create_layered_venv.sh --isolated scenic /opt/environments/scenic.txt"
     echo ""
-    echo "Creates venv at /opt/venvs/<venv_name> inheriting from base venv"
+    echo "Creates venv at /opt/venvs/<venv_name> inheriting from base venv."
+    echo "--isolated drops --system-site-packages (needed when a stack pins a"
+    echo "package differently from base, e.g. scenic's pandas 1.5)."
     exit 1
 fi
 
@@ -26,9 +35,14 @@ if [ ! -f "$REQ_FILE" ]; then
     exit 1
 fi
 
-# Create layered venv (inherits base packages)
-echo "Creating layered venv: $ENV_NAME (inherits from base)"
-python3.11 -m venv --system-site-packages "$VENV_DIR"
+# Layered (inherits base) unless --isolated
+if [ "$ISOLATED" -eq 1 ]; then
+    echo "Creating ISOLATED venv: $ENV_NAME (no base inheritance)"
+    python3.11 -m venv "$VENV_DIR"
+else
+    echo "Creating layered venv: $ENV_NAME (inherits from base)"
+    python3.11 -m venv --system-site-packages "$VENV_DIR"
+fi
 
 # Upgrade pip/setuptools/wheel
 "$VENV_DIR/bin/python" -m pip install --upgrade --no-cache-dir pip setuptools wheel

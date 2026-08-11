@@ -41,6 +41,7 @@ SERVICE="dev-core"
 MAX_CPUS="50"
 MAX_MEMORY="450g"
 GPU=false
+REFCACHE_HOST="${REFCACHE_HOST:-}"
 declare -a DATA_MOUNTS=()
 
 usage() {
@@ -57,6 +58,10 @@ Options:
   --max-cpus N                  CPU limit default (default: 50)
   --max-memory NG               Memory limit default (default: 450G)
   --gpu                         Enable NVIDIA GPU passthrough (adds devices block)
+  --refcache PATH               Bind the shared reference-data cache :ro at /refcache
+                                and export REFCACHE_ROOT. PATH is the host cache root
+                                (the dir holding cistarget/, coresh/, ...).
+                                Defaults to \$REFCACHE_HOST if set. See refdata/README.md.
 
 Example:
   $0 ~/projects/atac-study \\
@@ -82,6 +87,7 @@ while [[ $# -gt 0 ]]; do
         --max-cpus)      MAX_CPUS="$2"; shift 2 ;;
         --max-memory)    MAX_MEMORY="$2"; shift 2 ;;
         --gpu)           GPU=true; shift ;;
+        --refcache)      REFCACHE_HOST="$2"; shift 2 ;;
         *)
             echo -e "${RED}Error: Unknown option '$1'${NC}" >&2
             usage
@@ -157,13 +163,31 @@ build_data_mount_block() {
     printf '%s' "$lines"
 }
 
+# --- Build the shared reference-data cache mount (empty unless --refcache) ---
+# Shared reference databases, mounted :ro at a fixed path so analysis code
+# resolves via $REFCACHE_ROOT. See refdata/README.md.
+build_refcache_mount() {
+    [ -n "$REFCACHE_HOST" ] || return 0
+    # No trailing newline: the token owns its own template line.
+    printf '      # Shared reference-data cache (see refdata/README.md)\n'
+    printf '      - %s:/refcache:ro' "$REFCACHE_HOST"
+}
+
+build_refcache_env() {
+    [ -n "$REFCACHE_HOST" ] || return 0
+    printf '      - REFCACHE_ROOT=/refcache'
+}
+
 # --- Render docker-compose.yml (Python: multi-line tokens passed as args) ----
 render_docker_compose() {
     local data_mount_block="$1" ssh_agent_mount="$2" gpu_devices="$3"
+    local refcache_mount="$4" refcache_env="$5"
     python3 - "$TEMPLATES_DIR" "$PROJECT_DIR" "$IMAGE_VERSION" "$PROJECT_NAME" \
-        "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" "$ssh_agent_mount" "$gpu_devices" <<'PYEOF'
+        "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" "$ssh_agent_mount" "$gpu_devices" \
+        "$refcache_mount" "$refcache_env" <<'PYEOF'
 import sys, pathlib
-tmpl, project_dir, image_version, project_name, max_cpus, max_memory, data_mounts, ssh_agent, gpu_devices = sys.argv[1:10]
+(tmpl, project_dir, image_version, project_name, max_cpus, max_memory,
+ data_mounts, ssh_agent, gpu_devices, refcache_mount, refcache_env) = sys.argv[1:12]
 src = pathlib.Path(tmpl) / ".devcontainer" / "docker-compose.yml.template"
 dst = pathlib.Path(project_dir) / ".devcontainer" / "docker-compose.yml"
 content = src.read_text()
@@ -174,6 +198,8 @@ content = content.replace("{{MAX_MEMORY}}", max_memory)
 content = content.replace("{{DATA_MOUNTS}}", data_mounts)
 content = content.replace("{{SSH_AGENT_MOUNT}}", ssh_agent)
 content = content.replace("{{GPU_DEVICES}}", gpu_devices)
+content = content.replace("{{REFCACHE_MOUNT}}", refcache_mount)
+content = content.replace("{{REFCACHE_ENV}}", refcache_env)
 dst.write_text(content)
 PYEOF
 }
@@ -257,7 +283,8 @@ EOF
 echo -e "${GREEN}Rendering dev container for '${PROJECT_NAME}' (image scdock-r-dev:${IMAGE_VERSION}, service ${SERVICE})...${NC}"
 
 render_devcontainer_json
-render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)" "$(build_gpu_devices)"
+render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)" "$(build_gpu_devices)" \
+    "$(build_refcache_mount)" "$(build_refcache_env)"
 render_vscode_settings
 copy_devcontainer_scripts
 write_env_file

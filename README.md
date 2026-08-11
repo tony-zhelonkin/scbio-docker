@@ -1,6 +1,6 @@
 # Single-Cell Docker Dev Environment
 
-![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.10-blue?style=flat-square)
+![Docker Image Version](https://img.shields.io/badge/Docker-v0.5.12-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 Purpose-built Docker images and VS Code Dev Container config for single-cell analysis in R and Python. The goal is a clean, reproducible, and fast-to-start environment you can use locally or remotely without yak-shaving.

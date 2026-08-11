@@ -4,8 +4,6 @@ cellphonedb
 # scGLUE (ensure TF2 installed if required wheels exist)
 scglue
 
-# SCENIC+ stack (from PyPI where available)
-#pycistarget
-#pycistopic
-# scenicplus isn't on PyPI for py3.10; install from source at runtime if needed:
-# pip install 'scenicplus @ git+https://github.com/aertslab/SCENICplus.git'
+# SCENIC+ stack has MOVED to its own isolated env — see scenic.txt / `usepy scenic`.
+# It cannot live here: pycisTopic pins pandas==1.5 while liana/cellphonedb are on
+# pandas 2.x, so co-installing them makes this env unresolvable.

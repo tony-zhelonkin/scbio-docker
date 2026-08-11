@@ -52,6 +52,11 @@ scbio-docker/
 │   ├── docker-compose.yml
 │   ├── .Rprofile
 │   └── Dockerfile.archr-wrapper
+├── refdata/                       # Shared reference-data cache tooling
+│   ├── refcache.sh                # Snapshot/verify/flip/prune driver
+│   ├── sources/                   # cistarget.sh, coresh.sh
+│   ├── fetcher/Dockerfile         # One image that runs any source
+│   └── CHANGELOG.md               # Versioned separately from the image
 ├── toolkits/
 │   └── SciAgent-toolkit/          # Git submodule (attached per-project)
 └── docs/                          # This documentation set
@@ -64,6 +69,11 @@ Notes:
 - **Python requirements live under `docker/requirements/`**. Only `base.txt` is
   baked into the image; `squid`/`atac`/`comms` are installed on demand into
   layered venvs.
+- **`refdata/` is a satellite subsystem**, on the upstream-data clock rather
+  than the image clock: outside `VERSION` and `docs/changelog.md`, with its own
+  `CHANGELOG.md`. It holds the fetch *mechanism*; the bytes live on a host path
+  supplied via `init-project.sh --refcache`. See
+  [../refdata/README.md](../refdata/README.md) for the extraction trigger.
 - **`templates/` contains only `templates/devcontainer/`.** There is no
   `templates/base`, `templates/config`, or `templates/docs` — the project
   scaffold is owned by SciAgent-toolkit.

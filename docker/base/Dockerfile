@@ -58,6 +58,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Additional scientific libraries (for R packages)
     libhdf5-dev \
     libgsl-dev \
+    # gmp/glpk: gmp -> ClusterR -> mbkmeans, and igraph/leidenAlg -> rliger.
+    # Their absence failed those packages silently.
+    libgmp-dev libglpk-dev \
     # ImageMagick (for magick R package)
     libmagick++-dev \
     # X11 dependencies (required for R)
@@ -91,6 +94,22 @@ RUN wget https://cran.rstudio.com/src/base/R-${R_VERSION_MAJOR}/R-${R_VERSION_MA
 # Site-wide CRAN mirror
 RUN mkdir -p /etc/R && \
     printf 'options(repos=c(CRAN="https://cloud.r-project.org"))\n' > /etc/R/Rprofile.site
+
+# cmake >= 3.24, required by RcppPlanc (-> rliger). Ubuntu 22.04 apt ships
+# 3.22.1, which RcppPlanc's CMakeLists rejects outright, so take it from pip.
+RUN python3.11 -m pip install --no-cache-dir cmake && \
+    ln -sf "$(python3.11 -c 'import cmake,os;print(os.path.join(os.path.dirname(cmake.__file__),"data","bin","cmake"))')" \
+           /usr/local/bin/cmake && \
+    cmake --version
+
+# Packages declaring `CXX_STD = CXX11` (motifmatchr, chromVAR, Rfast, mbkmeans,
+# rliger) compile at gnu++11, which current RcppArmadillo rejects outright.
+# Makevars.site is read after Makeconf, so this raises the floor to gnu++17.
+# Must stay in the builder stage, before any package installs.
+RUN printf '%s\n' \
+      'CXX11STD = -std=gnu++17' \
+      'CXX14STD = -std=gnu++17' \
+      > /usr/local/lib/R/etc/Makevars.site
 
 ####################################################
 ### Install R packages (via renv or initial core script)
@@ -329,6 +348,32 @@ RUN set -eux; \
     quarto --version
 
 ####################################################
+### MALLET (LDA topic modelling backend for pycisTopic)
+####################################################
+# LDA backend for pycisTopic's run_cgs_models_mallet(). Java-only, and the
+# image's sole Java consumer, hence a headless JRE. The stock 1g heap OOMs on
+# realistic models, so MALLET_MEMORY is raised; mallet must stay on PATH.
+ARG MALLET_VERSION=2.0.8
+ENV MALLET_HOME=/opt/mallet \
+    MALLET_MEMORY=16g
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends openjdk-17-jre-headless; \
+    rm -rf /var/lib/apt/lists/*; \
+    cd /tmp; \
+    curl -fsSL -o mallet.tar.gz \
+      "https://mallet.cs.umass.edu/dist/mallet-${MALLET_VERSION}.tar.gz"; \
+    mkdir -p "${MALLET_HOME}"; \
+    tar xzf mallet.tar.gz -C "${MALLET_HOME}" --strip-components=1; \
+    rm -f mallet.tar.gz; \
+    chmod +x "${MALLET_HOME}/bin/mallet"; \
+    ln -sf "${MALLET_HOME}/bin/mallet" /usr/local/bin/mallet; \
+    java -version; \
+    mallet --help >/dev/null 2>&1 || true; \
+    test -f "${MALLET_HOME}/class/cc/mallet/topics/ParallelTopicModel.class" \
+      || test -f "${MALLET_HOME}/lib/mallet.jar"
+
+####################################################
 ### AI prerequisites (Node.js + uv)
 ####################################################
 # These are infrastructure prerequisites only. The image carries NO AI tooling
@@ -472,7 +517,7 @@ RUN printf '%s\n' \
   'source /opt/venvs/base/bin/activate && exec "$@"' \
   > /usr/local/bin/py-base && chmod +x /usr/local/bin/py-base && \
   printf '%s\n' \
-  '# usage: usepy base|squid|atac|comms' \
+  '# usage: usepy base|squid|atac|comms|scenic' \
   '# Switches to layered venv (create if needed)' \
   'usepy(){ ' \
   '  case "$1" in ' \
@@ -486,7 +531,19 @@ RUN printf '%s\n' \
   '        fi; ' \
   '      fi; ' \
   '      . /opt/venvs/$1/bin/activate ;;' \
-  '    *) echo "usepy base|squid|atac|comms"; return 1;;' \
+  '    scenic) ' \
+  '      # ISOLATED, not layered: pycisTopic pins pandas==1.5 and must not' \
+  '      # shadow base pandas 2.2.3 for scanpy/anndata/muon. See scenic.txt.' \
+  '      if [ ! -d "/opt/venvs/scenic" ]; then ' \
+  '        echo "Creating ISOLATED venv: scenic (no base inheritance; this takes a while)"; ' \
+  '        python3.11 -m venv /opt/venvs/scenic; ' \
+  '        /opt/venvs/scenic/bin/pip install --no-cache-dir --upgrade pip setuptools wheel; ' \
+  '        if [ -f /opt/environments/scenic.txt ]; then ' \
+  '          /opt/venvs/scenic/bin/pip install --no-cache-dir -r /opt/environments/scenic.txt; ' \
+  '        fi; ' \
+  '      fi; ' \
+  '      . /opt/venvs/scenic/bin/activate ;;' \
+  '    *) echo "usepy base|squid|atac|comms|scenic"; return 1;;' \
   '  esac; ' \
   '}' \
   '# Put user-local binaries (e.g. dev-env nvim/fzf in ~/.local/bin) on PATH' \
