@@ -44,9 +44,9 @@ image bump — fold them into a version heading when it ships.
 ## [v0.5.12]
 
 > The reference-data cache tooling lives in its own repo, attached as the
-> `toolkits/refcache` submodule, and is versioned separately — see
+> `toolkits/refcache` submodule, and keeps its own history — see
 > [../toolkits/refcache/CHANGELOG.md](../toolkits/refcache/CHANGELOG.md).
-> Changes there never bump `VERSION` and never appear here.
+> Its releases move independently of `VERSION`.
 
 > This release skips `v0.5.11` in the changelog. A `v0.5.11` bump was prepared
 > in-tree and then folded into this one before shipping, so it has no entry of

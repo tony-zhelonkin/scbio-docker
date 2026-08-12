@@ -47,8 +47,9 @@ not scbio-docker features — don't document or surface them.
 
 ## The boundary (read before scaffolding anything)
 
-scbio-docker owns the **container**; SciAgent-toolkit owns the **project + AI harness**.
-They compose; neither imports the other.
+scbio-docker owns the **container**; SciAgent-toolkit owns the **project + AI
+harness**; refcache owns the **reference data**. They compose at seams and stay
+independent.
 
 | Repo | Owns |
 |------|------|
@@ -59,8 +60,8 @@ They compose; neither imports the other.
 Ownership test: *does the content change when the **image** changes → scbio-docker;
 when the **project / AI harness** changes → SciAgent-toolkit; when **upstream
 reference data** changes → refcache.* SciAgent-toolkit is attached per-project at
-`01_modules/SciAgent-toolkit/`, never vendored into the image. refcache is attached
-at `toolkits/refcache/`; scbio-docker provides only the `:ro` mount seam.
+`01_modules/SciAgent-toolkit/`; the image stays free of it. refcache is attached
+at `toolkits/refcache/` and meets the container at one seam: the `:ro` mount.
 
 Two-step workflow: `./init-project.sh <dir>` (render container) → `sciagent new
 project --type analysis <dir>` (scaffold) → open in VS Code → run `setup-ai.sh` once.

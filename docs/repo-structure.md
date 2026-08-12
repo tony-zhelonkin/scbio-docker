@@ -69,10 +69,10 @@ Notes:
 - **Python requirements live under `docker/requirements/`**. Only `base.txt` is
   baked into the image; `squid`/`atac`/`comms` are installed on demand into
   layered venvs.
-- **`toolkits/refcache/` is a separate repo**, on the upstream-data clock rather
-  than the image clock: outside `VERSION` and `docs/changelog.md`, with its own
-  `CHANGELOG.md`. It holds the fetch *mechanism*; the bytes live on a host path
-  supplied via `init-project.sh --refcache`. See
+- **`toolkits/refcache/` is a separate repo**, on the upstream-data clock: it
+  keeps its own `CHANGELOG.md` and moves independently of `VERSION`. It holds
+  the fetch *mechanism*; the bytes live on a host path supplied via
+  `init-project.sh --refcache`. See
   [../toolkits/refcache/README.md](../toolkits/refcache/README.md).
 - **`templates/` contains only `templates/devcontainer/`.** There is no
   `templates/base`, `templates/config`, or `templates/docs` — the project

@@ -4,5 +4,5 @@
 	branch = dev
 [submodule "toolkits/refcache"]
 	path = toolkits/refcache
-	url = https://github.com/tony-zhelonkin/refcache.git
+	url = git@github.com:tony-zhelonkin/refcache.git
 	branch = main
