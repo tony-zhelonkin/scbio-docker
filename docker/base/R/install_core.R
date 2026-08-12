@@ -144,7 +144,8 @@ github_packages <- c(
   "pmbio/MuDataSeurat","cellgeni/sceasy","zellkonverter/zellkonverter",
   "carmonalab/GeneNMF","immunogenomics/crescendo",
   "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
-  "GreenleafLab/chromVARmotifs"
+  "GreenleafLab/chromVARmotifs",
+  "tony-zhelonkin/bulkiRNA@v0.4.0"
 )
 # The repo name is not always the package name (satijalab/seurat-data ->
 # SeuratData), so a derived name silently breaks both the "already installed"
@@ -156,7 +157,13 @@ GH_PKG_NAME <- c(
 )
 
 install_gh_pkg <- function(slug) {
-  pkg_name <- if (slug %in% names(GH_PKG_NAME)) GH_PKG_NAME[[slug]] else sub(".*/", "", slug)
+  # A ref-suffixed slug is valid for install_github but the ref is not part of
+  # the repo name; carrying it into the derived package name or fallback URL
+  # silently breaks both the loadability check and the pinned fallback.
+  at <- regexpr("@", slug, fixed = TRUE)[1L]
+  repo <- if (at > 0L) substr(slug, 1L, at - 1L) else slug
+  ref <- if (at > 0L) substr(slug, at + 1L, nchar(slug)) else NULL
+  pkg_name <- if (repo %in% names(GH_PKG_NAME)) GH_PKG_NAME[[repo]] else sub(".*/", "", repo)
   if (requireNamespace(pkg_name, quietly = TRUE)) {
     message(sprintf("Package %s already installed, skipping", pkg_name))
     return(invisible(TRUE))
@@ -182,13 +189,15 @@ install_gh_pkg <- function(slug) {
     tryCatch({
       tmp <- tempfile()
       dir.create(tmp)
-      url <- sprintf("https://github.com/%s.git", slug)
+      url <- sprintf("https://github.com/%s.git", repo)
       Sys.setenv(GIT_HTTP_VERSION = "HTTP/1.1")
       # install_local still reaches api.github.com for remote deps; force
       # libcurl to HTTP/1.1 there as well.
       Sys.setenv(R_LIBCURL_HTTP_VERSION = "1.1")
-      system2("git", c("-c", "http.version=HTTP/1.1", "clone", "--depth", "1",
-                       url, file.path(tmp, pkg_name)),
+      clone_args <- c("-c", "http.version=HTTP/1.1", "clone", "--depth", "1")
+      if (!is.null(ref)) clone_args <- c(clone_args, "--branch", ref)
+      clone_args <- c(clone_args, url, file.path(tmp, pkg_name))
+      system2("git", clone_args,
               stdout = TRUE, stderr = TRUE)
       remotes::install_local(file.path(tmp, pkg_name),
                              quiet = TRUE, upgrade = "never", dependencies = TRUE)
@@ -201,9 +210,12 @@ install_gh_pkg <- function(slug) {
   # install_local go through it to resolve DESCRIPTION `Remotes:`.
   if (!requireNamespace(pkg_name, quietly = TRUE)) {
     message(sprintf("Trying install_git(dependencies=FALSE) for %s", slug))
-    try(remotes::install_git(sprintf("https://github.com/%s", slug),
-                             quiet = TRUE, upgrade = "never",
-                             dependencies = FALSE), silent = TRUE)
+    install_git_args <- list(
+      url = sprintf("https://github.com/%s", repo),
+      quiet = TRUE, upgrade = "never", dependencies = FALSE
+    )
+    if (!is.null(ref)) install_git_args$ref <- ref
+    try(do.call(remotes::install_git, install_git_args), silent = TRUE)
   }
   if (!requireNamespace(pkg_name, quietly = TRUE))
     record_failure(pkg_name, sprintf("github install of %s produced no loadable package", slug))
@@ -218,6 +230,37 @@ for (pkg in github_packages) {
     install_gh_pkg(pkg)
   }
 }
+
+# bulkiRNA's Suggests are optional by design, and gatom/mwcsr are expected to
+# be absent. So this writes its OWN artifact rather than install_failures.csv:
+# that file means "requested and failed", AGENTS.md tells the reader to check it
+# after every build, and its "no failures" line is a real signal. Filling it
+# with permanent expected absences would retire that signal for good.
+#
+# A bulkiRNA that will not load IS a genuine failure, and goes in the real
+# report -- it was requested by github_packages.
+message("\n=== bulkiRNA OPTIONAL DEPENDENCY REPORT ===")
+tryCatch({
+  if (!requireNamespace("bulkiRNA", quietly = TRUE)) {
+    stop("package is not loadable")
+  }
+  bulkirna_deps <- bulkiRNA::bulkirna_check_deps(
+    features = "all", quiet = FALSE, error = FALSE
+  )
+  optional_path <- "/opt/settings/bulkirna_optional_deps.csv"
+  if (!dir.exists("/opt/settings")) dir.create("/opt/settings", recursive = TRUE)
+  write.csv(as.data.frame(bulkirna_deps), optional_path, row.names = FALSE)
+  absent <- bulkirna_deps$package[!bulkirna_deps$installed]
+  message(sprintf(
+    "bulkiRNA optional dependencies: %d of %d present%s",
+    sum(bulkirna_deps$installed), nrow(bulkirna_deps),
+    if (length(absent)) sprintf("; absent: %s", paste(absent, collapse = ", "))
+    else ""))
+  message(sprintf("=== report: %s ===\n", optional_path))
+}, error = function(e) {
+  record_failure("bulkiRNA", sprintf("optional dependency preflight failed: %s",
+                                     conditionMessage(e)))
+})
 
 # rliger (NOT "liger": the GitHub slug welch-lab/liger yields the wrong package
 # name, so it was never detected as installed). RcppPlanc lives on r-universe.

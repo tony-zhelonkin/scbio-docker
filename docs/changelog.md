@@ -11,6 +11,28 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.13]
+
+### Added
+- **`bulkiRNA` v0.4.0 pinned in the image**, replacing the `RNAseq-toolkit`
+  submodule that projects used to `source()` file by file.
+- **An optional-dependency report**, written after the GitHub installs to
+  `/opt/settings/bulkirna_optional_deps.csv`: every optional package with its
+  presence, version and install command. It never fails the build — these are
+  optional by design and `gatom`/`mwcsr` are expected to be absent.
+
+  It is deliberately **not** written to `install_failures.csv`. That file means
+  "requested and failed", `AGENTS.md` tells the reader to check it after every
+  build, and its "no failures" line is a real signal; filling it with permanent
+  expected absences would retire that signal for good. A `bulkiRNA` that will
+  not load is still a genuine failure and is still recorded there.
+
+### Fixed
+- **Pinned GitHub slugs now stay pinned through every fallback.**
+  `install_gh_pkg()` separates `owner/repo@ref` into repository and ref parts,
+  so package-name detection uses the repository while clone and `install_git`
+  fallbacks use a valid repository URL and explicitly check out the ref.
+
 ## [v0.5.12]
 
 > The reference-data cache tooling lives in its own repo, attached as the
