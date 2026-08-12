@@ -2,3 +2,7 @@
 	path = toolkits/SciAgent-toolkit
 	url = https://github.com/tony-zhelonkin/SciAgent-toolkit
 	branch = dev
+[submodule "toolkits/refcache"]
+	path = toolkits/refcache
+	url = https://github.com/tony-zhelonkin/refcache.git
+	branch = main

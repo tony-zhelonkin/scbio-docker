@@ -61,7 +61,7 @@ Options:
   --refcache PATH               Bind the shared reference-data cache :ro at /refcache
                                 and export REFCACHE_ROOT. PATH is the host cache root
                                 (the dir holding cistarget/, coresh/, ...).
-                                Defaults to \$REFCACHE_HOST if set. See refdata/README.md.
+                                Defaults to \$REFCACHE_HOST if set. See toolkits/refcache/README.md.
 
 Example:
   $0 ~/projects/atac-study \\
@@ -165,11 +165,11 @@ build_data_mount_block() {
 
 # --- Build the shared reference-data cache mount (empty unless --refcache) ---
 # Shared reference databases, mounted :ro at a fixed path so analysis code
-# resolves via $REFCACHE_ROOT. See refdata/README.md.
+# resolves via $REFCACHE_ROOT. See toolkits/refcache/README.md.
 build_refcache_mount() {
     [ -n "$REFCACHE_HOST" ] || return 0
     # No trailing newline: the token owns its own template line.
-    printf '      # Shared reference-data cache (see refdata/README.md)\n'
+    printf '      # Shared reference-data cache (see toolkits/refcache/README.md)\n'
     printf '      - %s:/refcache:ro' "$REFCACHE_HOST"
 }
 
