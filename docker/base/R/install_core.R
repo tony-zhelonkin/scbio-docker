@@ -257,12 +257,13 @@ for (pkg in github_packages) {
   }
 }
 
-# bulkiRNA's Suggests are optional by design, so this writes its OWN artifact
-# rather than install_failures.csv. Requested packages such as gatom/mwcsr only
-# reach the failure report when their primary and fallback installs both fail.
+# bulkiRNA's Suggests are optional by design, so this report keeps its own file
+# and install_failures.csv keeps its meaning: requested and failed. Requested
+# packages such as gatom/mwcsr reach the failure report once their primary and
+# fallback installs have both failed.
 #
-# A bulkiRNA that will not load IS a genuine failure, and goes in the real
-# report -- it was requested by github_packages.
+# A bulkiRNA that fails to load counts as a genuine failure and lands in the real
+# report -- github_packages requested it.
 message("\n=== bulkiRNA OPTIONAL DEPENDENCY REPORT ===")
 tryCatch({
   if (!requireNamespace("bulkiRNA", quietly = TRUE)) {
