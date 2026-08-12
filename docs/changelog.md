@@ -16,18 +16,26 @@ image bump — fold them into a version heading when it ships.
 ### Added
 - **`bulkiRNA` v0.4.0 pinned in the image**, replacing the `RNAseq-toolkit`
   submodule that projects used to `source()` file by file.
+- **`gatom` and `mwcsr` for bulkiRNA's GATOM metabolic-network modules.**
+  Each has a GitHub fallback; installation failure is recorded in
+  `/opt/settings/install_failures.csv` rather than aborting the build.
 - **An optional-dependency report**, written after the GitHub installs to
   `/opt/settings/bulkirna_optional_deps.csv`: every optional package with its
-  presence, version and install command. It never fails the build — these are
-  optional by design and `gatom`/`mwcsr` are expected to be absent.
+  presence, version and install command. It never fails the build because the
+  report covers optional dependencies by design.
 
   It is deliberately **not** written to `install_failures.csv`. That file means
   "requested and failed", `AGENTS.md` tells the reader to check it after every
-  build, and its "no failures" line is a real signal; filling it with permanent
-  expected absences would retire that signal for good. A `bulkiRNA` that will
-  not load is still a genuine failure and is still recorded there.
+  build, and its "no failures" line is a real signal. A requested package or a
+  `bulkiRNA` that will not load is still a genuine failure and is recorded there.
 
 ### Fixed
+- **`safe_install()` recorded two failures for one package.** A hard install
+  error was recorded by the `tryCatch`, then recorded again by the loadability
+  check as "install returned without error" -- a duplicate, and untrue. It now
+  writes exactly one row per failed package, naming the stage that actually
+  failed. This matters more now that `install_failures.csv` is the report a
+  reader is expected to trust.
 - **Pinned GitHub slugs now stay pinned through every fallback.**
   `install_gh_pkg()` separates `owner/repo@ref` into repository and ref parts,
   so package-name detection uses the repository while clone and `install_git`

@@ -37,20 +37,39 @@ write_failure_report <- function(dir = "/opt/settings") {
   }
 }
 
-safe_install <- function(pkgs, installer, ...) {
+safe_install <- function(pkgs, installer, ..., fallback = NULL) {
   installed <- installed.packages()[, "Package"]
   for (pkg in pkgs) {
     if (!(pkg %in% installed)) {
       message(sprintf("Installing %s ...", pkg))
+      primary_error <- NULL
       tryCatch({
         installer(pkg, ...)
       }, error = function(e) {
-        record_failure(pkg, conditionMessage(e))
+        primary_error <<- conditionMessage(e)
       })
       # install.packages() signals a warning rather than an error when a build
       # fails, so the tryCatch above never fires; confirm the package landed.
+      # When an alternate source exists, only report failure after trying it.
+      if (!requireNamespace(pkg, quietly = TRUE) && !is.null(fallback)) {
+        try(fallback(pkg), silent = TRUE)
+      }
+      # Exactly one row per failed package, and the message says which stage
+      # actually failed. This previously recorded twice for a hard error -- the
+      # real message, then "install returned without error", which was both a
+      # duplicate and untrue.
       if (!requireNamespace(pkg, quietly = TRUE)) {
-        record_failure(pkg, "install returned without error but package is not loadable")
+        msg <- if (!is.null(primary_error) && !is.null(fallback)) {
+          sprintf("primary install failed (%s); fallback produced no loadable package",
+                  primary_error)
+        } else if (!is.null(primary_error)) {
+          primary_error
+        } else if (!is.null(fallback)) {
+          "primary and fallback installs produced no loadable package"
+        } else {
+          "install returned without error but package is not loadable"
+        }
+        record_failure(pkg, msg)
       }
     } else {
       message(sprintf("Package %s already installed, skipping", pkg))
@@ -137,6 +156,13 @@ multifactorial <- c("muscat","harmony","mbkmeans")
 safe_install(multifactorial, BiocManager::install, ask = FALSE, update = FALSE)
 # Via BiocManager: deps impute/preprocessCore are Bioconductor-only.
 safe_install("WGCNA", BiocManager::install, ask = FALSE, update = FALSE)
+
+# Back bulkiRNA's GATOM metabolic-network modules; mwcsr comes first because
+# gatom calls its solvers.
+safe_install("mwcsr", install.packages, repos = "https://cloud.r-project.org",
+             fallback = function(pkg) remotes::install_github("ctlab/mwcsr"))
+safe_install("gatom", BiocManager::install, ask = FALSE, update = FALSE,
+             fallback = function(pkg) remotes::install_github("ctlab/gatom"))
 
 github_packages <- c(
   # seurat-disk precedes azimuth: it is an Azimuth dependency.
@@ -231,11 +257,9 @@ for (pkg in github_packages) {
   }
 }
 
-# bulkiRNA's Suggests are optional by design, and gatom/mwcsr are expected to
-# be absent. So this writes its OWN artifact rather than install_failures.csv:
-# that file means "requested and failed", AGENTS.md tells the reader to check it
-# after every build, and its "no failures" line is a real signal. Filling it
-# with permanent expected absences would retire that signal for good.
+# bulkiRNA's Suggests are optional by design, so this writes its OWN artifact
+# rather than install_failures.csv. Requested packages such as gatom/mwcsr only
+# reach the failure report when their primary and fallback installs both fail.
 #
 # A bulkiRNA that will not load IS a genuine failure, and goes in the real
 # report -- it was requested by github_packages.
@@ -291,4 +315,3 @@ write_failure_report()
 
 message("Core R package installation completed.")
 message(sprintf("Total packages installed: %d", nrow(ip)))
-
