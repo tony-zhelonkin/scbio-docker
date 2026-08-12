@@ -128,6 +128,11 @@ preinstalled — pull them on demand, one at a time if memory is tight. The
 exceptions, baked in because nearly every project needs them:
 `org.Hs.eg.db`, `org.Mm.eg.db`, `EnsDb.Mmusculus.v79`.
 
+Azimuth additionally requires `BSgenome.Hsapiens.UCSC.hg38`,
+`EnsDb.Hsapiens.v86` and `JASPAR2020` (~700MB together). Those are pre-installed
+too, declared explicitly in `install_core.R` rather than arriving as an
+invisible transitive dependency as they did before v0.5.12.
+
 ### The "Installation paths not writeable" warning is normal
 
 When installing with `BiocManager`, you will see:

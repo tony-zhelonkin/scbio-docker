@@ -255,6 +255,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Additional scientific libraries (for runtime R package compilation)
     libhdf5-dev \
     libgsl-dev \
+    # Must mirror the builder: igraph links libglpk and gmp links libgmp, so
+    # without these the runtime image has the .so files' owners missing and
+    # igraph fails to load, taking SeuratData/GeneNMF/leidenAlg with it.
+    libgmp-dev libglpk-dev \
     # ImageMagick (for magick R package)
     libmagick++-dev \
     # X11 dependencies (required for R)

@@ -82,7 +82,8 @@ notebooks <- c("IRkernel")
 
 cran_core <- c(
   essential_tidyverse, visualization, stats_modeling, data_manip, vscode_support, r_python, notebooks,
-  "devtools","hdf5r","pandoc"
+  "devtools","hdf5r","pandoc",
+  "tictoc"  # PACS dependency
 )
 safe_install(cran_core, install.packages, repos = "https://cloud.r-project.org")
 
@@ -124,31 +125,57 @@ safe_install(mva_packages, install.packages, repos = "https://cloud.r-project.or
 organism_packages <- c("EnsDb.Mmusculus.v79","org.Hs.eg.db","org.Mm.eg.db")
 safe_install(organism_packages, BiocManager::install, ask = FALSE, update = FALSE)
 
+# Azimuth's dependency chain, declared explicitly rather than pulled in as an
+# invisible side effect. ~700MB of human annotation; see AGENTS.md, which
+# documents this as the exception to the "no heavy annotation packages" rule.
+azimuth_deps_bioc <- c("BSgenome.Hsapiens.UCSC.hg38","EnsDb.Hsapiens.v86","JASPAR2020")
+safe_install(azimuth_deps_bioc, BiocManager::install, ask = FALSE, update = FALSE)
+azimuth_deps_cran <- c("shinyBS","shinydashboard","shinyjs")
+safe_install(azimuth_deps_cran, install.packages, repos = "https://cloud.r-project.org")
+
 multifactorial <- c("muscat","harmony","mbkmeans")
 safe_install(multifactorial, BiocManager::install, ask = FALSE, update = FALSE)
 # Via BiocManager: deps impute/preprocessCore are Bioconductor-only.
 safe_install("WGCNA", BiocManager::install, ask = FALSE, update = FALSE)
 
 github_packages <- c(
-  "satijalab/seurat-data","satijalab/azimuth","mojaveazure/seurat-disk",
+  # seurat-disk precedes azimuth: it is an Azimuth dependency.
+  "satijalab/seurat-data","mojaveazure/seurat-disk","satijalab/azimuth",
   "pmbio/MuDataSeurat","cellgeni/sceasy","zellkonverter/zellkonverter",
   "carmonalab/GeneNMF","immunogenomics/crescendo",
   "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
   "GreenleafLab/chromVARmotifs"
 )
+# The repo name is not always the package name (satijalab/seurat-data ->
+# SeuratData), so a derived name silently breaks both the "already installed"
+# check and the failure report.
+GH_PKG_NAME <- c(
+  "satijalab/seurat-data"   = "SeuratData",
+  "satijalab/azimuth"       = "Azimuth",
+  "mojaveazure/seurat-disk" = "SeuratDisk"
+)
+
 install_gh_pkg <- function(slug) {
-  pkg_name <- sub(".*/", "", slug)
+  pkg_name <- if (slug %in% names(GH_PKG_NAME)) GH_PKG_NAME[[slug]] else sub(".*/", "", slug)
   if (requireNamespace(pkg_name, quietly = TRUE)) {
     message(sprintf("Package %s already installed, skipping", pkg_name))
     return(invisible(TRUE))
   }
-  ok <- tryCatch({
-    remotes::install_github(slug, quiet = TRUE, upgrade = "never")
-    TRUE
-  }, error = function(e) {
-    message(sprintf("install_github failed for %s: %s", slug, e$message))
-    FALSE
-  })
+  # api.github.com intermittently drops HTTP/2 streams mid-transfer; a plain
+  # single attempt loses several packages per build. Retry before falling back.
+  ok <- FALSE
+  for (attempt in 1:3) {
+    ok <- tryCatch({
+      remotes::install_github(slug, quiet = TRUE, upgrade = "never")
+      TRUE
+    }, error = function(e) {
+      message(sprintf("install_github attempt %d/3 failed for %s: %s",
+                      attempt, slug, e$message))
+      FALSE
+    })
+    if (ok) break
+    Sys.sleep(5 * attempt)
+  }
   if (!ok) {
     # Fallback: manual git clone + install_local (avoids api.github.com HTTP/2 flakiness).
     message(sprintf("Falling back to git clone + install_local for %s", slug))
@@ -157,13 +184,26 @@ install_gh_pkg <- function(slug) {
       dir.create(tmp)
       url <- sprintf("https://github.com/%s.git", slug)
       Sys.setenv(GIT_HTTP_VERSION = "HTTP/1.1")
+      # install_local still reaches api.github.com for remote deps; force
+      # libcurl to HTTP/1.1 there as well.
+      Sys.setenv(R_LIBCURL_HTTP_VERSION = "1.1")
       system2("git", c("-c", "http.version=HTTP/1.1", "clone", "--depth", "1",
                        url, file.path(tmp, pkg_name)),
               stdout = TRUE, stderr = TRUE)
       remotes::install_local(file.path(tmp, pkg_name),
                              quiet = TRUE, upgrade = "never", dependencies = TRUE)
       unlink(tmp, recursive = TRUE)
-    }, error = function(e) record_failure(pkg_name, sprintf("clone+install_local failed: %s", e$message)))
+    }, error = function(e) message(sprintf("clone+install_local failed for %s: %s",
+                                           pkg_name, e$message)))
+  }
+  # Last resort: git transport with Remotes resolution off. api.github.com
+  # drops HTTP/2 streams from this host, and both install_github and
+  # install_local go through it to resolve DESCRIPTION `Remotes:`.
+  if (!requireNamespace(pkg_name, quietly = TRUE)) {
+    message(sprintf("Trying install_git(dependencies=FALSE) for %s", slug))
+    try(remotes::install_git(sprintf("https://github.com/%s", slug),
+                             quiet = TRUE, upgrade = "never",
+                             dependencies = FALSE), silent = TRUE)
   }
   if (!requireNamespace(pkg_name, quietly = TRUE))
     record_failure(pkg_name, sprintf("github install of %s produced no loadable package", slug))

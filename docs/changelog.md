@@ -13,8 +13,10 @@ image bump — fold them into a version heading when it ships.
 
 ## [v0.5.12]
 
-> `refdata/` is versioned separately — see [../refdata/CHANGELOG.md](../refdata/CHANGELOG.md).
-> Changes under `refdata/` never bump `VERSION` and never appear here.
+> The reference-data cache tooling lives in its own repo, attached as the
+> `toolkits/refcache` submodule, and is versioned separately — see
+> [../toolkits/refcache/CHANGELOG.md](../toolkits/refcache/CHANGELOG.md).
+> Changes there never bump `VERSION` and never appear here.
 
 > This release skips `v0.5.11` in the changelog. A `v0.5.11` bump was prepared
 > in-tree and then folded into this one before shipping, so it has no entry of
@@ -65,14 +67,59 @@ image bump — fold them into a version heading when it ships.
   `:ro` at `/refcache` and exports `REFCACHE_ROOT`, so analysis code resolves
   reference paths from an env var instead of a host layout or snapshot tag.
 
+### Fixed
+- **Seven R packages were silently absent, `chromVAR` and `motifmatchr` among
+  them.** `safe_install()` turned install failures into deferred warnings that
+  never reached the build log (6 `Installing ...` lines survived for 563
+  packages, with zero recorded failures), so a green build hid an incomplete
+  package set — for at least two releases. Each had its own cause:
+  - `chromVAR` / `motifmatchr`: declare `CXX_STD = CXX11`, compiled at
+    gnu++11, which current RcppArmadillo rejects. Fixed by a site-wide
+    `Makevars.site` raising `CXX11STD`/`CXX14STD` to `-std=gnu++17`.
+  - `WGCNA`: installed with CRAN-only `repos=`, which cannot resolve its
+    Bioconductor deps `impute`/`preprocessCore`. Now via `BiocManager`.
+  - `mbkmeans`: needs `ClusterR` → `gmp` → `libgmp-dev`, absent from the image.
+  - `rliger`: the slug `welch-lab/liger` made the installer look for a package
+    named `liger`; it is `rliger`. Its dep `RcppPlanc` needs cmake ≥ 3.24 while
+    jammy apt ships 3.22.1, so cmake now comes from pip.
+  - `Rfast` / `brms`: install once the above system deps are present.
+- **`safe_install()` now reports.** It verifies each package is loadable and
+  writes `/opt/settings/install_failures.csv`. **Check that file after a build
+  rather than the exit code.** It immediately caught two further problems that
+  would otherwise have shipped silently (below).
+- **`igraph` failed to load in the runtime image**, taking `SeuratData`,
+  `GeneNMF` and `leidenAlg` with it: adding `libglpk-dev` to the builder made
+  igraph link GLPK, but the runtime stage had no `libglpk.so.40`. Both
+  `libgmp-dev` and `libglpk-dev` are now installed in *both* stages.
+- **GitHub installs are retried.** `api.github.com` intermittently drops HTTP/2
+  streams from this host; a single attempt lost several packages per build.
+  Now 3 attempts with backoff, then a `git`-transport fallback with
+  `dependencies = FALSE` that bypasses the API's `Remotes:` resolution.
+- **`seurat-disk` now installs before `azimuth`**, which depends on it.
+- **The failure report over-reported.** `install_gh_pkg()` recorded a failure at
+  the clone+`install_local` stage even when the subsequent `install_git`
+  fallback then succeeded. Only the terminal loadability check records now.
+- **`build.sh` no longer echoes the first 10 characters of `GITHUB_PAT`** into
+  the build log.
+
 ### Changed
 - **`snapatac2` 2.7.1 → 2.9.0** in `docker/requirements/atac.txt`. 2.9.0 is the
   newest release still publishing a cp311 wheel; 2.10.0 moved to
   `requires-python >=3.12` and cannot be used until the image leaves 3.11.
+- **Azimuth's annotation chain is now explicit.** `BSgenome.Hsapiens.UCSC.hg38`,
+  `EnsDb.Hsapiens.v86`, `JASPAR2020` and the shiny packages (~700MB) were
+  already in the image as invisible transitive deps of Azimuth, contradicting
+  the documented "no heavy annotation packages" rule. They are now declared in
+  `install_core.R` and the exception is recorded in AGENTS.md and
+  environments.md.
 
 ### Notes
 - Running chromVAR still needs a `BSgenome.*` package for peak sequences;
   those are ~1GB each and stay runtime installs by design.
+- The `install_failures.csv` baked into the shipped `v0.5.12` image lists
+  `Azimuth`, `SeuratDisk`, `MuDataSeurat` and `PACS` as failed. That is the
+  over-reporting bug above: all four are present and loadable. The report is
+  correct from the next build onward.
 
 ## [v0.5.10]
 

@@ -67,7 +67,8 @@ echo "  Group ID:   $GROUP_ID"
 echo "  User:       $USER_NAME"
 echo "  Group:      $GROUP_NAME"
 if [ -n "$GITHUB_PAT" ]; then
-  echo "  GitHub PAT: ✓ Set (first 10 chars: ${GITHUB_PAT:0:10}...)"
+  # Never echo any part of the token: build logs get pasted around.
+  echo "  GitHub PAT: ✓ Set"
 else
   echo -e "  GitHub PAT: ${YELLOW}✗ Not set (may hit rate limits)${NC}"
 fi
