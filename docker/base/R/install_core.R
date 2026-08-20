@@ -128,6 +128,14 @@ safe_install(seurat_packages, install.packages)
 gsea_packages <- c("clusterProfiler","GSVA","fgsea","msigdbr","enrichplot")
 safe_install(gsea_packages, BiocManager::install, ask = FALSE, update = FALSE)
 safe_install("decoupleR", BiocManager::install, ask = FALSE, update = FALSE)
+# decoupleR's get_collectri()/get_progeny() require it.
+safe_install("OmnipathR", BiocManager::install, ask = FALSE, update = FALSE)
+
+# Previously transitive, lost in v0.5.13. Declared so presence is not incidental.
+recovered_cran <- c("psych","GPArotation","mnormt","sankey","simplegraph")
+safe_install(recovered_cran, install.packages, repos = "https://cloud.r-project.org")
+safe_install("EnhancedVolcano", BiocManager::install, ask = FALSE, update = FALSE)
+safe_install("reactome.db", BiocManager::install, ask = FALSE, update = FALSE)
 
 chromatin_packages <- c("chromVAR","motifmatchr","TFBSTools","JASPAR2022","JASPAR2024","SingleR","celldex")
 safe_install(chromatin_packages, BiocManager::install, ask = FALSE, update = FALSE)
