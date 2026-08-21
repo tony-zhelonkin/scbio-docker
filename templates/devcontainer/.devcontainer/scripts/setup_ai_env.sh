@@ -185,17 +185,19 @@ log "Claude settings seeded → $settings"
 ######################################################################
 # Home is not persisted across rebuilds, so re-inject each start. Each block is
 # marker-guarded, so it is appended at most once per container lifetime.
-# (Folded in from the former standalone configure_sciagent_alias.sh + source_env.sh.)
 rc="$HOME/.bashrc"; touch "$rc"
 
 # 3a. `si` -> the project-local SciAgent-toolkit CLI. CWD-relative (NOT a PATH
 #     symlink) so it resolves to whichever project's vendored 01_modules copy you
 #     cd into — a fixed symlink would bake one checkout as the target.
-if ! grep -q '_sciagent_si_alias' "$rc" 2>/dev/null; then
+#     The marker carries the CLI name so a shell that already holds the stale
+#     `bin/sciagent` alias receives the corrected one and the later definition
+#     wins; keying on the old marker would leave every live container broken.
+if ! grep -q '_scio_si_alias' "$rc" 2>/dev/null; then
   cat >> "$rc" <<'RC'
 
-# _sciagent_si_alias: CWD-relative, safe across multiple vendored toolkit copies
-alias si="./01_modules/SciAgent-toolkit/bin/sciagent"
+# _scio_si_alias: CWD-relative, safe across multiple vendored toolkit copies
+alias si="./01_modules/SciAgent-toolkit/bin/scio"
 RC
   log "installed 'si' alias"
 fi

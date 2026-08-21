@@ -3,9 +3,10 @@
 # docker-compose.yml + .env) into a target project directory.
 #
 # This is container substrate only: it knows nothing about project structure,
-# analysis trees, config schemas, docs, or AI context. For the project scaffold
-# (directory tree, config, docs, AI harness) use SciAgent-toolkit:
-#   sciagent new project --type analysis|software-tool <dir>
+# analysis trees, config schemas, docs, or AI context. Those come from
+# SciAgent-toolkit, vendored at <dir>/01_modules/SciAgent-toolkit/ and bound
+# with its own CLI:
+#   cd <dir> && ./01_modules/SciAgent-toolkit/bin/scio link && ... scio craft
 #
 # Usage:
 #   init-container.sh <project-dir> [OPTIONS]
@@ -68,8 +69,10 @@ Example:
       --data-mount atac:/scratch/data/DT-1234 \\
       --data-mount scratch:/scratch/work/DT-5678:rw
 
-For the project scaffold (tree, config, docs, AI harness):
-  sciagent new project --type analysis <project-dir>
+For the project catalog and AI harness, from the project directory with
+SciAgent-toolkit vendored at 01_modules/SciAgent-toolkit/:
+  ./01_modules/SciAgent-toolkit/bin/scio link
+  ./01_modules/SciAgent-toolkit/bin/scio craft
 EOF
     exit 1
 }
@@ -298,8 +301,10 @@ echo "  - .vscode/settings.json"
 echo "  - scripts/poststart_sanity.sh"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
-echo "  1. Scaffold the project structure (tree, config, docs, AI harness):"
-echo "       sciagent new project --type analysis ${PROJECT_DIR}"
+echo "  1. Bind the toolkit catalog and render CRAFT, from ${PROJECT_DIR} with"
+echo "     SciAgent-toolkit vendored at 01_modules/SciAgent-toolkit/:"
+echo "       ./01_modules/SciAgent-toolkit/bin/scio link"
+echo "       ./01_modules/SciAgent-toolkit/bin/scio craft"
 echo "  2. Open in VS Code: code ${PROJECT_DIR}"
 echo "  3. Reopen in container: Ctrl+Shift+P -> 'Dev Containers: Reopen in Container'"
 echo ""
