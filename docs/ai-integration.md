@@ -30,14 +30,14 @@ invocations that use Codex.
 ## Boundary: scbio-docker vs SciAgent-toolkit
 
 scbio-docker is a **container substrate** and nothing more. The AI *harness*
-(agents, skills, methodology guidelines, project scaffold) belongs to
+(agents, skills, methodology guidelines, project catalog) belongs to
 **SciAgent-toolkit**, a sibling repo attached per-project — never vendored into
 the image.
 
 | Repository | Owns |
 |------------|------|
 | **scbio-docker** | Dockerfiles, image/env specs, build scripts, devcontainer + compose templates, `init-container.sh`, `.env` stub, `setup_ai_env.sh` |
-| **SciAgent-toolkit** | Project scaffold (directory tree), config templates, docs namespaces, AI harness (roles/skills/agents/commands), methodology guidelines |
+| **SciAgent-toolkit** | Project tree and catalog, config templates, docs namespaces, AI harness (skills/agents/commands), methodology guidelines |
 
 **Rule of ownership:** does the content change when the **image** changes
 (scbio-docker) or when the **project / AI harness** changes (SciAgent-toolkit)?
@@ -54,8 +54,10 @@ copied into the image.
     --data-mount atac:/scratch/data/DT-1234 \
     --service dev-core --max-cpus 50 --max-memory 450G
 
-# 2. Scaffold the project tree + AI harness (SciAgent-toolkit)
-sciagent new project --type analysis ~/projects/my-analysis
+# 2. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+cd ~/projects/my-analysis
+./01_modules/SciAgent-toolkit/bin/scio link
+./01_modules/SciAgent-toolkit/bin/scio craft
 
 # 3. Open in VS Code, reopen in container
 code ~/projects/my-analysis
@@ -144,7 +146,7 @@ the desired values winning on conflict.
 Two marker-guarded blocks appended to `~/.bashrc` (each at most once per
 container lifetime):
 
-- **`si` alias** → `./01_modules/SciAgent-toolkit/bin/sciagent`. CWD-relative
+- **`si` alias** → `./01_modules/SciAgent-toolkit/bin/scio`. CWD-relative
   (not a PATH symlink) so it resolves to whichever project's vendored toolkit
   copy you `cd` into.
 - **`_source_project_env`** — auto-sources the active project's

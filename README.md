@@ -29,8 +29,10 @@ docker pull greenleaflab/archr:1.0.3-base-r4.4
 # 3) Render a dev container into a project directory
 ./init-project.sh ~/projects/my-analysis
 
-# 4) Scaffold the project structure (SciAgent-toolkit)
-sciagent new project --type analysis ~/projects/my-analysis
+# 4) Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+cd ~/projects/my-analysis
+./01_modules/SciAgent-toolkit/bin/scio link
+./01_modules/SciAgent-toolkit/bin/scio craft
 
 # 5) Open + Reopen in Container
 code ~/projects/my-analysis
@@ -67,7 +69,7 @@ that SciAgent-toolkit can install AI tooling at runtime, per-project.
 
 Thus my personal workflow is: 
 - scbio-docker renders the dev container  
-- SciAgent-toolkit scaffolds the project context management wrapping AI harness. 
+- SciAgent-toolkit binds its catalog and renders the CRAFT context block.
 
 They are intended to compose 
 
@@ -75,8 +77,10 @@ They are intended to compose
 # 1. Render the dev container into a project directory (scbio-docker)
 ./init-project.sh ~/projects/my-analysis
 
-# 2. Scaffold the project structure + AI harness (SciAgent-toolkit)
-sciagent new project --type analysis ~/projects/my-analysis
+# 2. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+cd ~/projects/my-analysis
+./01_modules/SciAgent-toolkit/bin/scio link
+./01_modules/SciAgent-toolkit/bin/scio craft
 
 # 3. Open in VS Code, Reopen in Container, then run AI setup (first time only)
 ./01_modules/SciAgent-toolkit/scripts/setup-ai.sh

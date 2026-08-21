@@ -37,9 +37,9 @@ A production-ready, reproducible Docker development environment for single-cell 
 | Repository | Responsibility |
 |------------|----------------|
 | **scbio-docker** | Docker images, env specs, build scripts, devcontainer/compose templates, `init-container.sh`. Image carries only AI **prerequisites**. |
-| **SciAgent-toolkit** (submodule, attached per-project) | Project scaffold, AI harness (agents/skills/commands), methodology guidelines. Never vendored into the image. |
+| **SciAgent-toolkit** (submodule, attached per-project) | Project tree and catalog, AI harness (agents/skills/commands), methodology guidelines. Never vendored into the image. |
 
-Project flow: (1) `./init-project.sh <dir>` renders the container; (2) `sciagent new project --type analysis <dir>` scaffolds the project + AI harness; (3) open in VS Code and run `setup-ai.sh` once. See [ai-integration.md](ai-integration.md) and [devcontainer.md](devcontainer.md).
+Project flow: (1) `./init-project.sh <dir>` renders the container; (2) with SciAgent-toolkit vendored at `01_modules/SciAgent-toolkit/`, run `./01_modules/SciAgent-toolkit/bin/scio link` and then `./01_modules/SciAgent-toolkit/bin/scio craft` from `<dir>`; (3) open in VS Code and run `setup-ai.sh` once. See [ai-integration.md](ai-integration.md) and [devcontainer.md](devcontainer.md).
 
 ---
 

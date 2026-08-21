@@ -4,7 +4,7 @@
 `.vscode/settings.json`) into a project directory from the templates in
 `templates/devcontainer/`. It is **container substrate only** — it knows nothing
 about project structure, analysis trees, config schemas, or AI context. For the
-project scaffold and AI harness, use SciAgent-toolkit (see
+project catalog and AI harness, vendor SciAgent-toolkit and use its CLI (see
 [ai-integration.md](ai-integration.md)).
 
 The command is exposed two ways, both identical (one is a symlink):
@@ -22,8 +22,10 @@ The command is exposed two ways, both identical (one is a symlink):
     --data-mount atac:/scratch/data/DT-1234 \
     --data-mount scratch:/scratch/work/DT-5678:rw
 
-# 2. Scaffold the project tree + AI harness (SciAgent-toolkit)
-sciagent new project --type analysis ~/projects/atac-study
+# 2. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+cd ~/projects/atac-study
+./01_modules/SciAgent-toolkit/bin/scio link
+./01_modules/SciAgent-toolkit/bin/scio craft
 
 # 3. Open + reopen in container
 code ~/projects/atac-study      # Ctrl+Shift+P -> "Dev Containers: Reopen in Container"
