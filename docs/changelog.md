@@ -11,6 +11,44 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.14]
+
+### Fixed
+- **`torch` is declared and pinned to `2.11.0+cu128`.** It was never in
+  `base.txt`; it arrived transitively through `scvi-tools`, `harmony-pytorch`
+  and `cellrank`, and the venv install runs a bare `pip install -r base.txt`,
+  so the image's GPU capability was whatever PyPI shipped on build day. Both
+  v0.5.10 and v0.5.13 landed `2.13.0+cu130`, which needs driver >= 580 against
+  this host's 565.57: CUDA initialisation failed with "driver too old (found
+  version 12070)" while `nvidia-smi` and `device_count` still reported the GPU.
+  Revisit once the host driver passes 580.
+- **Seven R packages restored**: `psych`, `GPArotation`, `mnormt`, `sankey`,
+  `simplegraph`, `EnhancedVolcano`, `reactome.db`. All were present in v0.5.10
+  and absent from v0.5.13, and none was ever declared — they arrived as
+  transitive dependencies and left when an upstream `DESCRIPTION` changed, so
+  no commit recorded the loss.
+
+### Added
+- **`OmnipathR`**, which backs `decoupleR`'s `get_collectri()` and
+  `get_progeny()`. Absent from v0.5.10 and v0.5.13 alike, so consuming
+  projects were installing it in `postcreate`.
+- **`verify_base.py`**, run in the same layer as the pip install. `pip` exits 0
+  after resolving a version no pin requested, so the pins in `base.txt` were a
+  request that nothing checked. Asserts every `==` pin resolved exactly, `+cu`
+  suffix included.
+- **A required-package contract in `install_core.R`.** The general failure
+  report stays observational, since one flaky optional package should not cost
+  a full rebuild. `bulkiRNA`, `OmnipathR` and the seven restored packages are
+  fatal.
+
+### Changed
+- **`bulkiRNA` pinned by commit rather than tag**: `e42c2de`, which is what
+  `v0.6.0` resolves to, verified after installation against both the version
+  and remotes' `RemoteSha`. v0.5.13 pinned `@v0.4.0`, and bumping that to
+  `@v0.5.0` would have been a no-op in export surface, since both tags carry
+  64 exports. `0.5.0` named a tag and 50 later commits alike, which is the
+  ambiguity a commit pin removes.
+
 ## [v0.5.13]
 
 ### Added
