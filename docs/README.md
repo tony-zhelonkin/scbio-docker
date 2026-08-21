@@ -11,7 +11,7 @@ Start at the root [README.md](../README.md) and [QUICKSTART.md](../QUICKSTART.md
 | Doc | What it covers |
 |-----|----------------|
 | [architecture.md](architecture.md) | Image layering, venv/R-library model, design decisions, image size |
-| [build.md](build.md) | Building the image: `scripts/build.sh`, build modes, UID/GID, renv lockfile |
+| [build.md](build.md) | Building the image: `scripts/build.sh`, build modes, UID/GID, R package resolution |
 | [environments.md](environments.md) | Python venvs (`usepy`), R two-tier libraries, runtime installs, R↔Python interop |
 | [devcontainer.md](devcontainer.md) | `init-container.sh`, the `templates/devcontainer/` scaffold, compose services, VS Code settings |
 | [ai-integration.md](ai-integration.md) | Containerization-only stance, SciAgent-toolkit boundary, `setup_ai_env.sh` AI-CLI bootstrap |

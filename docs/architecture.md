@@ -48,10 +48,19 @@ Switching helpers (`usepy`, `py-base`, etc.) and per-layer package lists live in
 
 | Tier | Path | Writable | Contents |
 |------|------|----------|----------|
-| System | `/usr/local/lib/R/library` | read-only (root) | ~80 core packages, renv-pinned |
+| System | `/usr/local/lib/R/library` | read-only (root) | ~80 core packages resolved at build time |
 | User | `~/R/x86_64-pc-linux-gnu-library/4.5` | writable (devuser) | runtime installs, takes precedence |
 
-Core packages are installed at build time by `docker/base/R/install_core.R` and pinned via `install_renv_project.R` (restores `/opt/settings/renv.lock` if present, else builds and snapshots; manifest at `/opt/settings/R-packages-manifest.csv`). Runtime `install.packages()` / `BiocManager::install()` land in the writable user library with no sudo needed — the expected "installation paths not writeable" notice about the read-only system tree is harmless.
+Core packages are installed at build time by `docker/base/R/install_core.R`.
+Although `install_renv_project.R` can restore `/opt/settings/renv.lock`, the
+Dockerfile does not copy the repository lockfile, so builds resolve packages
+and snapshot the result afterward. The manifest at
+`/opt/settings/R-packages-manifest.csv` records the resolved environment but
+does not pin the next build. Runtime `install.packages()` /
+`BiocManager::install()` calls land in the writable user library with no sudo
+needed — the expected "installation paths not writeable" notice about the
+read-only system tree is harmless. See [build.md](build.md) for source-specific
+version constraints.
 
 **R startup:** `.devcontainer/.Rprofile` is interactive- and VS Code-aware. It enables httpgd for in-editor plotting only when running inside VS Code, keeping non-interactive scripts clean.
 

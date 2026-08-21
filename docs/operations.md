@@ -150,7 +150,7 @@ Runtime R installs go to the writable user library, which takes precedence over 
 file.access(.libPaths()[1], 2) == 0                        # TRUE = writable
 ```
 
-The `Installation paths not writeable, unable to update packages` warning from `BiocManager::install()` is **expected and harmless** — your package installed to the user library; only the pinned system library can't be touched. Suppress with `update = FALSE`.
+The `Installation paths not writeable, unable to update packages` warning from `BiocManager::install()` is **expected and harmless** — your package installed to the user library; only the read-only system library can't be touched. Suppress with `update = FALSE`.
 
 ### Missing ArchR
 

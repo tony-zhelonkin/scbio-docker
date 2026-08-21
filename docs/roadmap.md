@@ -8,10 +8,10 @@ Consolidated from the historical `plan.md`, `direction.md`, and `tasks.md` (pres
 
 ## Vision
 
-A production-ready, reproducible Docker development environment for single-cell bioinformatics that balances:
+A production-ready Docker development environment for single-cell bioinformatics that moves toward reproducible builds while balancing:
 
 - **Size efficiency** — true ~20 GB image vs typical 100 GB+ bioinformatics containers.
-- **Reproducibility** — pinned R packages via `renv.lock`, pinned CRAN/RSPM snapshot, pinned Bioconductor.
+- **Reproducibility** — make package-source constraints explicit and add a complete lockfile workflow before promising deterministic R rebuilds.
 - **Flexibility** — runtime package installation, layered Python venvs.
 - **Shareability** — generic images with team-friendly UID remapping.
 - **Developer experience** — VS Code Dev Containers, tmux workflows, clear docs.
@@ -25,7 +25,7 @@ A production-ready, reproducible Docker development environment for single-cell 
 
 ### Core design principles
 
-1. **Reproducibility over convenience.** Read-only system R library (~80 core packages, pinned via `renv.lock` + CRAN/RSPM snapshot). Writable user library (`~/R/...`) for runtime installs.
+1. **Reproducibility over convenience.** Keep a read-only system R library (~80 core packages) and make its remaining floating sources visible. Writable user libraries (`~/R/...`) hold runtime installs.
 2. **Size efficiency through strategic omissions.** Pre-install the 95% use case; defer heavy/specialized tools (`BSgenome.*`, `EnsDb.*`, bulk aligners) to runtime.
 3. **Layered Python environments over full duplication.** One `/opt/venvs/base` shared across `squid`, `atac`, `comms` layered venvs (`python3.11 -m venv --system-site-packages`).
 4. **Generic images with runtime UID remapping.** Build once as `devuser:1000`; VS Code remaps to the actual UID via `updateRemoteUserUID: true`. Personal builds remain an opt-in.
@@ -49,9 +49,9 @@ Released versions and their changes are tracked in [changelog.md](changelog.md).
 
 | Area | State |
 |------|-------|
-| R | 4.5.3 built from source (Cairo/BLAS/LAPACK/R-shlib), Bioconductor 3.22, CRAN/RSPM snapshot default 2026-04-15 |
+| R | 4.5.3 built from source (Cairo/BLAS/LAPACK/R-shlib), Bioconductor 3.22, RSPM snapshot default 2026-04-15 with explicit CRAN calls that bypass it |
 | Python | 3.11 (deadsnakes), base venv `/opt/venvs/base` + on-demand `squid`/`atac`/`comms` layered venvs |
-| R libraries | Two-tier: read-only system (~80 core, `renv`-pinned) + writable user library |
+| R libraries | Two-tier: read-only system (~80 core, resolved during each build) + writable user library |
 | Image | Multi-stage from `ubuntu:22.04`, true ~20 GB |
 | AI model | Containerization-only image (AI prerequisites baked in); AI CLIs bootstrapped at runtime by `setup_ai_env.sh` on every container start |
 | ArchR | Deprecated sidecar (`greenleaflab/archr:1.0.3-base-r4.4` + wrapper), on the path to removal |
@@ -140,7 +140,7 @@ Forward-looking only. Items already shipped have been removed — see [changelog
 
 - Image size: maintain <25 GB for base.
 - Build time: <30 min on CI runners.
-- Reproducibility: identical `renv.lock` → identical package versions across rebuilds.
+- Reproducibility: wire a complete, validated R lockfile into the build before requiring identical package versions across rebuilds.
 - Documentation: no recurring user questions about "known issues."
 - Adoption: GitHub stars, forks, issue engagement.
 

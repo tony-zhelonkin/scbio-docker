@@ -74,19 +74,41 @@ The generic image ships as `devuser:1000`. That identity is remapped to your rea
 
 This is why generic is the default: build once, everyone runs it as their own user with correctly owned files. See [devcontainer.md](devcontainer.md) and [operations.md](operations.md) for the runtime side.
 
-## After the first build: extract renv lockfile + manifest
+## R package resolution and build records
 
-The first successful build snapshots the R environment inside the image. Extract the lockfile and manifest so subsequent builds are deterministic:
+R package resolution is not deterministic. `install_renv_project.R` would
+restore `/opt/settings/renv.lock` if that file existed at the start of the
+build, but the Dockerfile does not copy the repository lockfile into the image.
+Every build therefore installs the R stack from `install_core.R` and snapshots
+the result afterward. The repository lockfile contains only `renv` and is not a
+build input.
+
+Package sources have mixed version guarantees:
+
+| Source | Current constraint |
+|--------|--------------------|
+| CRAN | `install_core.R` configures the RSPM `2026-04-15` snapshot as its default, but many calls explicitly use `cloud.r-project.org` and bypass that snapshot. |
+| Bioconductor | Release `3.22` is selected; individual package versions are not locked. |
+| r-universe | Package versions float. |
+| GitHub | Repositories generally float; `bulkiRNA` is the explicit commit-pinned exception. |
+
+The generated lockfile and manifests record what a particular build resolved;
+they do not make the next build reproduce it. They can be extracted for audit:
 
 ```bash
 TAG="scdock-r-dev:$(cat VERSION)"
 CID=$(docker create "$TAG")
-docker cp "$CID":/opt/settings/renv.lock ./renv.lock
-docker cp "$CID":/opt/settings/R-packages-manifest.csv ./R-packages-manifest.csv
+mkdir -p build-artifacts
+docker cp "$CID":/opt/settings/renv.lock build-artifacts/renv.lock
+docker cp "$CID":/opt/settings/R-packages-manifest.csv build-artifacts/R-packages-manifest.csv
+docker cp "$CID":/opt/settings/install_failures.csv build-artifacts/install_failures.csv
 docker rm "$CID"
 ```
 
-With `renv.lock` present in the repo, the R installer restores exactly those pinned packages instead of resolving fresh. The manifest at `/opt/settings/R-packages-manifest.csv` is a human-readable record of what was installed.
+The required-package contract in `install_core.R` fails the build when its
+small required floor is absent or misidentified. It checks presence after
+resolution; it does not pin versions or guarantee that the wider package set
+matches an earlier image.
 
 ## Sanity check
 
@@ -128,4 +150,4 @@ ArchR upstream has been unmaintained for over two years; the field has moved to 
 - [environments.md](environments.md) — what R/Python packages land in the image
 - [architecture.md](architecture.md) — multi-stage layering
 - [devcontainer.md](devcontainer.md) — running the image via VS Code / compose
-- [changelog.md](changelog.md) — version history (the only place versions are pinned)
+- [changelog.md](changelog.md) — version history and release notes

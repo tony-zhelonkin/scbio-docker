@@ -14,7 +14,7 @@ scbio-docker/
 ├── README.md                       # Repo overview + doc index
 ├── QUICKSTART.md
 ├── AGENTS.md, CLAUDE.md            # AI context for this repo
-├── renv.lock                       # Pinned R system library
+├── renv.lock                       # renv-only lock; not an image-build input
 ├── R-packages-manifest.csv         # Core R package manifest
 ├── installed_R_core_packages.csv
 ├── docker/

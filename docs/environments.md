@@ -103,7 +103,7 @@ is **two-tier**:
 
 | Tier | Path | Properties |
 |------|------|-----------|
-| System | `/usr/local/lib/R/library` | Read-only, ~80 core packages, renv-pinned, shared across containers |
+| System | `/usr/local/lib/R/library` | Read-only, ~80 core packages resolved at build time, shared across containers |
 | User | `~/R/x86_64-pc-linux-gnu-library/4.5` | Writable, takes precedence, per-user runtime installs |
 
 `.libPaths()` lists the user library first, so runtime installs shadow the
@@ -146,8 +146,8 @@ Installation paths not writeable, unable to update packages
 
 This is **expected and harmless**. Your package installed fine into the user
 library; BiocManager merely checked whether the read-only system packages need
-updates and found it cannot write there (by design — the system tier is pinned
-for reproducibility). Suppress it with:
+updates and found it cannot write there (by design — the system tier is
+read-only). Suppress it with:
 
 ```r
 BiocManager::install("PACKAGE", update = FALSE)
@@ -170,11 +170,12 @@ sudo apt-get update && sudo apt-get install -y libxml2-dev
 R -e 'install.packages("XML")'
 ```
 
-### Reproducibility with renv
+### Per-project reproducibility with renv
 
-The system tier is pinned via `/opt/settings/renv.lock` (manifest at
-`/opt/settings/R-packages-manifest.csv`). For per-project pinning, snapshot the
-user-library additions:
+The image's system tier is not restored from the repository `renv.lock`; its
+generated lockfile and `/opt/settings/R-packages-manifest.csv` describe one
+build after resolution. See [build.md](build.md) for the package-source
+constraints. For per-project pinning, snapshot the user-library additions:
 
 ```r
 renv::init()       # once per project
