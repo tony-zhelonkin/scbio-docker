@@ -151,6 +151,7 @@ ENV PIP_NO_CACHE_DIR=1
 RUN python3.11 -m venv /opt/venvs/base && \
     /opt/venvs/base/bin/python -m pip install --upgrade pip setuptools wheel && \
     /opt/venvs/base/bin/python -m pip install --no-cache-dir -r /opt/environments/base.txt && \
+    /opt/venvs/base/bin/python /opt/environments/verify_base.py && \
     rm -rf ~/.cache/pip /root/.cache/pip /tmp/*
 
 ####################################################

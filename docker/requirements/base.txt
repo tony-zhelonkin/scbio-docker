@@ -44,6 +44,13 @@ seaborn
 plotly
 bokeh
 
+# Deep learning. Pulled transitively by scvi-tools/harmony-pytorch/cellrank, so
+# an unpinned torch takes whatever CUDA line PyPI ships that day: cu130 needs
+# driver >= 580 and this host runs 565.57, which left torch.cuda unavailable
+# imagewide. cu128 needs >= 525. Revisit once the host driver passes 580.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0+cu128
+
 # Single-Cell Analysis
 anndata==0.10.9
 scanpy==1.10.4
