@@ -172,6 +172,11 @@ safe_install("mwcsr", install.packages, repos = "https://cloud.r-project.org",
 safe_install("gatom", BiocManager::install, ask = FALSE, update = FALSE,
              fallback = function(pkg) remotes::install_github("ctlab/gatom"))
 
+# bulkiRNA is pinned by commit and checked after installation, because
+# "0.5.0" once named both a tag and 50 later commits.
+BULKIRNA_VERSION <- "0.6.0"
+BULKIRNA_SHA <- "e42c2de1622fed33eecabea07d2377e4337b1365"
+
 github_packages <- c(
   # seurat-disk precedes azimuth: it is an Azimuth dependency.
   "satijalab/seurat-data","mojaveazure/seurat-disk","satijalab/azimuth",
@@ -179,7 +184,8 @@ github_packages <- c(
   "carmonalab/GeneNMF","immunogenomics/crescendo",
   "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
   "GreenleafLab/chromVARmotifs",
-  "tony-zhelonkin/bulkiRNA@v0.4.0"
+  # Immutable pin: the commit v0.6.0 resolves to. A tag can move, a SHA cannot.
+  paste0("tony-zhelonkin/bulkiRNA@", BULKIRNA_SHA)
 )
 # The repo name is not always the package name (satijalab/seurat-data ->
 # SeuratData), so a derived name silently breaks both the "already installed"
@@ -295,6 +301,33 @@ tryCatch({
                                      conditionMessage(e)))
 })
 
+# Verify the artifact that was requested actually landed. remotes records the
+# resolved commit in RemoteSha, so version and commit are both checkable.
+local({
+  if (!requireNamespace("bulkiRNA", quietly = TRUE)) {
+    record_failure("bulkiRNA", "requested but not loadable")
+    return(invisible(NULL))
+  }
+  found_version <- as.character(utils::packageVersion("bulkiRNA"))
+  found_sha <- tryCatch(
+    utils::packageDescription("bulkiRNA")$RemoteSha,
+    error = function(e) NULL
+  )
+  if (!identical(found_version, BULKIRNA_VERSION)) {
+    record_failure("bulkiRNA", sprintf("pinned version %s, installed %s",
+                                       BULKIRNA_VERSION, found_version))
+  }
+  if (is.null(found_sha) || !startsWith(BULKIRNA_SHA, found_sha)) {
+    record_failure("bulkiRNA", sprintf("pinned commit %s, installed %s",
+                                       BULKIRNA_SHA,
+                                       if (is.null(found_sha)) "none recorded"
+                                       else found_sha))
+  }
+  message(sprintf("bulkiRNA identity: version %s, commit %s",
+                  found_version,
+                  if (is.null(found_sha)) "not recorded" else found_sha))
+})
+
 # rliger (NOT "liger": the GitHub slug welch-lab/liger yields the wrong package
 # name, so it was never detected as installed). RcppPlanc lives on r-universe.
 safe_install("rliger", install.packages,
@@ -324,3 +357,23 @@ write_failure_report()
 
 message("Core R package installation completed.")
 message(sprintf("Total packages installed: %d", nrow(ip)))
+
+# The failure report above is observational by design: one flaky optional
+# package should not cost a 150-minute rebuild. These few are different --
+# shipping the image without them, or with the wrong bulkiRNA, is the defect
+# this build exists to fix. Add a package here only when its absence makes the
+# image wrong rather than merely reduced.
+required <- c("bulkiRNA", "OmnipathR", "EnhancedVolcano", "reactome.db",
+              "psych", "GPArotation", "mnormt", "sankey", "simplegraph")
+absent <- required[!vapply(required, requireNamespace, logical(1),
+                           quietly = TRUE)]
+identity_failed <- vapply(.failures$rows, function(row)
+  identical(row$package, "bulkiRNA"), logical(1))
+if (length(absent) || any(identity_failed)) {
+  stop("Required packages missing or misidentified: ",
+       paste(c(absent, if (any(identity_failed)) "bulkiRNA identity"),
+             collapse = ", "),
+       call. = FALSE)
+}
+message(sprintf("Required-package contract satisfied: %d package(s).",
+                length(required)))
