@@ -42,7 +42,7 @@ the image.
 **Rule of ownership:** does the content change when the **image** changes
 (scbio-docker) or when the **project / AI harness** changes (SciAgent-toolkit)?
 
-SciAgent-toolkit is tracked here as a submodule at `toolkits/SciAgent-toolkit/`
+scio is tracked here as a submodule at `toolkits/scio/`
 and re-attached per-project at `01_modules/SciAgent-toolkit/`. It is **not**
 copied into the image.
 

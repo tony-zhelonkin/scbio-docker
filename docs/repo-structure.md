@@ -80,7 +80,7 @@ Notes:
 - **`.devcontainer/` at the repo root is a rendered example**, useful for
   reference. `init-container.sh` produces an equivalent tree in a target
   project directory.
-- **`toolkits/SciAgent-toolkit/` is a git submodule**, tracked here but never
+- **`toolkits/scio/` is a git submodule**, tracked here but never
   vendored into the image; it is re-attached per project at
   `01_modules/SciAgent-toolkit/`.
 
