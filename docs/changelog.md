@@ -11,6 +11,31 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.15]
+
+### Changed
+- **`bulkiRNA` re-pinned from `v0.6.0` (`e42c2de`) to `v1.0.0` (`b4f2577`).**
+  The pin is still a commit rather than a tag, and the post-install check
+  still verifies both the version and `RemoteSha`.
+
+  **This is a breaking change for callers.** `v1.0.0` removed 21 legacy
+  exports from the public API, so any script calling `run_gsea()`,
+  `normalize_gsea_results()`, `gsea_dotplot()`, `gsea_barplot()`,
+  `gsea_dotplot_facet()`, `gsea_running_sum_plot()`,
+  `plot_all_gsea_results()`, `run_gsea_analysis()`, `save_gsea_log()`,
+  `create_standard_volcano()`, `create_MD_plot()`,
+  `custom_minimal_theme_with_grid()`, `load_reference_db()`,
+  `list_reference_dbs()`, `filter_by_size()`, `parse_gmx()`,
+  `parse_mitoxplorer()`, `list_to_term2gene()`, `convert_human_to_mouse()`,
+  `empty_gsea_tibble()` or `download_gatom_references()` after
+  `library(bulkiRNA)` will fail to find the name. The package's
+  `MIGRATION.md` maps each one to its replacement. The surface is now 59
+  exports with no deprecated tier.
+
+  Nothing in this repo's build calls those names; the exposure is in
+  consumer analysis scripts and in the SciAgent-toolkit skills, which still
+  document the pre-package API.
+
 ## [v0.5.14]
 
 ### Fixed

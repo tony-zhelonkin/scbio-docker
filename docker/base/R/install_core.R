@@ -174,8 +174,8 @@ safe_install("gatom", BiocManager::install, ask = FALSE, update = FALSE,
 
 # bulkiRNA is pinned by commit and checked after installation, because
 # "0.5.0" once named both a tag and 50 later commits.
-BULKIRNA_VERSION <- "0.6.0"
-BULKIRNA_SHA <- "e42c2de1622fed33eecabea07d2377e4337b1365"
+BULKIRNA_VERSION <- "1.0.0"
+BULKIRNA_SHA <- "b4f2577b87c82f0730d249c6811d1ba94e925cec"
 
 github_packages <- c(
   # seurat-disk precedes azimuth: it is an Azimuth dependency.
@@ -184,7 +184,7 @@ github_packages <- c(
   "carmonalab/GeneNMF","immunogenomics/crescendo",
   "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
   "GreenleafLab/chromVARmotifs",
-  # Immutable pin: the commit v0.6.0 resolves to. A tag can move, a SHA cannot.
+  # Immutable pin: the commit v1.0.0 resolves to. A tag can move, a SHA cannot.
   paste0("tony-zhelonkin/bulkiRNA@", BULKIRNA_SHA)
 )
 # The repo name is not always the package name (satijalab/seurat-data ->
