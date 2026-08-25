@@ -1,6 +1,6 @@
-[submodule "toolkits/SciAgent-toolkit"]
-	path = toolkits/SciAgent-toolkit
-	url = git@github.com:tony-zhelonkin/SciAgent-toolkit.git
+[submodule "toolkits/scio"]
+	path = toolkits/scio
+	url = git@github.com:tony-zhelonkin/scio.git
 	branch = dev
 [submodule "toolkits/refcache"]
 	path = toolkits/refcache
