@@ -7,10 +7,16 @@
 # - Python requirements under docker/requirements/
 # - Helper scripts under scripts/
 
+# Signing key for the deadsnakes PPA, declared once and re-stated per stage
+# because a global ARG is not visible inside a build stage until redeclared.
+# Both stages verify the fetched key against it.
+ARG DEADSNAKES_FINGERPRINT=F23C5A6CF475977595C89F51BA6932366A755776
+
 #####################################
 ### STAGE 1: BUILDER (compile everything)
 #####################################
 FROM ubuntu:22.04 AS builder
+ARG DEADSNAKES_FINGERPRINT
 
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
 
@@ -73,10 +79,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python 3.11 via deadsnakes PPA (Ubuntu 22.04 ships only 3.10; modern PyData
 # packages — lightning, scvi-tools 1.2+, jax, flax — require >=3.11).
-RUN add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-dev python3.11-venv python3.11-distutils \
-    && rm -rf /var/lib/apt/lists/* && \
+# The PPA is added by hand rather than with add-apt-repository, which fetches
+# the signing key from keyserver.ubuntu.com; that lookup path is unreachable
+# from this host and failed the build. The key comes from Launchpad, the PPA
+# owner, and the fingerprint is checked so a substituted key fails the build.
+RUN set -eux; \
+    mkdir -p /etc/apt/keyrings; \
+    curl -fsSL --retry 3 --retry-delay 5 \
+      "https://api.launchpad.net/devel/~deadsnakes/+archive/ubuntu/ppa?ws.op=getSigningKeyData" \
+      | python3 -c 'import sys,json; sys.stdout.write(json.load(sys.stdin))' \
+      | gpg --dearmor -o /etc/apt/keyrings/deadsnakes.gpg; \
+    gpg --show-keys --with-colons --fingerprint /etc/apt/keyrings/deadsnakes.gpg \
+      | awk -F: '/^fpr:/ {print $10}' \
+      | grep -qx "$DEADSNAKES_FINGERPRINT"; \
+    echo "deb [signed-by=/etc/apt/keyrings/deadsnakes.gpg] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" \
+      > /etc/apt/sources.list.d/deadsnakes.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      python3.11 python3.11-dev python3.11-venv python3.11-distutils; \
+    rm -rf /var/lib/apt/lists/*; \
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 
 ####################################################
@@ -197,6 +218,7 @@ RUN rm -rf /build /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*
 ### STAGE 2: RUNTIME (clean base, copy artifacts)
 #####################################
 FROM ubuntu:22.04 AS runtime
+ARG DEADSNAKES_FINGERPRINT
 
 # TODO(cache, deferred 2026-07): the runtime stage runs 4-5 separate
 #   `apt-get update && install` layers (base deps, deadsnakes, tmux build-deps,
@@ -290,11 +312,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
 
-# Python 3.11 runtime (matches builder venv interpreter)
-RUN add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-dev python3.11-venv python3.11-distutils \
-    && rm -rf /var/lib/apt/lists/*
+# Python 3.11 runtime (matches builder venv interpreter). Same hand-rolled PPA
+# setup as the builder stage, and for the same reason.
+RUN set -eux; \
+    mkdir -p /etc/apt/keyrings; \
+    curl -fsSL --retry 3 --retry-delay 5 \
+      "https://api.launchpad.net/devel/~deadsnakes/+archive/ubuntu/ppa?ws.op=getSigningKeyData" \
+      | python3 -c 'import sys,json; sys.stdout.write(json.load(sys.stdin))' \
+      | gpg --dearmor -o /etc/apt/keyrings/deadsnakes.gpg; \
+    gpg --show-keys --with-colons --fingerprint /etc/apt/keyrings/deadsnakes.gpg \
+      | awk -F: '/^fpr:/ {print $10}' \
+      | grep -qx "$DEADSNAKES_FINGERPRINT"; \
+    echo "deb [signed-by=/etc/apt/keyrings/deadsnakes.gpg] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" \
+      > /etc/apt/sources.list.d/deadsnakes.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      python3.11 python3.11-dev python3.11-venv python3.11-distutils; \
+    rm -rf /var/lib/apt/lists/*
 
 # Expose Debian's fd-find binary (installed as `fdfind`) under its canonical
 # `fd` name, system-wide on PATH (/usr/local/bin is already on PATH above).

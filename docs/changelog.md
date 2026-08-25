@@ -13,6 +13,21 @@ image bump — fold them into a version heading when it ships.
 
 ## [v0.5.15]
 
+### Fixed
+- **The deadsnakes PPA is added without `add-apt-repository`.** That tool
+  fetches the PPA signing key from `keyserver.ubuntu.com`, whose
+  `/pks/lookup` path is unreachable from this host — it times out past 60s
+  while `launchpad.net` answers normally. Two builds failed identically with
+  `GPGKeyTemporarilyNotFoundError` before the cause was found, in a step that
+  had succeeded 11 days earlier, so the build had a live third-party keyserver
+  on its critical path.
+
+  Both stages now fetch the key from Launchpad, the PPA owner, and **verify
+  its fingerprint** against `DEADSNAKES_FINGERPRINT` so a substituted key
+  fails the build. `keys.openpgp.org` was tried first and rejected: the
+  fingerprint matched but apt refused the key, because that service strips
+  the signing subkey and user IDs.
+
 ### Changed
 - **`bulkiRNA` re-pinned from `v0.6.0` (`e42c2de`) to `v1.0.0` (`b4f2577`).**
   The pin is still a commit rather than a tag, and the post-install check
