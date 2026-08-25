@@ -187,9 +187,11 @@ log "Claude settings seeded → $settings"
 # marker-guarded, so it is appended at most once per container lifetime.
 rc="$HOME/.bashrc"; touch "$rc"
 
-# 3a. `si` -> the project-local SciAgent-toolkit CLI. CWD-relative (NOT a PATH
-#     symlink) so it resolves to whichever project's vendored 01_modules copy you
-#     cd into — a fixed symlink would bake one checkout as the target.
+# 3a. `si` -> the project-local scio CLI. CWD-relative (NOT a PATH symlink) so it
+#     resolves to whichever project's vendored 01_modules copy you cd into — a
+#     fixed symlink would bake one checkout as the target. It globs for the
+#     executable rather than naming the directory, so it works whether the copy
+#     sits at 01_modules/scio (ADR-D9) or the older 01_modules/SciAgent-toolkit.
 #     The marker carries the CLI name so a shell that already holds the stale
 #     `bin/sciagent` alias receives the corrected one and the later definition
 #     wins; keying on the old marker would leave every live container broken.
@@ -197,7 +199,8 @@ if ! grep -q '_scio_si_alias' "$rc" 2>/dev/null; then
   cat >> "$rc" <<'RC'
 
 # _scio_si_alias: CWD-relative, safe across multiple vendored toolkit copies
-alias si="./01_modules/SciAgent-toolkit/bin/scio"
+si() { for c in ./01_modules/*/bin/scio; do [ -x "$c" ] && { "$c" "$@"; return; }; done
+       echo "si: no scio under ./01_modules/*/bin/scio" >&2; return 127; }
 RC
   log "installed 'si' alias"
 fi

@@ -53,7 +53,7 @@ scbio-docker/
 │   ├── .Rprofile
 │   └── Dockerfile.archr-wrapper
 ├── toolkits/
-│   ├── SciAgent-toolkit/          # Git submodule (attached per-project)
+│   ├── scio/                      # Git submodule (attached per-project)
 │   └── refcache/                  # Git submodule: reference-data cache tooling
 │       ├── refcache.sh            # Snapshot/verify/flip/prune driver
 │       ├── sources/               # cistarget.sh, coresh.sh

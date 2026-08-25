@@ -37,7 +37,7 @@ Default branch: `main`.
 - `init-project.sh` → symlink to `scripts/init-container.sh`.
 - `templates/devcontainer/` — the ONLY template tree (devcontainer.json/compose/.env/.vscode + `scripts/setup_ai_env.sh`).
 - `.devcontainer/` — a rendered example, not the source of truth.
-- `toolkits/SciAgent-toolkit/` — submodule (the AI harness; see boundary).
+- `toolkits/scio/` — submodule (the AI harness; see boundary).
 - `toolkits/refcache/` — submodule (own repo): shared reference-data cache tooling.
   The *mechanism* only; the bytes live on a host path passed via `--refcache`.
 - `docs/` — all detailed docs; `docs/README.md` is the map.
