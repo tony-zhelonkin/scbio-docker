@@ -11,6 +11,36 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.16]
+
+### Added
+- **`ggraph` and `tidygraph`, so GATOM modules can actually be drawn.**
+  `gatom` and `mwcsr` have shipped since v0.5.12, but they only *return*
+  networks — rendering one is a separate dependency the image never carried.
+  A downstream pipeline hit this as `library(ggraph)` failing in its GATOM
+  viz stage, after the solvers had already run: the analysis was installed
+  and the deliverable was not. Both are now declared next to `gatom` and
+  both are in the required-package contract, because an image that computes
+  a module it cannot plot is wrong rather than merely reduced.
+
+- **`qs2`, so the CoReSh stages can read their own chunk format.** The
+  preprocessed reference chunks ship as `*_full_objects.qs2`; without `qs2`
+  the stage dies on first read. This one is instructive: the consuming script
+  depends on `qs2` through the **file format alone** — it pattern-matches the
+  `.qs2` extension and never writes `library(qs2)` or `qs2::`. So an audit of
+  "which packages does this code import" cannot see the dependency and reports
+  the image complete. It surfaced only as a runtime failure.
+
+- **`tidybulk`**, a tidy interface over the bulk DE stack (`edgeR`, `limma`,
+  `DESeq2`, all already in `bioc_core`). Declared and contract-enforced so
+  its presence is not incidental to some other package's dependency tree —
+  the same failure mode that lost seven packages in v0.5.13.
+
+### Changed
+- **The required-package contract grows from 9 entries to 13.** `ggraph`,
+  `tidygraph`, `qs2` and `tidybulk` join it, so their absence fails the build
+  instead of landing in the observational failure report.
+
 ## [v0.5.15]
 
 ### Fixed
