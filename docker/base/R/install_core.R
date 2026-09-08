@@ -171,6 +171,23 @@ safe_install("mwcsr", install.packages, repos = "https://cloud.r-project.org",
              fallback = function(pkg) remotes::install_github("ctlab/mwcsr"))
 safe_install("gatom", BiocManager::install, ask = FALSE, update = FALSE,
              fallback = function(pkg) remotes::install_github("ctlab/gatom"))
+# gatom RETURNS networks; rendering them is a separate dependency. ggraph (and
+# its tidygraph backend) is what turns a module into a figure, so an image with
+# gatom but not ggraph installs the analysis and drops the deliverable — the
+# stage dies at library(ggraph) after the solvers have already run.
+gatom_viz <- c("ggraph","tidygraph")
+safe_install(gatom_viz, install.packages, repos = "https://cloud.r-project.org")
+
+# Tidy interface over the bulk DE stack (edgeR/limma/DESeq2 in bioc_core).
+safe_install("tidybulk", BiocManager::install, ask = FALSE, update = FALSE)
+
+# qs2 reads the preprocessed CoReSh chunks (*_full_objects.qs2) that the
+# reference-signature stages consume. Worth declaring even though nothing here
+# imports it: a consumer can depend on qs2 through the FILE FORMAT alone and
+# never write library(qs2) or qs2::, so a "which packages does the code import"
+# audit cannot see the dependency and reports the image complete. That is how it
+# was missed until a stage failed on chunk read.
+safe_install("qs2", install.packages, repos = "https://cloud.r-project.org")
 
 # bulkiRNA is pinned by commit and checked after installation, because
 # "0.5.0" once named both a tag and 50 later commits.
@@ -364,7 +381,12 @@ message(sprintf("Total packages installed: %d", nrow(ip)))
 # this build exists to fix. Add a package here only when its absence makes the
 # image wrong rather than merely reduced.
 required <- c("bulkiRNA", "OmnipathR", "EnhancedVolcano", "reactome.db",
-              "psych", "GPArotation", "mnormt", "sankey", "simplegraph")
+              "psych", "GPArotation", "mnormt", "sankey", "simplegraph",
+              # ggraph/tidygraph: without them gatom computes modules that can
+              # never be drawn. qs2: without it the CoReSh stages cannot read
+              # their own chunk format. tidybulk: declared, so its presence is
+              # not incidental to some other package's dependency tree.
+              "ggraph", "tidygraph", "qs2", "tidybulk")
 absent <- required[!vapply(required, requireNamespace, logical(1),
                            quietly = TRUE)]
 identity_failed <- vapply(.failures$rows, function(row)
