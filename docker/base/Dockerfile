@@ -227,11 +227,15 @@ ARG DEADSNAKES_FINGERPRINT
 #   allows) would trim layers and build time. Deferred: low risk but touches
 #   the whole runtime stage, so batch it with the next structural change.
 
-# IMAGE_VERSION is fed from the VERSION file by scripts/build.sh (--build-arg).
-# Kept version-agnostic here so the label never drifts on a bump.
-ARG IMAGE_VERSION=dev
+# Labels that do not depend on a build argument can sit here; the versioned one
+# cannot. ARG IMAGE_VERSION and its LABEL moved to the END of this stage,
+# because an ARG invalidates the cache from its first use onward and this one
+# was used on the third line of the stage -- so bumping the VERSION file
+# rebuilt the entire runtime stage (apt, tmux from source, quarto, mallet,
+# node, uv, the R library copy) to change one metadata string. Every release
+# paid that. A LABEL is metadata and has no ordering requirement, so the fix is
+# simply to declare it last. See the end of this file.
 LABEL maintainers="Anton Zhelonkin (anton.bioinf.md@gmail.com)"
-LABEL version="${IMAGE_VERSION}"
 LABEL description="Size-optimized single-cell bioinformatics environment (multi-stage build)"
 
 ####################################################
@@ -644,6 +648,14 @@ RUN --mount=type=secret,id=github_pat \
     R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","LibPath")]); \
              write.csv(pk, "/opt/settings/R-packages-manifest.csv", row.names = FALSE)' && \
     rm -rf /root/.cache/R /tmp/Rtmp* /tmp/downloaded_packages
+
+####################################################
+### Version label — last, so a bump costs nothing
+####################################################
+# IMAGE_VERSION is fed from the VERSION file by scripts/build.sh (--build-arg).
+# Declared here rather than at the top of the stage: see the note there.
+ARG IMAGE_VERSION=dev
+LABEL version="${IMAGE_VERSION}"
 
 ####################################################
 ### Final permissions and workspace
