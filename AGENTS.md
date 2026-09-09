@@ -47,24 +47,24 @@ not scbio-docker features — don't document or surface them.
 
 ## The boundary (read before project setup)
 
-scbio-docker owns the **container**; SciAgent-toolkit owns the **project + AI
+scbio-docker owns the **container**; scio owns the **project + AI
 harness**; refcache owns the **reference data**. They compose at seams and stay
 independent.
 
 | Repo | Owns |
 |------|------|
 | **scbio-docker** | Dockerfiles, env specs, build scripts, devcontainer/compose templates, `init-container.sh`, `.env` stub |
-| **SciAgent-toolkit** | Project tree, analysis config, docs namespaces, AI harness (agents/skills/commands) |
+| **scio** | Project tree, analysis config, docs namespaces, AI harness (agents/skills/commands) |
 | **refcache** | Reference-data fetchers, snapshot/verify/prune driver, fetcher image |
 
 Ownership test: *does the content change when the **image** changes → scbio-docker;
-when the **project / AI harness** changes → SciAgent-toolkit; when **upstream
-reference data** changes → refcache.* SciAgent-toolkit is attached per-project at
-`01_modules/SciAgent-toolkit/`; the image stays free of it. refcache is attached
+when the **project / AI harness** changes → scio; when **upstream
+reference data** changes → refcache.* scio is attached per-project at
+`01_modules/scio/`; the image stays free of it. refcache is attached
 at `toolkits/refcache/` and meets the container at one seam: the `:ro` mount.
 
 Two-step workflow: `./init-project.sh <dir>` (render container) → with the
-toolkit vendored at `01_modules/SciAgent-toolkit/`, run its `bin/scio link`
+toolkit vendored at `01_modules/scio/`, run its `bin/scio link`
 (bind catalog) and `bin/scio craft` (render CRAFT) from `<dir>` → open in VS
 Code → run `setup-ai.sh` once.
 

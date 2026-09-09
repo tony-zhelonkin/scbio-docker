@@ -30,16 +30,16 @@ A production-ready Docker development environment for single-cell bioinformatics
 3. **Layered Python environments over full duplication.** One `/opt/venvs/base` shared across `squid`, `atac`, `comms` layered venvs (`python3.11 -m venv --system-site-packages`).
 4. **Generic images with runtime UID remapping.** Build once as `devuser:1000`; VS Code remaps to the actual UID via `updateRemoteUserUID: true`. Personal builds remain an opt-in.
 5. **Official tools over custom builds.** TinyTeX over full TeX; official upstream images preferred over bespoke rebuilds.
-6. **Container substrate only.** The image ships AI *prerequisites* (`node`/`npm`, `uv`/`uvx`, `jq`, Python `toml`); all AI tooling is installed at runtime, per project — see the boundary with SciAgent-toolkit below.
+6. **Container substrate only.** The image ships AI *prerequisites* (`node`/`npm`, `uv`/`uvx`, `jq`, Python `toml`); all AI tooling is installed at runtime, per project — see the boundary with scio below.
 
 ### Strict separation of concerns
 
 | Repository | Responsibility |
 |------------|----------------|
 | **scbio-docker** | Docker images, env specs, build scripts, devcontainer/compose templates, `init-container.sh`. Image carries only AI **prerequisites**. |
-| **SciAgent-toolkit** (submodule, attached per-project) | Project tree and catalog, AI harness (agents/skills/commands), methodology guidelines. Never vendored into the image. |
+| **scio** (submodule, attached per-project) | Project tree and catalog, AI harness (agents/skills/commands), methodology guidelines. Never vendored into the image. |
 
-Project flow: (1) `./init-project.sh <dir>` renders the container; (2) with SciAgent-toolkit vendored at `01_modules/SciAgent-toolkit/`, run `./01_modules/SciAgent-toolkit/bin/scio link` and then `./01_modules/SciAgent-toolkit/bin/scio craft` from `<dir>`; (3) open in VS Code and run `setup-ai.sh` once. See [ai-integration.md](ai-integration.md) and [devcontainer.md](devcontainer.md).
+Project flow: (1) `./init-project.sh <dir>` renders the container; (2) with scio vendored at `01_modules/scio/`, run `./01_modules/scio/bin/scio link` and then `./01_modules/scio/bin/scio craft` from `<dir>`; (3) open in VS Code and run `setup-ai.sh` once. See [ai-integration.md](ai-integration.md) and [devcontainer.md](devcontainer.md).
 
 ---
 
@@ -131,7 +131,7 @@ Forward-looking only. Items already shipped have been removed — see [changelog
 ## Open questions
 
 - **Pre-bake `squid` venv?** Adds 3–5 GB but eliminates the first-run delay. Leaning yes, with a documented opt-out.
-- **Where does `scenicplus` live?** Currently a runtime install into the `comms` venv. Keep in scbio-docker `comms.txt`, or move to SciAgent-toolkit runtime requirements?
+- **Where does `scenicplus` live?** Currently a runtime install into the `comms` venv. Keep in scbio-docker `comms.txt`, or move to scio runtime requirements?
 - **Registry hosting for v1.0.** Docker Hub vs GHCR vs both — affects image-pull defaults in the templates.
 
 ---

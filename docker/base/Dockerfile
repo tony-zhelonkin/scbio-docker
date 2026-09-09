@@ -295,7 +295,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # CLI tool runtime dependencies
     libncurses5-dev libcurl4-openssl-dev \
     # Utilities (ripgrep -> rg; fd-find -> fdfind, symlinked to fd below)
-    # jq: JSON CLI required by SciAgent-toolkit's claude_settings.sh to backfill
+    # jq: JSON CLI required by scio's claude_settings.sh to backfill
     #     statusLine + gold defaults into .claude/settings.json (soft-fails without it).
     # pandoc: needed by htmlwidgets::saveWidget(selfcontained=TRUE) and Rmd/knitr
     #     rendering; previously best-effort apt-installed at runtime by install_deps.R.
@@ -425,7 +425,7 @@ RUN set -eux; \
 # These are infrastructure prerequisites only. The image carries NO AI tooling
 # itself (no Claude/Gemini CLI, no MCP servers, no ToolUniverse/Serena/PAL).
 # All AI tooling is installed at runtime per-project by:
-#   01_modules/SciAgent-toolkit/scripts/setup-ai.sh
+#   01_modules/scio/scripts/setup-ai.sh
 # which depends on `node`/`npm`/`npx` and `uv`/`uvx` being available.
 
 # Node.js 20 LTS from NodeSource (provides node, npm, npx)
@@ -530,8 +530,8 @@ COPY docker/requirements /opt/environments
 COPY scripts/create_layered_venv.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/create_layered_venv.sh
 
-# NOTE: SciAgent-toolkit is intentionally NOT copied into the image.
-# It is added per-project as a git submodule under 01_modules/SciAgent-toolkit/
+# NOTE: scio is intentionally NOT copied into the image.
+# It is added per-project as a git submodule under 01_modules/scio/
 # and its setup-ai.sh runs inside the container at project-init time.
 
 # Update shared library cache

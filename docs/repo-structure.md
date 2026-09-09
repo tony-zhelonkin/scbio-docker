@@ -4,7 +4,7 @@ Where things live in scbio-docker, and what a rendered project looks like after
 container init plus toolkit linking and crafting. scbio-docker is a container
 substrate only — image definitions, environment specs, and the devcontainer
 templates that wrap a project. Project tree, catalog, and AI harness come from
-SciAgent-toolkit (see the table at the bottom).
+scio (see the table at the bottom).
 
 ## scbio-docker layout
 
@@ -76,18 +76,18 @@ Notes:
   [../toolkits/refcache/README.md](../toolkits/refcache/README.md).
 - **`templates/` contains only `templates/devcontainer/`.** There is no
   `templates/base`, `templates/config`, or `templates/docs` — the project
-  tree and catalog are owned by SciAgent-toolkit.
+  tree and catalog are owned by scio.
 - **`.devcontainer/` at the repo root is a rendered example**, useful for
   reference. `init-container.sh` produces an equivalent tree in a target
   project directory.
 - **`toolkits/scio/` is a git submodule**, tracked here but never
   vendored into the image; it is re-attached per project at
-  `01_modules/SciAgent-toolkit/`.
+  `01_modules/scio/`.
 
 ## Project layout (after init + toolkit link/craft)
 
-`init-container.sh <dir>` writes the container files. Vendor SciAgent-toolkit at
-`01_modules/SciAgent-toolkit/`, then run its `bin/scio link` to bind the catalog
+`init-container.sh <dir>` writes the container files. Vendor scio at
+`01_modules/scio/`, then run its `bin/scio link` to bind the catalog
 and `bin/scio craft` to render CRAFT. `setup-ai.sh` (run once inside the
 container) populates AI config.
 
@@ -106,7 +106,7 @@ my-project/
 ├── 00_data/
 │   └── <label>/                   # Data mounts land here (read-only default)
 ├── 01_modules/
-│   └── SciAgent-toolkit/          # Git submodule (AI harness, guidelines)
+│   └── scio/          # Git submodule (AI harness, guidelines)
 ├── 02_analysis/
 │   └── config/
 │       └── analysis_config.yaml   # Created by setup-ai.sh
@@ -121,19 +121,19 @@ my-project/
 └── README.md
 ```
 
-The exact analysis tree is defined by SciAgent-toolkit, not this repo, so treat
+The exact analysis tree is defined by scio, not this repo, so treat
 the layout above as illustrative.
 
 ## Separation of concerns
 
 Decide ownership by asking whether the content changes when the **image**
 changes (scbio-docker) or when the **project / AI harness** changes
-(SciAgent-toolkit).
+(scio).
 
 | Repository | Owns |
 |------------|------|
 | **scbio-docker** | Dockerfiles, image definitions, R/Python env specs, build scripts, devcontainer/compose templates, `init-container.sh`, `.env` stub |
-| **SciAgent-toolkit** | Project tree and catalog, config templates, docs namespaces, AI harness (skills/agents/commands), methodology guidelines |
+| **scio** | Project tree and catalog, config templates, docs namespaces, AI harness (skills/agents/commands), methodology guidelines |
 
 ## Key paths
 
@@ -142,9 +142,9 @@ changes (scbio-docker) or when the **project / AI harness** changes
 | Image tag | `cat VERSION` (e.g. `scdock-r-dev:$(cat VERSION)`) |
 | Base image build | `scripts/build.sh` or `docker build -f docker/base/Dockerfile` |
 | Container init | `./init-project.sh <dir>` (symlink to `scripts/init-container.sh`) |
-| Toolkit catalog + CRAFT | From `<dir>`: `./01_modules/SciAgent-toolkit/bin/scio link`, then `./01_modules/SciAgent-toolkit/bin/scio craft` |
-| AI setup (in container) | `./01_modules/SciAgent-toolkit/scripts/setup-ai.sh` |
-| Guidelines | `01_modules/SciAgent-toolkit/docs/guidelines/` |
+| Toolkit catalog + CRAFT | From `<dir>`: `./01_modules/scio/bin/scio link`, then `./01_modules/scio/bin/scio craft` |
+| AI setup (in container) | `./01_modules/scio/scripts/setup-ai.sh` |
+| Guidelines | `01_modules/scio/docs/guidelines/` |
 
 ## Related docs
 

@@ -4,9 +4,9 @@
 #
 # This is container substrate only: it knows nothing about project structure,
 # analysis trees, config schemas, docs, or AI context. Those come from
-# SciAgent-toolkit, vendored at <dir>/01_modules/SciAgent-toolkit/ and bound
+# scio, vendored at <dir>/01_modules/scio/ and bound
 # with its own CLI:
-#   cd <dir> && ./01_modules/SciAgent-toolkit/bin/scio link && ... scio craft
+#   cd <dir> && ./01_modules/scio/bin/scio link && ... scio craft
 #
 # Usage:
 #   init-container.sh <project-dir> [OPTIONS]
@@ -70,9 +70,9 @@ Example:
       --data-mount scratch:/scratch/work/DT-5678:rw
 
 For the project catalog and AI harness, from the project directory with
-SciAgent-toolkit vendored at 01_modules/SciAgent-toolkit/:
-  ./01_modules/SciAgent-toolkit/bin/scio link
-  ./01_modules/SciAgent-toolkit/bin/scio craft
+scio vendored at 01_modules/scio/:
+  ./01_modules/scio/bin/scio link
+  ./01_modules/scio/bin/scio craft
 EOF
     exit 1
 }
@@ -275,7 +275,7 @@ MAX_MEMORY=${MAX_MEMORY}
 # Update if Ollama runs on a different host or port
 OLLAMA_HOST=http://172.17.0.1:11434
 
-# MCP Server API keys (consumed by SciAgent-toolkit's setup-ai.sh later)
+# MCP Server API keys (consumed by scio's setup-ai.sh later)
 # PAL - multi-model AI collaboration (needs at least one of the below)
 GEMINI_API_KEY=${gemini_key}
 OPENAI_API_KEY=${openai_key}
@@ -302,9 +302,9 @@ echo "  - scripts/poststart_sanity.sh"
 echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "  1. Bind the toolkit catalog and render CRAFT, from ${PROJECT_DIR} with"
-echo "     SciAgent-toolkit vendored at 01_modules/SciAgent-toolkit/:"
-echo "       ./01_modules/SciAgent-toolkit/bin/scio link"
-echo "       ./01_modules/SciAgent-toolkit/bin/scio craft"
+echo "     scio vendored at 01_modules/scio/:"
+echo "       ./01_modules/scio/bin/scio link"
+echo "       ./01_modules/scio/bin/scio craft"
 echo "  2. Open in VS Code: code ${PROJECT_DIR}"
 echo "  3. Reopen in container: Ctrl+Shift+P -> 'Dev Containers: Reopen in Container'"
 echo ""

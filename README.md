@@ -29,10 +29,10 @@ docker pull greenleaflab/archr:1.0.3-base-r4.4
 # 3) Render a dev container into a project directory
 ./init-project.sh ~/projects/my-analysis
 
-# 4) Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+# 4) Bind the toolkit catalog and render CRAFT (scio)
 cd ~/projects/my-analysis
-./01_modules/SciAgent-toolkit/bin/scio link
-./01_modules/SciAgent-toolkit/bin/scio craft
+./01_modules/scio/bin/scio link
+./01_modules/scio/bin/scio craft
 
 # 5) Open + Reopen in Container
 code ~/projects/my-analysis
@@ -63,13 +63,13 @@ Documentation — see [docs/README.md](docs/README.md) for the full map.
 AI integration (CLI agents)
 
 The image is **containerization-only**. 
-All context/LLM/agent management lives in a dedicated repo — [SciAgent-toolkit](https://github.com/tony-zhelonkin/SciAgent-toolkit).
+All context/LLM/agent management lives in a dedicated repo — [scio](https://github.com/tony-zhelonkin/scio).
 The image carries only the **prerequisites** (Node.js 20, `uv`/`uvx`, Python `toml`) so
-that SciAgent-toolkit can install AI tooling at runtime, per-project.
+that scio can install AI tooling at runtime, per-project.
 
 Thus my personal workflow is: 
 - scbio-docker renders the dev container  
-- SciAgent-toolkit binds its catalog and renders the CRAFT context block.
+- scio binds its catalog and renders the CRAFT context block.
 
 They are intended to compose 
 
@@ -77,13 +77,13 @@ They are intended to compose
 # 1. Render the dev container into a project directory (scbio-docker)
 ./init-project.sh ~/projects/my-analysis
 
-# 2. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+# 2. Bind the toolkit catalog and render CRAFT (scio)
 cd ~/projects/my-analysis
-./01_modules/SciAgent-toolkit/bin/scio link
-./01_modules/SciAgent-toolkit/bin/scio craft
+./01_modules/scio/bin/scio link
+./01_modules/scio/bin/scio craft
 
 # 3. Open in VS Code, Reopen in Container, then run AI setup (first time only)
-./01_modules/SciAgent-toolkit/scripts/setup-ai.sh
+./01_modules/scio/scripts/setup-ai.sh
 ```
 
 License

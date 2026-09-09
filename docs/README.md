@@ -14,7 +14,7 @@ Start at the root [README.md](../README.md) and [QUICKSTART.md](../QUICKSTART.md
 | [build.md](build.md) | Building the image: `scripts/build.sh`, build modes, UID/GID, R package resolution |
 | [environments.md](environments.md) | Python venvs (`usepy`), R two-tier libraries, runtime installs, R↔Python interop |
 | [devcontainer.md](devcontainer.md) | `init-container.sh`, the `templates/devcontainer/` scaffold, compose services, VS Code settings |
-| [ai-integration.md](ai-integration.md) | Containerization-only stance, SciAgent-toolkit boundary, `setup_ai_env.sh` AI-CLI bootstrap |
+| [ai-integration.md](ai-integration.md) | Containerization-only stance, scio boundary, `setup_ai_env.sh` AI-CLI bootstrap |
 | [operations.md](operations.md) | Runbook: run/compose, ArchR (legacy), tmux R sessions, troubleshooting |
 | [repo-structure.md](repo-structure.md) | Repository tree and where things live |
 | [../toolkits/refcache/README.md](../toolkits/refcache/README.md) | Shared reference-data cache: fetcher image, sources, `--refcache` mount |

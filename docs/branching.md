@@ -25,7 +25,7 @@ git tag -l 'archive/*'
 git checkout archive/dev-claude-integration
 ```
 
-Agent/MCP setup now lives in SciAgent-toolkit: https://github.com/tony-zhelonkin/SciAgent-toolkit
+Agent/MCP setup now lives in scio: https://github.com/tony-zhelonkin/scio
 
 ## Quick checks
 

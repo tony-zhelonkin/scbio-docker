@@ -4,7 +4,7 @@
 `.vscode/settings.json`) into a project directory from the templates in
 `templates/devcontainer/`. It is **container substrate only** — it knows nothing
 about project structure, analysis trees, config schemas, or AI context. For the
-project catalog and AI harness, vendor SciAgent-toolkit and use its CLI (see
+project catalog and AI harness, vendor scio and use its CLI (see
 [ai-integration.md](ai-integration.md)).
 
 The command is exposed two ways, both identical (one is a symlink):
@@ -22,10 +22,10 @@ The command is exposed two ways, both identical (one is a symlink):
     --data-mount atac:/scratch/data/DT-1234 \
     --data-mount scratch:/scratch/work/DT-5678:rw
 
-# 2. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+# 2. Bind the toolkit catalog and render CRAFT (scio)
 cd ~/projects/atac-study
-./01_modules/SciAgent-toolkit/bin/scio link
-./01_modules/SciAgent-toolkit/bin/scio craft
+./01_modules/scio/bin/scio link
+./01_modules/scio/bin/scio craft
 
 # 3. Open + reopen in container
 code ~/projects/atac-study      # Ctrl+Shift+P -> "Dev Containers: Reopen in Container"
@@ -101,7 +101,7 @@ Compose auto-loads it). Existing `GEMINI_API_KEY` / `OPENAI_API_KEY` values are
 | `WORKSPACE_FOLDER` | `..` (project root relative to `.devcontainer/`) |
 | `MAX_CPUS` / `MAX_MEMORY` | from `--max-cpus` / `--max-memory` |
 | `OLLAMA_HOST` | `http://172.17.0.1:11434` (Docker bridge → host) |
-| `GEMINI_API_KEY` / `OPENAI_API_KEY` | MCP key stubs, consumed later by SciAgent-toolkit |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY` | MCP key stubs, consumed later by scio |
 
 ## Template tree
 
@@ -228,7 +228,7 @@ drops on large umbrella workspaces — details in
 ## See also
 
 - [architecture.md](architecture.md) — image layering, UID remapping, ArchR status
-- [ai-integration.md](ai-integration.md) — `setup_ai_env.sh`, AI CLIs, SciAgent-toolkit boundary
+- [ai-integration.md](ai-integration.md) — `setup_ai_env.sh`, AI CLIs, scio boundary
 - [isolation.md](isolation.md) — hardening + secrets patterns
 - [ssh-passthrough.md](ssh-passthrough.md) — SSH agent forwarding
 - [vscode-remote-stability.md](vscode-remote-stability.md) — watcher/git tuning

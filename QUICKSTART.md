@@ -2,8 +2,8 @@
 
 `scbio-docker` is a container substrate: it builds the Docker image and renders a
 VS Code dev container into a project directory. The project catalog and AI harness
-come from [SciAgent-toolkit](https://github.com/tony-zhelonkin/SciAgent-toolkit),
-vendored at `01_modules/SciAgent-toolkit/`.
+come from [scio](https://github.com/tony-zhelonkin/scio),
+vendored at `01_modules/scio/`.
 
 ## 1. Build the image
 
@@ -23,12 +23,12 @@ docker pull greenleaflab/archr:1.0.3-base-r4.4   # optional, for scATAC (ArchR)
 This writes only `.devcontainer/{devcontainer.json,docker-compose.yml,.env,scripts/}`.
 See `init-project.sh --help` for `--service`, `--image-version`, `--max-cpus`, `--max-memory`.
 
-## 3. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+## 3. Bind the toolkit catalog and render CRAFT (scio)
 
 ```bash
 cd ~/projects/my-analysis
-./01_modules/SciAgent-toolkit/bin/scio link
-./01_modules/SciAgent-toolkit/bin/scio craft
+./01_modules/scio/bin/scio link
+./01_modules/scio/bin/scio craft
 ```
 
 ## 4. Open in VS Code

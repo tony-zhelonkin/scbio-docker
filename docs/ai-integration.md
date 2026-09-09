@@ -27,23 +27,23 @@ commented `security_opt: ["seccomp=unconfined"]` line on the dev service —
 uncomment it; add `--security-opt seccomp=unconfined` to ad-hoc `docker run`
 invocations that use Codex.
 
-## Boundary: scbio-docker vs SciAgent-toolkit
+## Boundary: scbio-docker vs scio
 
 scbio-docker is a **container substrate** and nothing more. The AI *harness*
 (agents, skills, methodology guidelines, project catalog) belongs to
-**SciAgent-toolkit**, a sibling repo attached per-project — never vendored into
+**scio**, a sibling repo attached per-project — never vendored into
 the image.
 
 | Repository | Owns |
 |------------|------|
 | **scbio-docker** | Dockerfiles, image/env specs, build scripts, devcontainer + compose templates, `init-container.sh`, `.env` stub, `setup_ai_env.sh` |
-| **SciAgent-toolkit** | Project tree and catalog, config templates, docs namespaces, AI harness (skills/agents/commands), methodology guidelines |
+| **scio** | Project tree and catalog, config templates, docs namespaces, AI harness (skills/agents/commands), methodology guidelines |
 
 **Rule of ownership:** does the content change when the **image** changes
-(scbio-docker) or when the **project / AI harness** changes (SciAgent-toolkit)?
+(scbio-docker) or when the **project / AI harness** changes (scio)?
 
 scio is tracked here as a submodule at `toolkits/scio/`
-and re-attached per-project at `01_modules/SciAgent-toolkit/`. It is **not**
+and re-attached per-project at `01_modules/scio/`. It is **not**
 copied into the image.
 
 ## Two-step workflow
@@ -54,10 +54,10 @@ copied into the image.
     --data-mount atac:/scratch/data/DT-1234 \
     --service dev-core --max-cpus 50 --max-memory 450G
 
-# 2. Bind the toolkit catalog and render CRAFT (SciAgent-toolkit)
+# 2. Bind the toolkit catalog and render CRAFT (scio)
 cd ~/projects/my-analysis
-./01_modules/SciAgent-toolkit/bin/scio link
-./01_modules/SciAgent-toolkit/bin/scio craft
+./01_modules/scio/bin/scio link
+./01_modules/scio/bin/scio craft
 
 # 3. Open in VS Code, reopen in container
 code ~/projects/my-analysis
@@ -66,7 +66,7 @@ code ~/projects/my-analysis
 Once inside the container, run the toolkit's setup once:
 
 ```bash
-./01_modules/SciAgent-toolkit/scripts/setup-ai.sh
+./01_modules/scio/scripts/setup-ai.sh
 ```
 
 `init-project.sh` is a symlink to `scripts/init-container.sh`. See
@@ -136,7 +136,7 @@ the desired values winning on conflict.
   `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"`.
 - **Attribution suppressed** — `attribution: { commit: "", pr: "", sessionUrl: false }`
   drops the `Co-Authored-By: Claude` commit trailer, the "Generated with Claude
-  Code" PR footer, and the session-URL trailer, per SciAgent's no-AI-authorship
+  Code" PR footer, and the session-URL trailer, per scio's no-AI-authorship
   policy.
 - **Telemetry left ON** — disabling it trips the feature-flag layer that gates
   agent teams / 1M context, so `DISABLE_TELEMETRY` is intentionally not set.
@@ -146,7 +146,7 @@ the desired values winning on conflict.
 Two marker-guarded blocks appended to `~/.bashrc` (each at most once per
 container lifetime):
 
-- **`si` alias** → `./01_modules/SciAgent-toolkit/bin/scio`. CWD-relative
+- **`si` alias** → `./01_modules/scio/bin/scio`. CWD-relative
   (not a PATH symlink) so it resolves to whichever project's vendored toolkit
   copy you `cd` into.
 - **`_source_project_env`** — auto-sources the active project's

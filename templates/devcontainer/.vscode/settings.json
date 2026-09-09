@@ -57,7 +57,7 @@
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
     "**/00_data/**": true,
-    "**/01_modules/**": true,       // vendored SciAgent/RNAseq toolkit copies (× every compartment)
+    "**/01_modules/**": true,       // vendored scio/RNAseq toolkit copies (× every compartment)
     "**/.venv/**": true,            // skill venvs etc. — kept on disk, just unwatched
     "**/*-env/**": true,            // stray python venvs
     "**/__pycache__/**": true,

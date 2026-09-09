@@ -8,7 +8,7 @@ radian==0.6.13
 pynvim
 jupyter_client
 
-# Configuration parsing (for SciAgent-toolkit Codex config)
+# Configuration parsing (for scio Codex config)
 toml
 
 # Test runner — agents and analysis scripts assume `pytest` is importable/on PATH.

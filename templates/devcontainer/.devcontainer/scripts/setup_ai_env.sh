@@ -144,7 +144,7 @@ chmod +x "$claude_dir/statusline.sh"
 # 2b. settings.json — schema-valid power-user defaults. Telemetry is left ON on
 #     purpose: disabling it trips the feature-flag layer that gates agent teams /
 #     1M context, so we do NOT set DISABLE_TELEMETRY here.
-#     `attribution`: SciAgent-toolkit policy is NO AI authorship, ever
+#     `attribution`: scio policy is NO AI authorship, ever
 #     (AGENTS.md §6, CONTRIBUTING.md). Empty `commit`/`pr` strings suppress the
 #     default `Co-Authored-By: Claude …` commit trailer and the "Generated with
 #     Claude Code" PR footer; `sessionUrl:false` drops the Claude-Session trailer.
@@ -191,7 +191,7 @@ rc="$HOME/.bashrc"; touch "$rc"
 #     resolves to whichever project's vendored 01_modules copy you cd into — a
 #     fixed symlink would bake one checkout as the target. It globs for the
 #     executable rather than naming the directory, so it works whether the copy
-#     sits at 01_modules/scio (ADR-D9) or the older 01_modules/SciAgent-toolkit.
+#     sits at 01_modules/scio (ADR-D9) or the older 01_modules/scio.
 #     The marker carries the CLI name so a shell that already holds the stale
 #     `bin/sciagent` alias receives the corrected one and the later definition
 #     wins; keying on the old marker would leave every live container broken.
