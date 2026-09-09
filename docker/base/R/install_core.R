@@ -189,20 +189,17 @@ safe_install("tidybulk", BiocManager::install, ask = FALSE, update = FALSE)
 # was missed until a stage failed on chunk read.
 safe_install("qs2", install.packages, repos = "https://cloud.r-project.org")
 
-# bulkiRNA is pinned by commit and checked after installation, because
-# "0.5.0" once named both a tag and 50 later commits.
-BULKIRNA_VERSION <- "1.1.0"
-BULKIRNA_SHA <- "4fefb28edf16030e5ca7a02935f954aa407c9602"
-
+# bulkiRNA moved to install_bulkirna.R, run from a late layer in the runtime
+# stage. It is the most frequently bumped package in this image, and while its
+# pin lived in THIS file a one-line version change invalidated the COPY that
+# gates every R install here, plus TinyTeX, the venv, samtools and bedtools.
 github_packages <- c(
   # seurat-disk precedes azimuth: it is an Azimuth dependency.
   "satijalab/seurat-data","mojaveazure/seurat-disk","satijalab/azimuth",
   "pmbio/MuDataSeurat","cellgeni/sceasy","zellkonverter/zellkonverter",
   "carmonalab/GeneNMF","immunogenomics/crescendo",
   "Zhen-Miao/PICsnATAC","Zhen-Miao/PACS",
-  "GreenleafLab/chromVARmotifs",
-  # Immutable pin: the commit v1.0.0 resolves to. A tag can move, a SHA cannot.
-  paste0("tony-zhelonkin/bulkiRNA@", BULKIRNA_SHA)
+  "GreenleafLab/chromVARmotifs"
 )
 # The repo name is not always the package name (satijalab/seurat-data ->
 # SeuratData), so a derived name silently breaks both the "already installed"
@@ -288,62 +285,9 @@ for (pkg in github_packages) {
   }
 }
 
-# bulkiRNA's Suggests are optional by design, so this report keeps its own file
-# and install_failures.csv keeps its meaning: requested and failed. Requested
-# packages such as gatom/mwcsr reach the failure report once their primary and
-# fallback installs have both failed.
-#
-# A bulkiRNA that fails to load counts as a genuine failure and lands in the real
-# report -- github_packages requested it.
-message("\n=== bulkiRNA OPTIONAL DEPENDENCY REPORT ===")
-tryCatch({
-  if (!requireNamespace("bulkiRNA", quietly = TRUE)) {
-    stop("package is not loadable")
-  }
-  bulkirna_deps <- bulkiRNA::bulkirna_check_deps(
-    features = "all", quiet = FALSE, error = FALSE
-  )
-  optional_path <- "/opt/settings/bulkirna_optional_deps.csv"
-  if (!dir.exists("/opt/settings")) dir.create("/opt/settings", recursive = TRUE)
-  write.csv(as.data.frame(bulkirna_deps), optional_path, row.names = FALSE)
-  absent <- bulkirna_deps$package[!bulkirna_deps$installed]
-  message(sprintf(
-    "bulkiRNA optional dependencies: %d of %d present%s",
-    sum(bulkirna_deps$installed), nrow(bulkirna_deps),
-    if (length(absent)) sprintf("; absent: %s", paste(absent, collapse = ", "))
-    else ""))
-  message(sprintf("=== report: %s ===\n", optional_path))
-}, error = function(e) {
-  record_failure("bulkiRNA", sprintf("optional dependency preflight failed: %s",
-                                     conditionMessage(e)))
-})
-
-# Verify the artifact that was requested actually landed. remotes records the
-# resolved commit in RemoteSha, so version and commit are both checkable.
-local({
-  if (!requireNamespace("bulkiRNA", quietly = TRUE)) {
-    record_failure("bulkiRNA", "requested but not loadable")
-    return(invisible(NULL))
-  }
-  found_version <- as.character(utils::packageVersion("bulkiRNA"))
-  found_sha <- tryCatch(
-    utils::packageDescription("bulkiRNA")$RemoteSha,
-    error = function(e) NULL
-  )
-  if (!identical(found_version, BULKIRNA_VERSION)) {
-    record_failure("bulkiRNA", sprintf("pinned version %s, installed %s",
-                                       BULKIRNA_VERSION, found_version))
-  }
-  if (is.null(found_sha) || !startsWith(BULKIRNA_SHA, found_sha)) {
-    record_failure("bulkiRNA", sprintf("pinned commit %s, installed %s",
-                                       BULKIRNA_SHA,
-                                       if (is.null(found_sha)) "none recorded"
-                                       else found_sha))
-  }
-  message(sprintf("bulkiRNA identity: version %s, commit %s",
-                  found_version,
-                  if (is.null(found_sha)) "not recorded" else found_sha))
-})
+# bulkiRNA's optional-dependency report and its identity check both moved to
+# install_bulkirna.R, so that a report about bulkiRNA cannot describe a
+# different version than the one the image actually installs.
 
 # rliger (NOT "liger": the GitHub slug welch-lab/liger yields the wrong package
 # name, so it was never detected as installed). RcppPlanc lives on r-universe.
@@ -380,7 +324,10 @@ message(sprintf("Total packages installed: %d", nrow(ip)))
 # shipping the image without them, or with the wrong bulkiRNA, is the defect
 # this build exists to fix. Add a package here only when its absence makes the
 # image wrong rather than merely reduced.
-required <- c("bulkiRNA", "OmnipathR", "EnhancedVolcano", "reactome.db",
+# bulkiRNA is absent from this list on purpose: install_bulkirna.R verifies its
+# version AND its commit and stops the build on either mismatch, which is
+# strictly stronger than the presence check this contract performs.
+required <- c("OmnipathR", "EnhancedVolcano", "reactome.db",
               "psych", "GPArotation", "mnormt", "sankey", "simplegraph",
               # ggraph/tidygraph: without them gatom computes modules that can
               # never be drawn. qs2: without it the CoReSh stages cannot read
@@ -389,12 +336,8 @@ required <- c("bulkiRNA", "OmnipathR", "EnhancedVolcano", "reactome.db",
               "ggraph", "tidygraph", "qs2", "tidybulk")
 absent <- required[!vapply(required, requireNamespace, logical(1),
                            quietly = TRUE)]
-identity_failed <- vapply(.failures$rows, function(row)
-  identical(row$package, "bulkiRNA"), logical(1))
-if (length(absent) || any(identity_failed)) {
-  stop("Required packages missing or misidentified: ",
-       paste(c(absent, if (any(identity_failed)) "bulkiRNA identity"),
-             collapse = ", "),
+if (length(absent)) {
+  stop("Required packages missing: ", paste(absent, collapse = ", "),
        call. = FALSE)
 }
 message(sprintf("Required-package contract satisfied: %d package(s).",

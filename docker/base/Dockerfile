@@ -607,6 +607,45 @@ RUN printf '%s\n' \
   > /usr/local/bin/r-archr && chmod +x /usr/local/bin/r-archr
 
 ####################################################
+### bulkiRNA — the last layer, on purpose
+####################################################
+# bulkiRNA is the most frequently bumped package in this image, and it used to
+# be one entry in install_core.R's github_packages. That put its pin inside the
+# COPY that gates every CRAN, Bioconductor and GitHub R install, TinyTeX, the
+# Python venv, samtools, bedtools and every runtime layer after them -- so
+# changing 40 bytes cost a full rebuild.
+#
+# Installed here instead: last layer that matters, in the RUNTIME stage, after
+# the R library has been copied from the builder. The base is then completely
+# unaffected by a version bump, and only these trailing layers re-run.
+#
+# Safe to install here because bulkiRNA ships no compiled code and every one of
+# its Imports is already present in the copied library. Still root at this
+# point (USER switches below), so /usr/local/lib/R is writable.
+#
+# The pin arrives as ARGs, declared immediately before use. A global ARG must be
+# redeclared after every FROM, and an ARG invalidates only from its first use --
+# which is exactly the property being bought here.
+ARG BULKIRNA_VERSION=1.1.0
+ARG BULKIRNA_SHA=4fefb28edf16030e5ca7a02935f954aa407c9602
+ARG BULKIRNA_REPO=tony-zhelonkin/bulkiRNA
+
+COPY docker/base/R/install_bulkirna.R /opt/settings/install_bulkirna.R
+# The repository is public, so no PAT is needed; the secret mount stays for the
+# case where it becomes private, and is a no-op when absent.
+RUN --mount=type=secret,id=github_pat \
+    if [ -f /run/secrets/github_pat ]; then \
+        export GITHUB_PAT=$(cat /run/secrets/github_pat); \
+    fi && \
+    BULKIRNA_VERSION="$BULKIRNA_VERSION" \
+    BULKIRNA_SHA="$BULKIRNA_SHA" \
+    BULKIRNA_REPO="$BULKIRNA_REPO" \
+    R -q --vanilla -f /opt/settings/install_bulkirna.R && \
+    R -q -e 'pk <- as.data.frame(installed.packages()[, c("Package","Version","LibPath")]); \
+             write.csv(pk, "/opt/settings/R-packages-manifest.csv", row.names = FALSE)' && \
+    rm -rf /root/.cache/R /tmp/Rtmp* /tmp/downloaded_packages
+
+####################################################
 ### Final permissions and workspace
 ####################################################
 RUN mkdir -p /workspaces/project && \
