@@ -191,8 +191,8 @@ safe_install("qs2", install.packages, repos = "https://cloud.r-project.org")
 
 # bulkiRNA is pinned by commit and checked after installation, because
 # "0.5.0" once named both a tag and 50 later commits.
-BULKIRNA_VERSION <- "1.0.0"
-BULKIRNA_SHA <- "b4f2577b87c82f0730d249c6811d1ba94e925cec"
+BULKIRNA_VERSION <- "1.1.0"
+BULKIRNA_SHA <- "4fefb28edf16030e5ca7a02935f954aa407c9602"
 
 github_packages <- c(
   # seurat-disk precedes azimuth: it is an Azimuth dependency.

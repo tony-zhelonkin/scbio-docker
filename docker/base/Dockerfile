@@ -301,7 +301,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # NOTE: tmux is intentionally NOT apt-installed here — Ubuntu 22.04 ships
     #     3.2a, which lacks `allow-passthrough` (the kitty-graphics switch). A
     #     pinned modern tmux is built from source below into /usr/local/bin.
-    vim nano less htop ripgrep fd-find jq pandoc \
+    # qpdf: R CMD check's PDF size-reduction step needs it. Without qpdf the
+    #     check reports a WARNING that says nothing about the package, so
+    #     `error_on = "warning"` cannot be used as a release gate at all.
+    vim nano less htop ripgrep fd-find jq pandoc qpdf \
     imagemagick chafa tldr \
     # bubblewrap (bwrap): the sandbox backend for the Codex CLI's
     #   workspace-write mode. Without it, sandboxed exec fails outright. Note it
