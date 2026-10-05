@@ -11,6 +11,44 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.20]
+
+### Changed
+- **bulkiRNA 1.1.0 → 1.2.0** (commit `7c595c7`). GATOM is gatom's three calls
+  as three recorded layers, with `gatom_solver("virgo")`, the exact solver the
+  GATOM authors recommend, reading CPLEX from `CPLEX_HOME`. Also
+  `gatom_pathways()`, `gatom_save_pdf()`, the `annotate_genes()` symbol
+  fallback and the `coresh_chunks()` invalid-dataset skip. Only the bulkiRNA
+  layer and the version label rebuild.
+- **scio v5.3.0 → v5.4.0**: the GATOM skill on bulkiRNA 1.2.0's layers.
+
+### Fixed
+- **`install_bulkirna.R` installs into the system library by name and checks
+  the copy every user loads.** It installed into `.libPaths()[1]`, which is
+  root's user library whenever `/root/R/<platform>-library/<ver>` exists, and
+  in v0.5.19 it does. A second install then landed where only root sees it:
+  the identity check, run as root, passed on 1.2.0 while `devuser` still
+  loaded 1.1.0. It now installs to `.Library` with `force = TRUE`, since
+  `remotes` otherwise skips a commit it finds in any library, reads version
+  and commit from `.Library`, and fails unless that is the only copy on the
+  search path. Run against the faulty image, the check fails with all three
+  problems named.
+
+### Build
+- **Built as v0.5.19 plus the bulkiRNA layer and version label**, replayed
+  from `docker/base/Dockerfile`. The BuildKit cache for v0.5.19's builder
+  stage had been collected, so `scripts/build.sh` started a full rebuild,
+  which does not fit the 14 GB free on the build host and would have
+  re-resolved every floating CRAN, Bioconductor and r-universe package. Every
+  layer below bulkiRNA is v0.5.19's, byte for byte. A full build from this
+  Dockerfile gives the same bulkiRNA and current versions of the floating
+  packages.
+- Verified: `poststart_sanity.sh` passes; bulkiRNA 1.2.0 at `7c595c7` loads for
+  `devuser` and the host UID from `/usr/local/lib/R/library`, the only copy;
+  17 of 17 optional dependencies present; `gatom_solver("virgo")` solves
+  gatom's example to optimality with CPLEX mounted through
+  `init-project.sh --cplex`, and stops naming `CPLEX_HOME` without it.
+
 ### Added
 - **`init-project.sh --cplex PATH`, for GATOM's exact solver.** It binds an
   IBM CPLEX installation `:ro` at `/opt/cplex` and exports `CPLEX_HOME`, the

@@ -39,14 +39,22 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 }
 
 slug <- paste0(BULKIRNA_REPO, "@", BULKIRNA_SHA)
-message("Installing ", slug)
+# The system library, named rather than taken from .libPaths()[1]. Root's user
+# library comes first whenever /root/R/<platform>-library/<ver> exists -- it does
+# in v0.5.19 -- and an install there is invisible to devuser, who would keep
+# loading the previous version while every check run as root passed.
+SYSTEM_LIB <- .Library
+message("Installing ", slug, " into ", SYSTEM_LIB)
 
 # api.github.com intermittently drops HTTP/2 streams mid-transfer, which loses
 # the install outright. Retry, then fall back to a shallow clone.
 ok <- FALSE
 for (attempt in 1:3) {
   ok <- tryCatch({
-    remotes::install_github(slug, quiet = TRUE, upgrade = "never")
+    # force: remotes skips a commit it finds anywhere on .libPaths(), which is
+    # how a copy in root's library once stood in for the system install.
+    remotes::install_github(slug, lib = SYSTEM_LIB, quiet = TRUE,
+                            upgrade = "never", force = TRUE)
     TRUE
   }, error = function(e) {
     message(sprintf("install_github attempt %d/3 failed: %s", attempt,
@@ -68,8 +76,8 @@ if (!ok) {
   system2("git", c("-c", "http.version=HTTP/1.1", "clone",
                    sprintf("https://github.com/%s.git", BULKIRNA_REPO), dest))
   system2("git", c("-C", dest, "checkout", "--detach", BULKIRNA_SHA))
-  remotes::install_local(dest, quiet = TRUE, upgrade = "never",
-                         dependencies = TRUE)
+  remotes::install_local(dest, lib = SYSTEM_LIB, quiet = TRUE,
+                         upgrade = "never", dependencies = TRUE, force = TRUE)
   unlink(tmp, recursive = TRUE)
 }
 
@@ -77,15 +85,26 @@ if (!ok) {
 # "0.5.0" once named both a tag and 50 later commits, which is why the version
 # alone is not enough. A build that installs the wrong commit must fail here,
 # not surface months later as a figure nobody can reproduce.
-if (!requireNamespace("bulkiRNA", quietly = TRUE)) {
-  stop("bulkiRNA was requested but is not loadable after installation.",
-       call. = FALSE)
+if (!requireNamespace("bulkiRNA", lib.loc = SYSTEM_LIB, quietly = TRUE)) {
+  stop("bulkiRNA was requested but is not loadable from ", SYSTEM_LIB,
+       " after installation.", call. = FALSE)
 }
-found_version <- as.character(utils::packageVersion("bulkiRNA"))
-found_sha <- tryCatch(utils::packageDescription("bulkiRNA")$RemoteSha,
-                      error = function(e) NULL)
+found_version <- as.character(utils::packageVersion("bulkiRNA",
+                                                    lib.loc = SYSTEM_LIB))
+found_sha <- tryCatch(
+  utils::packageDescription("bulkiRNA", lib.loc = SYSTEM_LIB)$RemoteSha,
+  error = function(e) NULL
+)
 
 problems <- character(0)
+# A second copy anywhere on the search path would shadow or be shadowed by
+# this one, depending on who runs R. There must be exactly one.
+copies <- Filter(function(l) dir.exists(file.path(l, "bulkiRNA")),
+                 unique(c(.libPaths(), SYSTEM_LIB)))
+if (!identical(normalizePath(copies), normalizePath(SYSTEM_LIB))) {
+  problems <- c(problems, sprintf("bulkiRNA must be installed once, in %s; found in %s",
+                                  SYSTEM_LIB, paste(copies, collapse = ", ")))
+}
 if (!identical(found_version, BULKIRNA_VERSION)) {
   problems <- c(problems, sprintf("pinned version %s, installed %s",
                                   BULKIRNA_VERSION, found_version))
@@ -105,7 +124,8 @@ message(sprintf("bulkiRNA identity: version %s, commit %s, %d exports",
                 found_version,
                 if (is.null(found_sha) || !nzchar(found_sha)) "not recorded"
                 else found_sha,
-                length(getNamespaceExports("bulkiRNA"))))
+                length(getNamespaceExports(loadNamespace("bulkiRNA",
+                                                         lib.loc = SYSTEM_LIB)))))
 
 if (length(problems)) {
   stop("bulkiRNA identity check failed: ", paste(problems, collapse = "; "),
