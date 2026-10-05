@@ -8,6 +8,7 @@ services:
       - SSH_AUTH_SOCK=/ssh-agent
       - OLLAMA_HOST=${OLLAMA_HOST}
 {{REFCACHE_ENV}}
+{{CPLEX_ENV}}
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
     # ports:
     #   - "8787:8787"
@@ -20,6 +21,7 @@ services:
       - ${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}:/opt/dev-env:ro
 {{SSH_AGENT_MOUNT}}
 {{REFCACHE_MOUNT}}
+{{CPLEX_MOUNT}}
 {{DATA_MOUNTS}}
     stdin_open: true
     tty: true
@@ -59,6 +61,7 @@ services:
       - SSH_AUTH_SOCK=/ssh-agent
       - OLLAMA_HOST=${OLLAMA_HOST}
 {{REFCACHE_ENV}}
+{{CPLEX_ENV}}
     # Uncomment to expose httpgd graphics server (may conflict if port already in use)
     # ports:
     #   - "8787:8787"
@@ -71,6 +74,7 @@ services:
       - ${DEVENV_HOST:-/data1/users/antonz/pipeline/dev-env}:/opt/dev-env:ro
 {{SSH_AGENT_MOUNT}}
 {{REFCACHE_MOUNT}}
+{{CPLEX_MOUNT}}
 {{DATA_MOUNTS}}
     stdin_open: true
     tty: true

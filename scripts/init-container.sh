@@ -43,6 +43,7 @@ MAX_CPUS="50"
 MAX_MEMORY="450g"
 GPU=false
 REFCACHE_HOST="${REFCACHE_HOST:-}"
+CPLEX_HOST="${CPLEX_HOST:-}"
 declare -a DATA_MOUNTS=()
 
 usage() {
@@ -63,6 +64,11 @@ Options:
                                 and export REFCACHE_ROOT. PATH is the host cache root
                                 (the dir holding cistarget/, coresh/, ...).
                                 Defaults to \$REFCACHE_HOST if set. See toolkits/refcache/README.md.
+  --cplex PATH                  Bind an IBM CPLEX installation :ro at /opt/cplex and
+                                export CPLEX_HOME, for GATOM's exact virgo solver.
+                                PATH is the dir holding cplex/lib/cplex.jar. CPLEX is
+                                licensed, so it is mounted, never built into the image.
+                                Defaults to \$CPLEX_HOST if set. See docs/environments.md.
 
 Example:
   $0 ~/projects/atac-study \\
@@ -91,6 +97,7 @@ while [[ $# -gt 0 ]]; do
         --max-memory)    MAX_MEMORY="$2"; shift 2 ;;
         --gpu)           GPU=true; shift ;;
         --refcache)      REFCACHE_HOST="$2"; shift 2 ;;
+        --cplex)         CPLEX_HOST="$2"; shift 2 ;;
         *)
             echo -e "${RED}Error: Unknown option '$1'${NC}" >&2
             usage
@@ -181,16 +188,44 @@ build_refcache_env() {
     printf '      - REFCACHE_ROOT=/refcache'
 }
 
+# --- Build the CPLEX mount (empty unless --cplex) ---------------------------
+# CPLEX is IBM-licensed and not redistributable, so the image never holds it.
+# A host installation is bound :ro at /opt/cplex; bulkiRNA's
+# gatom_solver("virgo") reads CPLEX_HOME and stops when it is absent.
+check_cplex_host() {
+    [ -n "$CPLEX_HOST" ] || return 0
+    if [ ! -d "$CPLEX_HOST" ]; then
+        echo -e "${RED}Error: --cplex path does not exist: ${CPLEX_HOST}${NC}" >&2
+        exit 1
+    fi
+    if [ -z "$(find -L "$CPLEX_HOST" -maxdepth 4 -name cplex.jar -print -quit 2>/dev/null)" ]; then
+        echo -e "${RED}Error: no cplex.jar under --cplex ${CPLEX_HOST}; pass the CPLEX installation directory${NC}" >&2
+        exit 1
+    fi
+}
+
+build_cplex_mount() {
+    [ -n "$CPLEX_HOST" ] || return 0
+    printf '      # IBM CPLEX for GATOM'"'"'s virgo solver (licensed; mounted, not built in)\n'
+    printf '      - %s:/opt/cplex:ro' "$CPLEX_HOST"
+}
+
+build_cplex_env() {
+    [ -n "$CPLEX_HOST" ] || return 0
+    printf '      - CPLEX_HOME=/opt/cplex'
+}
+
 # --- Render docker-compose.yml (Python: multi-line tokens passed as args) ----
 render_docker_compose() {
     local data_mount_block="$1" ssh_agent_mount="$2" gpu_devices="$3"
-    local refcache_mount="$4" refcache_env="$5"
+    local refcache_mount="$4" refcache_env="$5" cplex_mount="$6" cplex_env="$7"
     python3 - "$TEMPLATES_DIR" "$PROJECT_DIR" "$IMAGE_VERSION" "$PROJECT_NAME" \
         "$MAX_CPUS" "$MAX_MEMORY" "$data_mount_block" "$ssh_agent_mount" "$gpu_devices" \
-        "$refcache_mount" "$refcache_env" <<'PYEOF'
+        "$refcache_mount" "$refcache_env" "$cplex_mount" "$cplex_env" <<'PYEOF'
 import sys, pathlib
 (tmpl, project_dir, image_version, project_name, max_cpus, max_memory,
- data_mounts, ssh_agent, gpu_devices, refcache_mount, refcache_env) = sys.argv[1:12]
+ data_mounts, ssh_agent, gpu_devices, refcache_mount, refcache_env,
+ cplex_mount, cplex_env) = sys.argv[1:14]
 src = pathlib.Path(tmpl) / ".devcontainer" / "docker-compose.yml.template"
 dst = pathlib.Path(project_dir) / ".devcontainer" / "docker-compose.yml"
 content = src.read_text()
@@ -203,6 +238,8 @@ content = content.replace("{{SSH_AGENT_MOUNT}}", ssh_agent)
 content = content.replace("{{GPU_DEVICES}}", gpu_devices)
 content = content.replace("{{REFCACHE_MOUNT}}", refcache_mount)
 content = content.replace("{{REFCACHE_ENV}}", refcache_env)
+content = content.replace("{{CPLEX_MOUNT}}", cplex_mount)
+content = content.replace("{{CPLEX_ENV}}", cplex_env)
 dst.write_text(content)
 PYEOF
 }
@@ -285,9 +322,10 @@ EOF
 # --- Main --------------------------------------------------------------------
 echo -e "${GREEN}Rendering dev container for '${PROJECT_NAME}' (image scdock-r-dev:${IMAGE_VERSION}, service ${SERVICE})...${NC}"
 
+check_cplex_host
 render_devcontainer_json
 render_docker_compose "$(build_data_mount_block)" "$(build_ssh_agent_mount)" "$(build_gpu_devices)" \
-    "$(build_refcache_mount)" "$(build_refcache_env)"
+    "$(build_refcache_mount)" "$(build_refcache_env)" "$(build_cplex_mount)" "$(build_cplex_env)"
 render_vscode_settings
 copy_devcontainer_scripts
 write_env_file

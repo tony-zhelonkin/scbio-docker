@@ -185,6 +185,31 @@ renv::restore()    # reproduce elsewhere
 
 Commit the resulting `renv.lock` to your project repo.
 
+### IBM CPLEX for GATOM's exact solver
+
+GATOM's authors recommend the exact `virgo` solver, which needs Java (in the
+image) and IBM CPLEX 12.7 or later (not in the image). CPLEX is licensed by IBM
+and not redistributable; academics get it free through the IBM Academic
+Initiative. So it is mounted, never built in:
+
+```bash
+./init-project.sh ~/projects/study --cplex /path/to/CPLEX_Studio2212
+```
+
+binds the installation read-only at `/opt/cplex` and exports
+`CPLEX_HOME=/opt/cplex`. `PATH` is the installation directory, the one holding
+`cplex/lib/cplex.jar`; the script stops when it finds no `cplex.jar` there. For
+a throwaway container, pass the same pair by hand:
+
+```bash
+docker run ... -v /path/to/CPLEX_Studio2212:/opt/cplex:ro -e CPLEX_HOME=/opt/cplex ...
+```
+
+In R, `bulkiRNA::gatom_solver("virgo")` reads `CPLEX_HOME` and stops when it
+is unset or holds no CPLEX, rather than letting `mwcsr::virgo_solver()` fall
+back to its approximate mode. Without CPLEX, `gatom_solver("rnc")` is the
+heuristic the vignette uses.
+
 ## R ↔ Python interoperability
 
 For multi-modal work (e.g. scRNA + scATAC), move objects between Seurat and the

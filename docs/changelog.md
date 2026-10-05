@@ -11,6 +11,14 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+### Added
+- **`init-project.sh --cplex PATH`, for GATOM's exact solver.** It binds an
+  IBM CPLEX installation `:ro` at `/opt/cplex` and exports `CPLEX_HOME`, the
+  variable the GATOM vignette and `bulkiRNA::gatom_solver("virgo")` read. CPLEX
+  is licensed and not redistributable, so it is a mount, like `--refcache`,
+  and the image is unchanged. The script stops when `PATH` holds no
+  `cplex.jar`. See [environments.md](environments.md).
+
 ## [v0.5.16]
 
 ### Added
