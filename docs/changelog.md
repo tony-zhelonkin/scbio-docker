@@ -11,6 +11,26 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.21]
+
+### Changed
+- **bulkiRNA 1.2.0 → 1.3.0** (commit `e6833dd`). `gatom_plot_module()` draws a
+  GATOM module with ggraph, seeded, as a ggplot that `gs_save()` writes as
+  PDF, PNG and edge table. `gatom_save_pdf()` is removed with gatom's
+  `saveModuleToPdf()`, whose layout fails on some modules. Only the bulkiRNA
+  layer and the version label rebuild.
+- **scio v5.4.0 → v5.5.0**: the GATOM skill on `gatom_plot_module()` and
+  GraphML.
+- **ArchR is frozen at `scdock-r-archr:v0.5.1`.** The rendered compose file
+  and `build-archr-wrapper.sh` no longer take the ArchR tag from `VERSION`:
+  the wrapper has not changed since v0.5.1 (every local tag carries the
+  `v0.5.1-wrapper` label), and tags such as `scdock-r-archr:v0.5.19` were
+  written into projects without ever being built.
+
+### Build
+- **Built as v0.5.20 plus the bulkiRNA layer and version label**, as v0.5.20
+  was built on v0.5.19.
+
 ## [v0.5.20]
 
 ### Changed
