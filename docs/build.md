@@ -141,7 +141,7 @@ scripts/build-archr-wrapper.sh --personal   # personal build
 scripts/build-archr-wrapper.sh --tag scdock-r-archr:custom
 ```
 
-It accepts the same identity flags (`--user-id`, `--group-id`, `--user`, `--group`, `--personal`, `-y`, `--tag`), produces `scdock-r-archr:$(cat VERSION)`, and logs to `build-archr-wrapper.log`. In compose the `dev-archr` service is gated behind the `archr` profile (`docker compose --profile archr up`).
+It accepts the same identity flags (`--user-id`, `--group-id`, `--user`, `--group`, `--personal`, `-y`, `--tag`), produces `scdock-r-archr:v0.5.1` (frozen; it does not follow `VERSION`), and logs to `build-archr-wrapper.log`. In compose the `dev-archr` service is gated behind the `archr` profile (`docker compose --profile archr up`).
 
 ArchR upstream has been unmaintained for over two years; the field has moved to per-language stacks (Seurat/Signac in R, scanpy/snapATAC in Python). Treat the wrapper as legacy and on the path to removal — see [roadmap.md](roadmap.md).
 

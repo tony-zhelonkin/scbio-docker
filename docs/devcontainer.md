@@ -171,7 +171,7 @@ Two services share the same mount/user/limit shape:
 | Service | Image | Started |
 |---------|-------|---------|
 | `dev-core` (default) | `scdock-r-dev:{{IMAGE_VERSION}}` | always |
-| `dev-archr` | `scdock-r-archr:{{IMAGE_VERSION}}` | only under `profiles: ["archr"]` — `docker compose --profile archr up` |
+| `dev-archr` | `scdock-r-archr:v0.5.1` (frozen) | only under `profiles: ["archr"]` — `docker compose --profile archr up` |
 
 `dev-archr` is a **deprecated legacy sidecar** (R 4.4 + ArchR 1.0.3); see
 [architecture.md](architecture.md) and [changelog.md](changelog.md).
