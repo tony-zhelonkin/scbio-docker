@@ -630,8 +630,8 @@ RUN printf '%s\n' \
 # The pin arrives as ARGs, declared immediately before use. A global ARG must be
 # redeclared after every FROM, and an ARG invalidates only from its first use --
 # which is exactly the property being bought here.
-ARG BULKIRNA_VERSION=1.3.0
-ARG BULKIRNA_SHA=e6833dd908ea84a3dc584ae4ae0fc0b22f0a9376
+ARG BULKIRNA_VERSION=1.3.1
+ARG BULKIRNA_SHA=9881b1bbd6d37e9c7fed777c92008551bb1f4d5e
 ARG BULKIRNA_REPO=tony-zhelonkin/bulkiRNA
 
 COPY docker/base/R/install_bulkirna.R /opt/settings/install_bulkirna.R

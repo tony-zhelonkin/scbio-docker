@@ -11,6 +11,22 @@ image bump — fold them into a version heading when it ships.
 
 ## [Unreleased]
 
+## [v0.5.22]
+
+### Changed
+- **bulkiRNA 1.3.0 → 1.3.1** (commit `9881b1b`). The pathway renderers draw
+  one mark per pathway per panel. `gs_plot_dot(compare = )` and multi-contrast
+  `gs_plot_heatmap()` no longer append the pathway id to every label, and
+  `compare =` shows `top_n` pathways rather than `top_n` rows. Large dots are
+  not clipped at panel edges. Several contrasts with nothing to separate them
+  now stop with the argument that fixes it; `gs_plot_bar()` used to stack them
+  and show the summed NES. Only the bulkiRNA layer and the version label
+  rebuild.
+
+### Build
+- **Built as v0.5.21 plus the bulkiRNA layer and version label**, as v0.5.21
+  was built on v0.5.20.
+
 ## [v0.5.21]
 
 ### Changed
